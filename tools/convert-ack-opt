@@ -1,0 +1,96 @@
+#!/usr/bin/env perl
+
+use 5.010;
+
+use strict;
+use warnings;
+
+use App::Ack::ConfigDefault;
+use Getopt::Long 2.33 qw{ :config auto_version };
+use Pod::Usage;
+
+our $VERSION = '0.000_001';
+
+my %opt;
+
+GetOptions( \%opt,
+    help => sub { pod2usage( { -verbose => 2 } ) },
+) or pod2usage( { -verbose => 0 } );
+
+my %want;
+
+foreach ( App::Ack::ConfigDefault->options_clean() ) {
+    my ( $name, $value ) = m/ \A --? ( [\w-]+ ) = ( .* ) /smx
+	or next;
+    $name =~ tr/-/_/;
+    state $alias = { ignore_dir => 'ignore_directory' };
+    $name = $alias->{$name} // $name;
+    push @{ $want{$name} }, $value;
+}
+
+foreach my $name ( sort keys %want ) {
+    state $valid = {
+	ignore_directory	=> '__validate_ignore',
+	ignore_file		=> '__validate_ignore',
+    };
+    my $vld = $valid->{$name};
+    $vld = defined( $vld ) ? "'$vld'" : 'undef';
+    print <<"EOD";
+	{
+	    name	=> '$name',
+	    type	=> '=s\@',
+	    default	=> [ qw{ @{ $want{$name} } } ],
+	    validate	=> $vld,
+	},
+EOD
+}
+
+
+__END__
+
+=head1 TITLE
+
+convert-ack-opt - Convert the Ack default options into Sad format
+
+=head1 SYNOPSIS
+
+ convert-ack-opt
+ convert-ack-opt --help
+ convert-ack-opt --version
+
+=head1 OPTIONS
+
+=head2 --help
+
+This option displays the documentation for this script. The script then
+exits.
+
+=head2 --version
+
+This option displays the version of this script. The script then exits.
+
+=head1 DETAILS
+
+This Perl script reads the Ack default options from
+L<App::Ack::ConfigDefault|App::Ack::ConfigDefault> and writes them to
+F<STDOUT> in Sad format.
+
+=head1 AUTHOR
+
+Thomas R. Wyant, III F<wyant at cpan dot org>
+
+=head1 COPYRIGHT AND LICENSE
+
+Copyright (C) 2023 by Thomas R. Wyant, III
+
+This program is free software; you can redistribute it and/or modify it
+under the same terms as Perl 5.10.0. For more details, see the full text
+of the licenses in the directory LICENSES.
+
+This program is distributed in the hope that it will be useful, but
+without any warranty; without even the implied warranty of
+merchantability or fitness for a particular purpose.
+
+=cut
+
+# ex: set textwidth=72 :
