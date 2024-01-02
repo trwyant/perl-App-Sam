@@ -12,6 +12,7 @@ use File::Next ();
 use File::Spec;
 use Errno qw{ :POSIX };
 use Getopt::Long ();
+use List::Util ();
 use Term::ANSIColor ();
 
 our $VERSION = '0.000_001';
@@ -67,7 +68,7 @@ sub new {
 	$self->{$alias}{match}
 	    or next;
 	my $str = join ' || ', @{ $self->{$alias}{match} };
-	my $code = eval "sub { $str }"
+	my $code = eval "sub { $str }"	## no critic (ProhibitStringyEval)
 	    or $self->__confess( "Failed to compile $name match spec" );
 	$self->{$alias}{match} = $code;
     }
@@ -76,26 +77,6 @@ sub new {
 	and $self->__make_munger();
 
     return $self;
-}
-
-sub run {
-    my ( $self, @arg ) = @_;
-
-    my %opt;
-
-    __PACKAGE__->get_option_parser()->getoptionsfromarray(
-	\@arg, \%opt, __get_opt_specs() );
-
-    $self = $self->new( %opt ) unless ref $self;
-
-    unless ( defined $self->{match} ) {
-	$self->{match} //= @arg ? shift @arg :
-	    $self->__croak( 'No match specified' );
-	$self->__make_munger();
-    }
-
-    # TODO
-
 }
 
 sub __carp {
@@ -141,7 +122,7 @@ sub __croak {
 }
 
 sub __decorate_croak_args {
-    my ( $self, @arg ) = @_;
+    my ( undef, @arg ) = @_;	# $self unused
     chomp $arg[-1];
     $arg[-1] =~ s/ [.?!] //smx;
     return @arg;
@@ -163,7 +144,7 @@ sub files_from {
 	or return;
     my @rslt;
     local $_ = undef;	# while (<>) does not localize $_
-    open my $fh, '<:encoding(utf-8)', $file
+    open my $fh, '<:encoding(utf-8)', $file	## no critic (RequireBriefOpen)
 	or $self->__croak( "Failed to open $file: $!" );
     while ( <$fh> ) {
 	m/ \S /smx
@@ -174,11 +155,12 @@ sub files_from {
 	    and next;
 	push @rslt, $_;
     }
+    close $fh;
     return @rslt;
 }
 
 {
-    no warnings qw{ qw };
+    no warnings qw{ qw };	## no critic (ProhibitNoWarnings)
     my @spec_list = (
 	{
 	    name	=> 'backup',
@@ -262,7 +244,7 @@ sub files_from {
 	    validate	=> '__validate_ignore',
 	},
 	{
-	    name	=> 'type_add',
+	    name	=> 'type_add',	# NOTE: Must come before type
 	    type	=> '=s@',
 	    default	=> [ qw{ make:ext:mk make:ext:mak
 		make:is:makefile make:is:Makefile make:is:Makefile.Debug
@@ -290,7 +272,7 @@ sub files_from {
 		lua:ext:lua lua:firstlinematch:/^#!.*\blua(jit)?/
 		markdown:ext:md,markdown matlab:ext:m objc:ext:m,h
 		objcpp:ext:mm,h ocaml:ext:ml,mli,mll,mly
-		perl:ext:pl,pm,pod,t,psgi
+		perl:ext:pl,PL,pm,pod,t,psgi
 		perl:firstlinematch:/^#!.*\bperl/ perltest:ext:t
 		pod:ext:pod php:ext:php,phpt,php3,php4,php5,phtml
 		php:firstlinematch:/^#!.*\bphp/
@@ -311,7 +293,7 @@ sub files_from {
 		verilog:ext:v,vh,sv vhdl:ext:vhd,vhdl vim:ext:vim
 		xml:ext:xml,dtd,xsd,xsl,xslt,ent,wsdl
 		xml:firstlinematch:/<[?]xml/ yaml:ext:yaml,yml } ],
-	    validate	=> '__validate_type_set',
+	    validate	=> '__validate_type_add',
 	},
 	{
 	    name	=> 'ignore_sad_defaults',
@@ -498,7 +480,8 @@ sub __make_munger {
     # in a substitution the end delimiter of the regular expression is
     # also the start delimiter of the replacement.
     state $delim = do {
-	no warnings qw{ utf8 };	# Needed before 5.14
+	# no warnings qw{ utf8 }; needed before 5.14.
+	no warnings qw{ utf8 };	## no critic (ProhibitNoWarnings)
 	"\N{U+FFFE}";	# Noncharacter.
     };
     state $mid = "$]" < 5.020 ? "$delim $delim" : $delim;
@@ -512,18 +495,18 @@ sub __make_munger {
 	$match =~ s/ (?<= \w ) \z /\\b/smx;
     }
     my $str = join '', 'm ', $delim, $match, $delim, $modifier;
-    my $code = eval "sub { $str }"
+    my $code = eval "sub { $str }"	## no critic (ProhibitStringyEval)
 	or $self->__croak( "Invalid match '$match': $@" );
     if ( defined( my $repl = $self->{replace} ) ) {
 	$str = join '', 's ', $delim, $match, $mid, $repl, $delim,
 	    $modifier;
-	$code = eval "sub { $str }"
+	$code = eval "sub { $str }"	## no critic (ProhibitStringyEval)
 	    or $self->__croak( "Invalid replace '$repl': $@" );
     } elsif ( $self->{color} ) {
 	$str = join '', 's ', $delim, "($match)", $mid,
 	    ' $_[0]->__color( match => $1 ) ',
 	    $delim, $modifier, 'e';
-	$code = eval "sub { $str }"
+	$code = eval "sub { $str }"	## no critic (ProhibitStringyEval)
 	    or $self->__confess( "Generated bad coloring code: $@" );
     }
     $self->{munger} = $str;
@@ -550,9 +533,15 @@ sub __ignore {
 	and $spec->{match}->()
 	and return 1;
     if ( $kind eq 'file' && $self->{_type} ) {
-	my $type = $self->__type( $path, $_ );
-	defined $type
-	    and return ! $self->{_type}{$type};
+
+	# Encoding: undef = unspecified, 0 = accept, 1 = skip
+	my $want_type;
+	foreach my $type ( $self->__type( $path, $_ ) ) {
+	    my $skip = $self->{_type}{$type}
+		and return 1;
+	    $want_type //= $skip;
+	}
+	return ! defined $want_type;
     }
     return 0;
 }
@@ -567,7 +556,7 @@ sub process {
 	my $munger = $self->{_munger};
 	my @mod;
 	my $encoding = $self->__get_encoding( $file );
-	open my $fh, "<:encoding($encoding)", $file
+	open my $fh, "<:encoding($encoding)", $file	## no critic (RequireBriefOpen)
 	    or $self->__croak( "Failed to open $file for input: $!" );
 	my $lines_matched = 0;
 	while ( <$fh> ) {
@@ -609,11 +598,7 @@ sub process {
 	defined wantarray
 	    and return join '', @mod;
     } else {
-	my $iterator = File::Next::files( {
-		file_filter	=> sub { ! $self->__ignore( file => $File::Next::name, $_ ) },
-		descend_filter	=> sub { ! $self->__ignore( directory => $File::Next::dir, $_ ) },
-		sort_files	=> 1,
-	    }, $file );
+	my $iterator = $self->__get_file_iterator( $file );
 	while ( defined( my $fn = $iterator->() ) ) {
 	    $self->process( $fn );
 	}
@@ -621,19 +606,34 @@ sub process {
     return;
 }
 
+sub __get_file_iterator {
+    my ( $self, $file ) = @_;
+    return File::Next::files( {
+	    file_filter	=> sub {
+		! $self->__ignore( file => $File::Next::name, $_ ) },
+	    descend_filter	=> sub {
+		! $self->__ignore( directory => $File::Next::dir, $_ ) },
+	    sort_files	=> 1,
+	}, $file );
+}
+
 sub __type {
     ( my ( $self, $path ), local $_ ) = @_;
     my $spec = $self->{_type_add} || {};
     $_ //= ( File::Spec->splitpath( $path ) )[2];
+
+    $DB::single = 1;
+
+    my @rslt;
     $spec->{is}{$_}
-	and return $spec->{is}{$_};
+	and push @rslt, @{ $spec->{is}{$_} };
     m/ [.] ( [^.]* ) \z /smx
 	and $spec->{ext}{$1}
-	and return $spec->{ext}{$1};
+	and push @rslt, @{ $spec->{ext}{$1} };
     if ( my $match = $spec->{match} ) {
 	foreach my $m ( @{ $match } ) {
 	    $m->[0]->()
-		and return $m->[1];
+		and push @rslt, $m->[1];
 	}
     }
     if (
@@ -644,10 +644,10 @@ sub __type {
 	close $fh;
 	foreach my $m ( @{ $match } ) {
 	    $m->[0]->()
-		and return $m->[1];
+		and push @rslt, $m->[1];
 	}
     }
-    return undef;
+    return List::Util::uniq( sort @rslt );
 }
 
 sub __type_del {
@@ -667,7 +667,7 @@ sub __type_del {
 }
 
 sub __validate_color {
-    my ( $self, $name, $color ) = @_;
+    my ( undef, undef, $color ) = @_;	# $self, $name unused
     return Term::ANSIColor::colorvalid( $color );
 }
 
@@ -693,7 +693,7 @@ sub __validate_ignore {
 	    match	=> sub {
 		my ( $self, $name, $value ) = @_;
 		local $@ = undef;
-		eval "qr $value"
+		eval "qr $value"	## no critic (ProhibitStringyEval)
 		    or return 0;
 		push @{ $self->{"_$name"}{match} }, $value;
 		return 1;
@@ -708,16 +708,23 @@ sub __validate_ignore {
 }
 
 sub __validate_type {
-    my ( $self, $name, $type_array ) = @_;
+    my ( $self, undef, $type_array ) = @_;	# $name unused
+    state $special = { map { $_ => 1 } qw{ text } };
     foreach my $type ( @{ $type_array } ) {
-	$self->{_type_def}{$type}
-	    or return 0;
-	$self->{_type}{$type} = 1;
+	my $neg;
+	if ( $self->{_type_def}{$type} || $special->{$type} ) { 
+	    $self->{_type}{$type} = 0;
+	} elsif ( ( $neg = $type ) =~ s/ \A no-? //smxi && (
+		$self->{_type_def}{$neg} || $special->{$neg} ) ) {
+	    $self->{_type}{$neg} = 1;
+	} else {
+	    return 0;
+	}
     }
     return 1;
 }
 
-sub __validate_type_set {
+sub __validate_type_add {
     my ( $self, $name, $spec ) = @_;
     foreach ( @{ $spec } ) {
 	my ( $type, $kind, $data ) = split /:/, $_, 3;
@@ -727,19 +734,19 @@ sub __validate_type_set {
 	    ext	=> sub {
 		my ( $self, $value, $type ) = @_;
 		my @item = split /,/, $value;
-		@{ $self->{_type_add}{ext} }{ @item } = ( ( $type ) x @item );
+		push @{ $self->{_type_add}{ext}{$_} }, $type for @item;
 		return 1;
 	    },
 	    is	=> sub {
 		my ( $self, $value, $type ) = @_;
 		my @item = split /,/, $value;
-		@{ $self->{_type_add}{is} }{ @item } = ( ( $type ) x @item );
+		push @{ $self->{_type_add}{is}{$_} }, $type for @item;
 		return 1;
 	    },
 	    match	=> sub {
 		my ( $self, $value, $type ) = @_;
 		local $@ = undef;
-		my $code = eval "sub { $value }"
+		my $code = eval "sub { $value }"	## no critic (ProhibitStringyEval)
 		    or return 0;
 		push @{ $self->{_type_add}{match} }, [ $code, $type ];
 		return 1;
@@ -747,7 +754,7 @@ sub __validate_type_set {
 	    firstlinematch	=> sub {
 		my ( $self, $value, $type ) = @_;
 		local $@ = undef;
-		my $code = eval "sub { $value }"
+		my $code = eval "sub { $value }"	## no critic (ProhibitStringyEval)
 		    or return 0;
 		push @{ $self->{_type_add}{firstlinematch} }, [ $code, $type ];
 		return 1;
@@ -788,7 +795,7 @@ __END__
 
 =head1 NAME
 
-App::Sam - Search for strings in files, and possibly modify them
+App::Sam - Search and (possibly) modify files
 
 =head1 SYNOPSIS
 
@@ -802,7 +809,7 @@ App::Sam - Search for strings in files, and possibly modify them
 
 =head1 DESCRIPTION
 
-This Perl class finds strings in files, possibly modifying them. It was
+This Perl object finds strings in files, possibly modifying them. It was
 inspired by L<ack|ack>.
 
 =head1 METHODS
@@ -860,7 +867,7 @@ If this Boolean option is true, only the number of matches is output.
 This Boolean argument specifies how warnings and errors are delivered. A
 true value specifies C<warn()> or C<die()> respectively. A false value
 specifies C<Carp::carp()> or C<Carp::croak()> respectively. The default
-is false. A true value will be igored if C<$Carp::verbose> is true.
+is false. A true value will be ignored if C<$Carp::verbose> is true.
 
 =item C<dry_run>
 
@@ -881,6 +888,24 @@ which is consistent with L<ack|ack>.
 =item C<ignore_case>
 
 If this Boolean argument is true, the match argument ignores case.
+
+=item C<ignore_directory>
+
+This argument is a reference to an array of
+L<file selectors|/FILE SELECTORS>. Directory scans will ignore
+directories that match any of the selectors.
+
+Directories specified explicitly will not be ignored even if they match
+one or more selectors.
+
+=item C<ignore_file>
+
+This argument is a reference to an array of
+L<file selectors|/FILE SELECTORS>. Directory scans will ignore files
+that match any of the selectors.
+
+Files specified explicitly will not be ignored even if they match one or
+more selectors.
 
 =item C<ignore_sad_defaults>
 
@@ -906,6 +931,13 @@ matched string. Capture variables may be used.
 
 This argument specifies the name of a resource file to read. This is
 read after all the default resource files, and even if C<noenv> is true.
+
+=item C<type_add>
+
+This argument is a reference to an array of type definitions. These are
+specified as C<type:file_selector> where the C<type> is the name
+assigned to the type and C<file_selector> is a
+L<file selector|/FILE SELECTORS>.
 
 =item C<word_regexp>
 
@@ -935,11 +967,52 @@ are not written.
 
 Binary files and directories are ignored.
 
-If the file is a directory, any files in the direcory are processed
+If the file is a directory, any files in the directory are processed
 provided they are not ignored. Nothing is returned.
 
 If the file is not a directory and is actually processed, its contents
 (possibly modified) will be returned. Otherwise nothing is returned.
+
+=head1 FILE SELECTORS
+
+Various functions of this package require selecting files or directories
+for inclusion or exclusion. File selectors are specified as
+C<'type:arg'>, where the C<type> is one of the known selector types
+listed below, and the C<arg> is an argument specific to the selector
+type.
+
+=over
+
+=item C<is>
+
+The argument is the base name of the file to be selected. For example,
+C<is:Makefile> selects all files named F<Makefile>, wherever they appear
+in the directory hierarchy.
+
+=item C<ext>
+
+The argument is a comma-separated list of file name extensions/suffixes
+to be selected. For example, C<ext:pl,t> selects all files whose names
+end in F<.pl> or F<.t>.
+
+B<Note> that unlike L<ack|ack>, this selector is case-sensitive:
+C<ext:pl,t> does B<not> select F<Makefile.PL>; to do that, you must
+include the C<PL> explicitly.
+
+=item C<match>
+
+The argument is a delimited regular expression that matches the base
+name of the file to be selected. For example, C<match:/[._].*[.]swp$/>
+selects C<vi*> swap files.
+
+=item C<firstlinematch>
+
+The argument is a delimited regular expression that matches the first
+line of the file to be selected. For example, C<perl:firstlinematch:/^#!.*\bperl/> matches a Perl script.
+
+This selector may not be used to select a directory.
+
+=back
 
 =head1 SEE ALSO
 

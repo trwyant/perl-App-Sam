@@ -18,7 +18,7 @@ sub new {
 }
 
 sub abstract {
-    return '<<< replace boilerplate >>>';
+    return 'Search and (possibly) modify files';
 }
 
 sub add_to_cleanup {
@@ -31,6 +31,7 @@ sub author {
 
 sub build_requires {
     return +{
+	open		=> 0,
 	'Test2::V0'	=> 0,
 	'Test2::Plugin::BailOnFail'	=> 0,
 	'Test2::Tools::LoadModule'	=> 0,
@@ -148,7 +149,15 @@ sub requires {
 ##  }
     return +{
 	'Carp'		=> 0,
+	'Errno'		=> 0,
+	'File::Next'	=> 0,
+	'File::Spec'	=> 0,
+	'Getopt::Long'	=> 0,
+	'List::Util'	=> 0,
+	'Term::ANSIColor'	=> 0,
+	constant	=> 0,
 	strict		=> 0,
+	utf8		=> 0,
 	warnings	=> 0,
 	@extra,
     };

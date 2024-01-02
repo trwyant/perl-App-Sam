@@ -17,15 +17,15 @@ load_module_ok 'App::Sam';
 
 App::Sam->__set_attr_default( env => 0 );
 
-my $sad;
+my $sam;
 my $warning;
 
 
 
-ok lives { $sad = App::Sam->new() }, 'Can instantiate App::Sam';
-isa_ok $sad, 'App::Sam';
+ok lives { $sam = App::Sam->new() }, 'Can instantiate App::Sam';
+isa_ok $sam, 'App::Sam';
 
-is $sad, {
+is $sam, {
     backup		=> '',
     color_filename	=> 'bold green',
     color_lineno	=> 'bold yellow',
@@ -42,59 +42,87 @@ is $sad, {
     _type_def		=> hash { etc() },
 }, 'Got expected object';
 
-is $sad->__me(), 'basic.t', '__me() returns base name of script';
+is $sam->__me(), 'basic.t', '__me() returns base name of script';
 
-$warning = warnings { $sad->__carp( 'Fish' ) };
+$warning = warnings { $sam->__carp( 'Fish' ) };
 is $warning, [
     match qr/ \A Fish \s at \b /smx,
 ], '__carp() gives correct warning';
 
-$warning = dies { $sad->__croak( 'Frog' ) };
+$warning = dies { $sam->__croak( 'Frog' ) };
 like $warning, qr/ \A Frog \s at \b /smx,
     '__croak() dies with correct message';
 
-$warning = dies { $sad->__confess( 'Mea culpa' ) };
+$warning = dies { $sam->__confess( 'Mea culpa' ) };
 like $warning, qr/ \A Bug \s - \s Mea \s culpa \s at \b /smx,
     '__confess() dies with correct message';
 
-ok $sad->__ignore( directory => '.git' ),
+ok $sam->__ignore( directory => '.git' ),
     q/Directory '.git' is ignored'/;
 
-ok $sad->__ignore( directory => 'blib' ),
+ok $sam->__ignore( directory => 'blib' ),
     q/Directory 'blib' is ignored'/;
 
-ok ! $sad->__ignore( directory => 'lib' ),
+ok ! $sam->__ignore( directory => 'lib' ),
     q/Directory 'lib' is not ignored'/;
 
-ok $sad->__ignore( file => '.DS_Store' ),
+ok $sam->__ignore( file => '.DS_Store' ),
     q/File '.DS_Store' is ignored'/;
 
-ok $sad->__ignore( file => 'fubar.so' ),
+ok $sam->__ignore( file => 'fubar.so' ),
     q/File 'fubar.so' is ignored'/;
 
-ok $sad->__ignore( file => '_fubar.swp' ),
+ok $sam->__ignore( file => '_fubar.swp' ),
     q/File '_fubar.swp' is ignored'/;
 
-ok ! $sad->__ignore( file => 'fubar.PL' ),
+ok ! $sam->__ignore( file => 'fubar.PL' ),
     q/File 'fubar.PL' is not ignored'/;
 
+is [ $sam->__type( 'lib/App/Sam.pm' ) ], [ qw{ perl } ],
+    q<lib/App/Sam.pm is type 'perl'>;
 
-ok lives { $sad = App::Sam->new( die => 1 ) },
+is [ $sam->__type( 't/basic.t' ) ], [ qw{ perl perltest } ],
+    q<t/basic.t is types 'perl' and 'perltest'>;
+
+is [ $sam->__type( 'README' ) ], [],
+    q<README has no type>;
+
+ok $sam->__ignore( directory => 'blib' ), q<directory 'blib' is ignored>;
+
+
+
+ok lives { $sam = App::Sam->new( die => 1 ) },
     'Can instantiate App::Sam with die => 1';
-isa_ok $sad, 'App::Sam';
+isa_ok $sam, 'App::Sam';
 
-$warning = warnings { $sad->__carp( 'Fish' ) };
+$warning = warnings { $sam->__carp( 'Fish' ) };
 is $warning, [
     "basic.t: Fish.\n"
 ], '__carp() gives correct warning';
 
-$warning = dies { $sad->__croak( 'Frog' ) };
+$warning = dies { $sam->__croak( 'Frog' ) };
 is $warning, "basic.t: Frog.\n",
     '__croak() dies with correct message';
 
-$warning = dies { $sad->__confess( 'Mea culpa' ) };
+$warning = dies { $sam->__confess( 'Mea culpa' ) };
 like $warning, qr/ \A basic \. t: \s Bug \s - \s Mea \s culpa \s at \b /smx,
     '__confess() dies with correct message';
+
+
+
+ok lives { $sam = App::Sam->new(
+	type	=> [ qw{ perl no-perltest } ],
+    ) },
+    'Can instantiate App::Sam with type => [ qw{ perl no-perltest } ]';
+isa_ok $sam, 'App::Sam';
+
+ok $sam->__ignore( file => 't/basic.t' ),
+'t/basic.t is ignored under type => [ qw{ perl no-perltest } ]';
+
+ok ! $sam->__ignore( file => 'lib/App/Sam.pm' ),
+'lib/App/Sam.pm is not ignored under type => [ qw{ perl no-perltest } ]';
+
+
 
 done_testing;
 

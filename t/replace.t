@@ -14,7 +14,7 @@ use My::Module::Test;
 App::Sam->__set_attr_default( env => 0 );
 
 {
-    my $sad = CLASS->new(
+    my $sam = CLASS->new(
 	dry_run		=> 1,	# Don't write the original back
 	match		=> '\bbright\b',
 	ignore_case	=> 1,
@@ -22,7 +22,7 @@ App::Sam->__set_attr_default( env => 0 );
     );
 
     my $stdout = capture_stdout {
-	is $sad->process( 't/data/bright.txt' ), <<'EOD',
+	is $sam->process( 't/data/bright.txt' ), <<'EOD',
 There was a young lady named Wright
 Who could travel much faster than light.
     She set out one day

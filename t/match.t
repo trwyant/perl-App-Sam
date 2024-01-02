@@ -16,12 +16,12 @@ use My::Module::Test;
 App::Sam->__set_attr_default( env => 0 );
 
 {
-    my $sad = CLASS->new(
+    my $sam = CLASS->new(
 	match	=> 'ay$',
     );
 
     my $stdout = capture_stdout {
-	$sad->process( 't/data/bright.txt' );
+	$sam->process( 't/data/bright.txt' );
     };
 
     is $stdout, <<'EOD', 'Matched lines 3 and 4 of limmerick';
