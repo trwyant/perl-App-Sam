@@ -39,7 +39,7 @@ sub new {
 	$self->__get_attr_from_rc( $file );
     }
 
-    if ( my $file = delete $arg{ackrc} ) {
+    if ( my $file = delete $arg{samrc} ) {
 	$self->__get_attr_from_rc( $file, 1 );	# Required to exist
     }
 
@@ -931,6 +931,7 @@ matched string. Capture variables may be used.
 
 This argument specifies the name of a resource file to read. This is
 read after all the default resource files, and even if C<noenv> is true.
+The file must exist.
 
 =item C<type_add>
 
