@@ -7,42 +7,31 @@ use warnings;
 
 use App::Sam;
 use File::Spec;
-use Getopt::Long 2.33 qw{ :config auto_version };
+use Getopt::Long 2.33 qw{ :config auto_version pass_through };
 use Pod::Usage;
 
 our $VERSION = '0.000_001';
 
 use constant IS_TTY	=> -t STDOUT;
 
+use open qw{ :std :encoding(utf-8) };
+
 my %opt;
 
 GetOptions( \%opt,
-    qw{ dump! files_from|files-from=s },
-    App::Sam->__get_opt_specs(),
+    qw{ dump! },
     help => sub { pod2usage( { -verbose => 2 } ) },
 ) or pod2usage( { -verbose => 0 } );
-
-my %dflt = (
-    break	=> IS_TTY,
-    color	=> IS_TTY,
-    die		=> 1,
-);
-
-foreach my $name ( keys %dflt ) {
-    exists $opt{$name}
-	or $opt{$name} = $dflt{$name};
-}
-
-unless ( defined $opt{match} ) {
-    @ARGV
-	or die "No match string specified.\n";
-    $opt{match} = shift @ARGV;
-}
 
 my $dump = delete $opt{dump};
 my $files_from = delete $opt{files_from};
 
-my $sam = App::Sam->new( %opt );
+my $sam = App::Sam->new(
+    break	=> IS_TTY,
+    color	=> IS_TTY,
+    die		=> 1,
+    argv	=> \@ARGV,
+);
 
 if ( $dump ) {
 
@@ -51,8 +40,7 @@ if ( $dump ) {
 
 } else {
 
-    defined $files_from
-	and push @ARGV, $sam->files_from( $files_from );
+    push @ARGV, $sam->files_from();
 
     @ARGV
 	or @ARGV = ( File::Spec->curdir() );

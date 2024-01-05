@@ -13,6 +13,7 @@ use lib qw{ inc };
 
 use My::Module::Test;
 
+# NOTE Not to be used except for testing.
 App::Sam->__set_attr_default( env => 0 );
 
 {

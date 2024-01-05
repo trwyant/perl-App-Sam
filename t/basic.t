@@ -11,18 +11,25 @@ use lib qw{ inc };
 
 use My::Module::Test;
 
+use constant REF_CODE	=> ref sub {};
+
 diag $_ for dependencies_table;
 
 load_module_ok 'App::Sam';
 
-App::Sam->__set_attr_default( env => 0 );
+# NOTE Not to be used except for testing.
+App::Sam->__set_attr_default(
+    env		=> 0,		# User rc could cause test failures
+    match	=> '/foo/',	# Match argument is required
+);
 
 my $sam;
 my $warning;
 
 
 
-ok lives { $sam = App::Sam->new() }, 'Can instantiate App::Sam';
+$warning = dies { $sam = App::Sam->new() };
+is $warning, undef, 'Can instantiate App::Sam';
 isa_ok $sam, 'App::Sam';
 
 is $sam, {
@@ -37,6 +44,9 @@ is $sam, {
     _ignore_directory	=> hash { etc() },
     ignore_file		=> array { etc() },
     _ignore_file	=> hash { etc() },
+    match		=> '/foo/',
+    munger		=> D,
+    _munger		=> validator( sub { REF_CODE eq ref } ),
     type_add		=> array { etc() },
     _type_add		=> hash { etc() },
     _type_def		=> hash { etc() },

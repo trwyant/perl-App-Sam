@@ -20,14 +20,21 @@ our $VERSION = '0.000_001';
 use constant IS_WINDOWS	=> {
     MSWin32	=> 1,
 }->{$^O} || 0;
+use constant REF_ARRAY	=> ref [];
 
 sub new {
     my ( $class, %arg ) = @_;
+
+    my $argv = delete $arg{argv};
 
     my $self = bless {
 	ignore_sad_defaults	=> delete $arg{ignore_sad_defaults},
 	env			=> delete $arg{env},
     }, $class;
+
+    $argv
+	and not REF_ARRAY eq ref $argv
+	and $self->__croak( 'Argument argv must be an ARRAY reference' );
 
     $self->__get_attr_defaults();
     $self->{ignore_sad_defaults}	# Chicken-and-egg problem
@@ -47,9 +54,21 @@ sub new {
 	exists $arg{$name}
 	    or next;
 	$self->__validate_attr( $name, $arg{$name} )
-	    or $self->__croak( "Invalid $name value '$arg{name}'" );
+	    or $self->__croak( "Invalid $name value '$arg{$name}'" );
 	$self->{$name} = delete $arg{$name};
     }
+
+    $argv
+	and $self->__get_attr_from_rc( $argv );
+
+    unless ( defined $self->{match} ) {
+	if ( $argv && @{ $argv } ) {
+	    $self->{match} = shift @{ $argv };
+	} else {
+	    $self->__croak( 'No match string specified' );
+	}
+    }
+
 
     {
 	no warnings qw{ once };
@@ -139,24 +158,29 @@ sub __decorate_die_args {
 }
 
 sub files_from {
-    my ( $self, $file ) = @_;
-    defined $file
-	or return;
-    my @rslt;
-    local $_ = undef;	# while (<>) does not localize $_
-    open my $fh, '<:encoding(utf-8)', $file	## no critic (RequireBriefOpen)
-	or $self->__croak( "Failed to open $file: $!" );
-    while ( <$fh> ) {
-	m/ \S /smx
-	    or next;
-	chomp;
-	$self->{filter_files_from}
-	    and $self->__ignore( file => $_ )
-	    and next;
-	push @rslt, $_;
+    my ( $self, @file_list ) = @_;
+    if ( @file_list ) {
+	my @rslt;
+	foreach my $file ( @file_list ) {
+	    local $_ = undef;	# while (<>) does not localize $_
+	    open my $fh, '<:encoding(utf-8)', $file	## no critic (RequireBriefOpen)
+		or $self->__croak( "Failed to open $file: $!" );
+	    while ( <$fh> ) {
+		m/ \S /smx
+		    or next;
+		chomp;
+		$self->{filter_files_from}
+		    and $self->__ignore( file => $_ )
+		    and next;
+		push @rslt, $_;
+	    }
+	    close $fh;
+	}
+	return @rslt;
+    } elsif ( $self->{_files_from} && @{ $self->{_files_from} } ) {
+	return $self->files_from( @{ $self->{_files_from} || [] } );
     }
-    close $fh;
-    return @rslt;
+    return;
 }
 
 {
@@ -210,6 +234,11 @@ sub files_from {
 	    name	=> 'encoding',
 	    type	=> '=s',
 	    default	=> 'utf-8',
+	},
+	{
+	    name	=> 'files_from',
+	    type	=> '=s@',
+	    validate	=> '__validate_files_from',
 	},
 	{
 	    name	=> 'filter_files_from',
@@ -324,6 +353,7 @@ sub files_from {
 	{
 	    name	=> 'word_regexp',
 	    type	=> '!',
+	    alias	=> [ qw/ w / ],
 	},
     );
     my %spec_hash = map { $_->{name} => $_ } @spec_list;
@@ -341,9 +371,13 @@ sub files_from {
     }
 
     sub __get_opt_specs {
-	state $opt_spec = [ map { join( '|', $_->{name}, @{ $_->{alias} ||
-		[] } ) . $_->{type} } @spec_list ];
-	return @{ $opt_spec };
+	my ( $self ) = @_;
+	my @opt_spec;
+	foreach ( @spec_list ) {
+	    push @opt_spec, join( '|', $_->{name}, @{ $_->{alias} || []
+		} ) . $_->{type}, $self->__get_validator( $_ );
+	}
+	return @opt_spec;
     }
 
     sub __get_attr_defaults {
@@ -366,55 +400,72 @@ sub files_from {
 
 	# TODO __clear_rc_cache()
 
+	# Get attributes from resource file.
 	sub __get_attr_from_rc {
 	    my ( $self, $file, $required ) = @_;
-	    if ( $rc_cache{$file} ) {
-		ref $rc_cache{$file}
-		    or $self->__croak( $rc_cache{$file} );
-		@{ $self }{ keys %{ $rc_cache{$file} } } = values %{
-		$rc_cache{$file} };
-	    } elsif ( open my $fh, '<:encoding(utf-8)', $file ) {
-		local $_ = undef;	# while (<>) does not localize $_
-		my @arg;
-		while ( <$fh> ) {
-		    m/ \A \s* (?: \z | \# ) /smx
-			and next;
-		    chomp;
-		    push @arg, $_;
+	    my $arg = $file;
+	    unless ( REF_ARRAY eq ref $file ) {
+		if ( not ref( $file ) and $arg = $rc_cache{$file} ) {
+		    ref $arg
+			or $self->__croak( $arg );
+		} elsif ( open my $fh, '<:encoding(utf-8)', $file ) {
+		    local $_ = undef;	# while (<>) does not localize $_
+		    $arg = [];
+		    while ( <$fh> ) {
+			m/ \A \s* (?: \z | \# ) /smx
+			    and next;
+			chomp;
+			push @{ $arg }, $_;
+		    }
+		    close $fh;
+		    $rc_cache{$file} = [ @{ $arg } ];
+		} elsif ( $! == ENOENT && ! $required ) {
+		    $rc_cache{$file} = {};
+		    return;
+		} else {
+		    $self->__croak( $rc_cache{$file} =
+			"Failed to open resource file $file: $!" );
 		}
-		close $fh;
-		$self->__get_option_parser()->getoptionsfromarray(
-		    \@arg, \( my %opt ), $self->__get_opt_specs() )
-		    or $self->__croak( $rc_cache{$file} =
-		    "Invalid option in $file" );
-		@arg
-		    and $self->__croak( $rc_cache{$file} =
-		    "Non-option content in $file" );
-		foreach my $name ( sort keys %opt ) {
-		    $self->__validate_attr( $name, $opt{$name} )
-			or $self->__croak( $rc_cache{$file} =
-			"Invalid $name value '$opt{$name}' in $file" );
-		}
-		$rc_cache{$file} = \%opt;
-		@{ $self }{ keys %opt } = values %opt;
-	    } elsif ( $! == ENOENT && ! $required ) {
-		$rc_cache{$file} = {};
-	    } else {
-		$self->__croak( $rc_cache{$file} =
-		    "Failed to open resource file $file: $!" );
 	    }
-
+	    {
+		my @warning;
+		local $SIG{__WARN__} = sub { push @warning, @_ };
+		$self->__get_option_parser()->getoptionsfromarray(
+		    $arg, $self, $self->__get_opt_specs() )
+		    or do {
+			chomp @warning;
+			my $msg = join '; ', @warning;
+			ref $file
+			    or $msg .= " in $file";
+			REF_ARRAY eq ref $file
+			    or $rc_cache{$file} = $msg;
+			$self->__croak( $msg );
+		};
+	    }
+	    @{ $arg }
+		and not REF_ARRAY eq ref $file
+		and $self->__croak( $rc_cache{$file} =
+		"Non-option content in $file" );
 	    return;
 	}
-
     }
 
+    # Given an argument spec, return code to validate it.
+    sub __get_validator {
+	my ( $self, $spec ) = @_;
+	my $method;
+	defined( $method = $spec->{validate} )
+	    and return sub { $self->$method( @_ ) };
+	return;
+    }
+
+    # Validate an attribute given its name and value
     sub __validate_attr {
 	my ( $self, $name, $value ) = @_;
 	my $spec = $spec_hash{$name}
 	    or $self->__confess( "Unknown attribute '$name'" );
-	if ( defined( my $method = $spec->{validate} ) ) {
-	    $self->$method( $name, $value )
+	if ( my $code = $self->__get_validator( $spec ) ) {
+	    $code->( $name, $value )
 		or return 0;
 	}
 	return 1;
@@ -422,10 +473,12 @@ sub files_from {
 
     # NOTE Not to be used except for testing.
     sub __set_attr_default {
-	my ( $self, $name, $value ) = @_;
-	my $spec = $spec_hash{$name}
-	    or $self->__confess( "Unknown attribute '$name'" );
-	$spec->{default} = $value;
+	my ( $self, %arg ) = @_;
+	foreach my $name ( keys %arg ) {
+	    my $spec = $spec_hash{$name}
+		or $self->__confess( "Unknown attribute '$name'" );
+	    $spec->{default} = $arg{$name};
+	}
 	return;
     }
 }
@@ -434,7 +487,7 @@ sub __get_option_parser {
     state $opt_psr = do {
 	my $p = Getopt::Long::Parser->new();
 	$p->configure( qw{
-	    bundling no_ignore_case no_auto_abbrev pass_through } );
+	    bundling no_ignore_case } );
 	$p;
     };
     return $opt_psr;
@@ -621,9 +674,6 @@ sub __type {
     ( my ( $self, $path ), local $_ ) = @_;
     my $spec = $self->{_type_add} || {};
     $_ //= ( File::Spec->splitpath( $path ) )[2];
-
-    $DB::single = 1;
-
     my @rslt;
     $spec->{is}{$_}
 	and push @rslt, @{ $spec->{is}{$_} };
@@ -671,6 +721,20 @@ sub __validate_color {
     return Term::ANSIColor::colorvalid( $color );
 }
 
+sub __validate_files_from {
+    my ( $self, $name, $value ) = @_;	# $self, $name unused
+    not ref $value
+	or REF_ARRAY eq ref $value
+	or return 0;
+    my @valz = ref $value ? @{ $value } : $value;
+    foreach ( @valz ) {
+	-r
+	    or return 0;
+	push @{ $self->{"_$name"} }, $_;
+    }
+    return 1;
+}
+
 sub __validate_ignore {
     my ( $self, $name, $spec ) = @_;
     foreach ( @{ $spec } ) {
@@ -709,13 +773,12 @@ sub __validate_ignore {
 
 sub __validate_type {
     my ( $self, undef, $type_array ) = @_;	# $name unused
-    state $special = { map { $_ => 1 } qw{ text } };
-    foreach my $type ( @{ $type_array } ) {
+    foreach my $type ( ref $type_array ? @{ $type_array } : $type_array ) {
 	my $neg;
-	if ( $self->{_type_def}{$type} || $special->{$type} ) { 
+	if ( $self->{_type_def}{$type} ) { 
 	    $self->{_type}{$type} = 0;
 	} elsif ( ( $neg = $type ) =~ s/ \A no-? //smxi && (
-		$self->{_type_def}{$neg} || $special->{$neg} ) ) {
+		$self->{_type_def}{$neg} ) ) {
 	    $self->{_type}{$neg} = 1;
 	} else {
 	    return 0;
@@ -726,7 +789,7 @@ sub __validate_type {
 
 sub __validate_type_add {
     my ( $self, $name, $spec ) = @_;
-    foreach ( @{ $spec } ) {
+    foreach ( ref $spec ? @{ $spec } : $spec ) {
 	my ( $type, $kind, $data ) = split /:/, $_, 3;
 	defined $data
 	    or ( $kind, $data ) = ( is => $kind );
@@ -825,6 +888,18 @@ following named arguments:
 
 =over
 
+=item C<argv>
+
+This argument specifies a reference to an array which is to be processed
+for command-line options by L<Getopt::Long|Getopt::Long>. It is
+processed after all other arguments. The command-line options correspond
+to other arguments, and either override (usually) or otherwise
+modify them (things like C<type_add>, C<type_del>, and C<type_set>.
+Unknown options result in an exception.
+
+The argument must refer to an array that can be modified. After this
+argument is processed, non-option arguments remain in the array.
+
 =item C<backup>
 
 This argument specifies that file modification renames the original file
@@ -879,10 +954,19 @@ are the originals backed up. The default is false.
 This argument specifies the encoding to use to read and write files. The
 default is C<'utf-8'>.
 
+=item C<files_from>
+
+This argument specifies the name of a file which contains the names of
+files to search. It can also be a reference to an array of such files.
+B<Note> that the files are not actually read until
+L<files_from()|/files_from> is called. The only validation before that
+is that the C<-r> operator must report them as readable, though this is
+not definitive in the presence of Access Control Lists.
+
 =item C<filter_files_from>
 
 This Boolean argument specifies whether files obtained by calling
-L<files_from|/files_from> should be filtered. The default is false,
+L<files_from()|/files_from> should be filtered. The default is false,
 which is consistent with L<ack|ack>.
 
 =item C<ignore_case>
@@ -951,9 +1035,13 @@ C<(foo)> will remain C<(foo)>.
 
 =head2 files_from
 
-Given the name of a file, this method reads it and returns its contents,
-one line at a time, and C<chomp>-ed. These are assumed to be file names,
-and will be filtered if C<filter_files_from> is true.
+Given the name of one or more files, this method reads them and returns
+its contents, one line at a time, and C<chomp>-ed. These are assumed to
+be file names, and will be filtered if C<filter_files_from> is true.
+
+If called without arguments, reads the files specified by the
+C<files_from> argument to L<new()|/new>, if any, and returns their
+possibly-filtered contents.
 
 =head2 process
 
@@ -966,7 +1054,7 @@ written.
 The argument can be a scalar reference, but in this case modifications
 are not written.
 
-Binary files and directories are ignored.
+Binary files are ignored.
 
 If the file is a directory, any files in the directory are processed
 provided they are not ignored. Nothing is returned.
