@@ -6,7 +6,6 @@ use strict;
 use warnings;
 
 use Exporter qw{ import };
-use Encode qw{ decode };
 use Test2::Util::Table qw{ table };
 
 use Carp;
@@ -19,14 +18,15 @@ our $VERSION = '0.000_001';
 sub capture_stdout (&) {
     my ( $code ) = @_;
     my $data;
-    open my $fh, '>:encoding(utf-8)', \$data
+    open my $stdout, '>', \$data	# Purposefully not encoded
 	or croak "Failed to open scalar reference for output: $!";
+    $stdout->autoflush( 1 );
     {
-	local *STDOUT = $fh;
+	local *STDOUT = $stdout;
 	$code->();
     }
-    close $fh;
-    return decode( 'utf-8', $data );
+    close $stdout;
+    return $data;
 }
 
 sub dependencies_table {
