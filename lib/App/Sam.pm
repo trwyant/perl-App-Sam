@@ -676,7 +676,6 @@ sub __ignore {
 
 sub process {
     my ( $self, $file ) = @_;
-    delete $self->{_lines_matched};
 
     if ( ref( $file ) || ! -d $file ) {
 
@@ -727,7 +726,6 @@ sub process {
 		sprintf( '%s:%d', $self->__color( filename => $file ),
 		    $lines_matched ), @types;
 
-	$self->{_lines_matched} = $lines_matched;
 	if ( $self->{replace} && ! $self->{dry_run} &&
 	    $lines_matched && ! ref $file
 	) {
