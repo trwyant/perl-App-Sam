@@ -28,7 +28,7 @@ sub new {
     my $argv = delete $arg{argv};
 
     my $self = bless {
-	ignore_sad_defaults	=> delete $arg{ignore_sad_defaults},
+	ignore_sam_defaults	=> delete $arg{ignore_sam_defaults},
 	env			=> delete $arg{env},
     }, $class;
 
@@ -37,9 +37,9 @@ sub new {
 	and $self->__croak( 'Argument argv must be an ARRAY reference' );
 
     $self->__get_attr_defaults();
-    $self->{ignore_sad_defaults}	# Chicken-and-egg problem
+    $self->{ignore_sam_defaults}	# Chicken-and-egg problem
 	and %{ $self } = (
-	    ignore_sad_defaults => $self->{ignore_sad_defaults}
+	    ignore_sam_defaults => $self->{ignore_sam_defaults}
 	);
 
     foreach my $file ( $self->__get_rc_file_names() ) {
@@ -368,7 +368,7 @@ sub files_from {
 	    validate	=> '__validate_type_add',
 	},
 	{
-	    name	=> 'ignore_sad_defaults',
+	    name	=> 'ignore_sam_defaults',
 	    type	=> '!',
 	},
 	{
@@ -435,7 +435,7 @@ sub files_from {
     sub __get_attr_defaults {
 	my ( $self ) = @_;
 	$self ||= {};
-	$self->{ignore_sad_defaults}
+	$self->{ignore_sam_defaults}
 	    and return $self;
 	foreach my $spec ( @spec_list ) {
 	    exists $spec->{default}
@@ -1104,7 +1104,7 @@ that match any of the selectors.
 Files specified explicitly will not be ignored even if they match one or
 more selectors.
 
-=item C<ignore_sad_defaults>
+=item C<ignore_sam_defaults>
 
 If this Boolean argument is true, the built-in defaults are ignored.
 

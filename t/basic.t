@@ -39,7 +39,7 @@ is $sam, {
     color_match		=> 'black on_yellow',
     encoding		=> 'utf-8',
     env			=> 0,
-    ignore_sad_defaults	=> undef,
+    ignore_sam_defaults	=> undef,
     ignore_directory	=> array { etc() },
     _ignore_directory	=> hash { etc() },
     ignore_file		=> array { etc() },
