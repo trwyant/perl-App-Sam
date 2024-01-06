@@ -98,6 +98,43 @@ sub new {
     return $self;
 }
 
+sub help_types {
+    my ( $self, $exit ) = @_;
+    $exit //= caller eq __PACKAGE__;
+    my $type_wid = List::Util::max( map { length } keys %{
+	$self->{_type_def} } );
+    print <<'EOD';
+The following is the list of filetypes supported by sam. You can specify
+a filetype to include with --type=TYPE. You can exclude a filetype with
+--type=noTYPE.
+
+Note that some files may appear in multiple types. For example, a file
+called Rakefile is both Ruby (--type=ruby) and Rakefile
+(--type=rake).
+
+EOD
+    foreach my $type ( sort keys %{ $self->{_type_def} } ) {
+	my $type_def = $self->{_type_def}{$type};
+	my @defs;
+	foreach my $kind ( qw{ is ext match firstlinematch } ) {
+	    $type_def->{$kind}
+		and @{ $type_def->{$kind} }
+		or next;
+	    state $prefix = {
+		is	=> [],
+		ext	=> [],
+		match	=> [ 'Filename matches' ],
+		firstlinematch	=> [ 'First line matches' ],
+	    };
+	    push @defs, join ' ', @{ $prefix->{$kind} }, @{
+	    $type_def->{$kind } };
+	}
+	printf "    %-*s %s\n", $type_wid, $type, join '; ', @defs;
+    }
+    $exit and exit;
+    return;
+}
+
 sub __carp {
     my ( $self, @arg ) = @_;
     @arg
@@ -355,6 +392,11 @@ sub files_from {
 	    type	=> '!',
 	    alias	=> [ qw/ w / ],
 	},
+	{	# Must be after type_*
+	    name	=> 'help_types',
+	    type	=> '',
+	    validate	=> 'help_types',
+	}
     );
     my %spec_hash = map { $_->{name} => $_ } @spec_list;
 
@@ -798,12 +840,15 @@ sub __validate_type_add {
 		my ( $self, $value, $type ) = @_;
 		my @item = split /,/, $value;
 		push @{ $self->{_type_add}{ext}{$_} }, $type for @item;
+		push @{ $self->{_type_def}{$type}{ext} }, map { ".$_" } @item;
 		return 1;
 	    },
 	    is	=> sub {
 		my ( $self, $value, $type ) = @_;
-		my @item = split /,/, $value;
-		push @{ $self->{_type_add}{is}{$_} }, $type for @item;
+		# my @item = split /,/, $value;
+		# push @{ $self->{_type_add}{is}{$_} }, $type for @item;
+		push @{ $self->{_type_add}{is}{$value} }, $type;
+		push @{ $self->{_type_def}{$type}{is} }, $value;
 		return 1;
 	    },
 	    match	=> sub {
@@ -812,6 +857,7 @@ sub __validate_type_add {
 		my $code = eval "sub { $value }"	## no critic (ProhibitStringyEval)
 		    or return 0;
 		push @{ $self->{_type_add}{match} }, [ $code, $type ];
+		push @{ $self->{_type_def}{$type}{match} }, $value;
 		return 1;
 	    },
 	    firstlinematch	=> sub {
@@ -820,6 +866,7 @@ sub __validate_type_add {
 		my $code = eval "sub { $value }"	## no critic (ProhibitStringyEval)
 		    or return 0;
 		push @{ $self->{_type_add}{firstlinematch} }, [ $code, $type ];
+		push @{ $self->{_type_def}{$type}{firstlinematch} }, $value;
 		return 1;
 	    },
 	};
@@ -840,8 +887,6 @@ sub __validate_type_add {
 	};
 	my $setup = $handler->{$name}
 	    or $self->__confess( "Unknown type handler '$name'" );
-
-	$self->{_type_def}{$type} = 1;
 
 	$setup->( $self, $type )
 	    or return 1;
@@ -1042,6 +1087,17 @@ be file names, and will be filtered if C<filter_files_from> is true.
 If called without arguments, reads the files specified by the
 C<files_from> argument to L<new()|/new>, if any, and returns their
 possibly-filtered contents.
+
+=head2 help_types
+
+ $sad->help_types( $exit )
+
+This method prints help for the defined types. If the argument is true,
+it exits; otherwise it returns. The default for C<$exit> is true if
+called from the C<$sad> object (which happens if argument C<help_types>
+is true or option C<--help-types> is asserted), and false otherwise.
+
+The output is similar but not identical to L<ack|ack> C<--help-types>.
 
 =head2 process
 
