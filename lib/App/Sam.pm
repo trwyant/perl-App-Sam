@@ -677,6 +677,8 @@ sub __ignore {
 sub process {
     my ( $self, $file ) = @_;
 
+    local $self->{_process} = {};
+
     if ( ref( $file ) || ! -d $file ) {
 
 	-T $file
@@ -699,24 +701,21 @@ sub process {
 	my $lines_matched = 0;
 	local $_ = undef;	# while (<>) does not localize $_
 	while ( <$fh> ) {
-	    # FIXME There are two separate but related decisions to be
-	    # made here:
-	    # 1) Does the line match;
-	    # 2) Should the line be displayed. Heading display goes
-	    #    here.
-	    if ( $munger->( $self ) ) {
-		unless ( $lines_matched++ ) {
-		    unless ( $self->{count} ) {	# TODO other conditions
-			$self->{_file_count}++
-			    and $self->{break}
-			    and say '';
-			say join ' => ',
-			    $self->__color( filename => $file ), @types;
-		    }
+
+	    $self->{_process}{matched} = $munger->( $self )
+		and $lines_matched++;
+
+	    if ( $self->_process_display_p() ) {
+		if ( ! $self->{_process}{header} ) {
+		    $self->{_process}{header} = 1;
+		    $self->{break}
+			and say '';
+		    say join ' => ',
+			$self->__color( filename => $file ), @types;
 		}
-		$self->{count}
-		    or printf '%s:%s', $self->__color( lineno => $. ), $_;
+		printf '%s:%s', $self->__color( lineno => $. ), $_;
 	    }
+
 	    push @mod, $_;
 	}
 	close $fh;
@@ -750,6 +749,18 @@ sub process {
 	}
     }
     return;
+}
+
+# NOTE: Call this ONLY from inside process(). This is broken out because
+# I expect it to get complicated if I implement match inversion,
+# context, etc.
+sub _process_display_p {
+    my ( $self ) = @_;
+
+    $self->{count}
+	and return 0;
+
+    return $self->{_process}{matched} || 0;
 }
 
 sub __get_file_iterator {
