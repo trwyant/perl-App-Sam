@@ -61,7 +61,9 @@ sub new {
     $argv
 	and $self->__get_attr_from_rc( $argv );
 
-    unless ( defined $self->{match} ) {
+    $self->__incompat_opt( qw{ f match } );
+
+    unless ( $self->{f} || defined $self->{match} ) {
 	if ( $argv && @{ $argv } ) {
 	    $self->{match} = shift @{ $argv };
 	} else {
@@ -273,6 +275,10 @@ sub files_from {
 	    default	=> 'utf-8',
 	},
 	{
+	    name	=> 'f',
+	    type	=> '!',
+	},
+	{
 	    name	=> 'files_from',
 	    type	=> '=s@',
 	    validate	=> '__validate_files_from',
@@ -381,6 +387,10 @@ sub files_from {
 	{
 	    name	=> 'samrc',
 	    type	=> '=s',
+	},
+	{
+	    name	=> 'show_types',
+	    type	=> '!',
 	},
 	{
 	    name	=> 'type',
@@ -558,6 +568,29 @@ sub __get_rc_file_names {
     return @rslt;
 }
 
+sub __incompat_opt {
+    my ( $self, @opt ) = @_;
+    my @have = grep { exists $self->{$_} } @opt;
+    if ( @have > 1 ) {
+	my $name = 'Arguments';
+	if ( $self->{die} ) {
+	    @have = map { length > 1 ? "--$_" : "-$_" } @have;
+	    tr/_/-/ for @have;
+	    $name = 'Options';
+	}
+	@have = map { "'$_'" } @have;
+	if ( @have > 2 ) {
+	    $self->__croak(
+		sprintf '%s %s can not be used together', $name, @have );
+	} else {
+	    $self->__croak(
+		sprintf '%s %s and %s can not be used together', $name,
+		@have );
+	}
+    }
+    return;
+}
+
 sub __make_munger {
     my ( $self ) = @_;
     # NOTE that the status of weird characters as delimiters is
@@ -644,24 +677,42 @@ sub __ignore {
 sub process {
     my ( $self, $file ) = @_;
     delete $self->{_lines_matched};
+
     if ( ref( $file ) || ! -d $file ) {
+
 	-T $file
 	    or return;
-	local $_ = undef;	# while (<>) does not localize $_
+
+	my @types;
+	$self->{show_types}
+	    and push @types, join ',', $self->__type( $file );
+
+	if ( $self->{f} ) {
+	    say join ' => ', $file, @types;
+	    return;
+	}
+
 	my $munger = $self->{_munger};
 	my @mod;
 	my $encoding = $self->__get_encoding( $file );
 	open my $fh, "<:encoding($encoding)", $file	## no critic (RequireBriefOpen)
 	    or $self->__croak( "Failed to open $file for input: $!" );
 	my $lines_matched = 0;
+	local $_ = undef;	# while (<>) does not localize $_
 	while ( <$fh> ) {
+	    # FIXME There are two separate but related decisions to be
+	    # made here:
+	    # 1) Does the line match;
+	    # 2) Should the line be displayed. Heading display goes
+	    #    here.
 	    if ( $munger->( $self ) ) {
 		unless ( $lines_matched++ ) {
 		    unless ( $self->{count} ) {	# TODO other conditions
 			$self->{_file_count}++
 			    and $self->{break}
 			    and say '';
-			say $self->__color( filename => $file );
+			say join ' => ',
+			    $self->__color( filename => $file ), @types;
 		    }
 		}
 		$self->{count}
@@ -672,7 +723,9 @@ sub process {
 	close $fh;
 
 	$self->{count}
-	    and printf "%s:%d\n", $self->__color( filename => $file ), $lines_matched;
+	    and say join ' => ',
+		sprintf( '%s:%d', $self->__color( filename => $file ),
+		    $lines_matched ), @types;
 
 	$self->{_lines_matched} = $lines_matched;
 	if ( $self->{replace} && ! $self->{dry_run} &&
@@ -999,6 +1052,12 @@ are the originals backed up. The default is false.
 This argument specifies the encoding to use to read and write files. The
 default is C<'utf-8'>.
 
+=item C<f>
+
+If this Boolean argument is true, no search is done, but the files that
+would be searched are printed. You may not specify the C<match> argument
+if this is true.
+
 =item C<files_from>
 
 This argument specifies the name of a file which contains the names of
@@ -1061,6 +1120,11 @@ matched string. Capture variables may be used.
 This argument specifies the name of a resource file to read. This is
 read after all the default resource files, and even if C<noenv> is true.
 The file must exist.
+
+=item C<show_types>
+
+If this Boolean option is true, file types are appended to the file name
+when displayed.
 
 =item C<type_add>
 
