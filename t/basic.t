@@ -28,8 +28,7 @@ my $warning;
 
 
 
-$warning = dies { $sam = App::Sam->new() };
-is $warning, undef, 'Can instantiate App::Sam';
+is dies { $sam = App::Sam->new() }, undef, 'Can instantiate App::Sam';
 isa_ok $sam, 'App::Sam';
 
 is $sam, {
@@ -99,9 +98,30 @@ is [ $sam->__type( 'README' ) ], [],
 
 ok $sam->__ignore( directory => 'blib' ), q<directory 'blib' is ignored>;
 
+ok [ $sam->files_from( \<<'EOD' ) ], [ 't/data/limerick.t' ], 'files_from()';
+t/data/limerick.t
+EOD
+
+{
+    delete local $ENV{SAMRC};
+    local $sam->{env} = 1;
+    if ( $sam->IS_WINDOWS ) {
+	# TODO Windows code
+    } else {
+	is [ $sam->__get_rc_file_names() ],
+	    [ '/etc/samrc', "$ENV{HOME}/.samrc", '.samrc' ],
+	    'Resource file names under anything but Windows';
+    }
+}
+
+like capture_stdout {
+    $sam->help_types()
+}, qr/ \b objc \s+ \.m \s+ .h \b /smx,
+    'help_types includes Objective C';
 
 
-ok lives { $sam = App::Sam->new( die => 1 ) },
+
+is dies { $sam = App::Sam->new( die => 1 ) }, undef,
     'Can instantiate App::Sam with die => 1';
 isa_ok $sam, 'App::Sam';
 
@@ -120,9 +140,9 @@ like $warning, qr/ \A basic \. t: \s Bug \s - \s Mea \s culpa \s at \b /smx,
 
 
 
-ok lives { $sam = App::Sam->new(
+is dies { $sam = App::Sam->new(
 	type	=> [ qw{ perl no-perltest } ],
-    ) },
+    ) }, undef,
     'Can instantiate App::Sam with type => [ qw{ perl no-perltest } ]';
 isa_ok $sam, 'App::Sam';
 
@@ -131,6 +151,61 @@ ok $sam->__ignore( file => 't/basic.t' ),
 
 ok ! $sam->__ignore( file => 'lib/App/Sam.pm' ),
 'lib/App/Sam.pm is not ignored under type => [ qw{ perl no-perltest } ]';
+
+
+
+is dies { App::Sam->new(
+	    f		=> 1,
+	    match	=> '/foo/',
+	)
+    }, match( qr/\AArguments 'f' and 'match' can not be used together\b/ ),
+    q/Can not use attributes 'f' and 'match' together/;
+
+
+
+is dies { App::Sam->new(
+	    die	=> 1,
+	    argv	=> [ qw{ -f --match /foo/ } ],
+	)
+    }, "basic.t: Options '-f' and '--match' can not be used together.\n",
+    q/Can not use options '-f' and '--match' together/;
+
+
+
+is dies { $sam = App::Sam->new(
+	samrc	=> \<<'EOD',
+--backup=.bak
+--encoding
+iso-latin-1
+--type-del=objc
+EOD
+    ) }, undef, 'Can instantiate App::Sam with samrc';
+isa_ok $sam, 'App::Sam';
+
+is $sam, {
+    backup		=> '.bak',
+    color_filename	=> 'bold green',
+    color_lineno	=> 'bold yellow',
+    color_match		=> 'black on_yellow',
+    encoding		=> 'iso-latin-1',
+    env			=> 0,
+    ignore_sam_defaults	=> undef,
+    ignore_directory	=> array { etc() },
+    _ignore_directory	=> hash { etc() },
+    ignore_file		=> array { etc() },
+    _ignore_file	=> hash { etc() },
+    match		=> '/foo/',
+    munger		=> D,
+    _munger		=> validator( sub { REF_CODE eq ref } ),
+    type_add		=> array { etc() },
+    _type_add		=> hash { etc() },
+    _type_def		=> hash { etc() },
+}, 'Got expected object';
+
+unlike capture_stdout {
+    $sam->help_types()
+}, qr/ \b objc \s+ \.m \s+ .h \b /smx,
+    'help_types no longer includes Objective C';
 
 
 

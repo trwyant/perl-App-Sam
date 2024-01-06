@@ -201,8 +201,9 @@ sub files_from {
     if ( @file_list ) {
 	my @rslt;
 	foreach my $file ( @file_list ) {
+	    my $encoding = $self->__get_encoding( $file, 'utf-8' );
 	    local $_ = undef;	# while (<>) does not localize $_
-	    open my $fh, '<:encoding(utf-8)', $file	## no critic (RequireBriefOpen)
+	    open my $fh, "<$encoding", $file	## no critic (RequireBriefOpen)
 		or $self->__croak( "Failed to open $file: $!" );
 	    while ( <$fh> ) {
 		m/ \S /smx
@@ -368,6 +369,16 @@ sub files_from {
 	    validate	=> '__validate_type_add',
 	},
 	{
+	    name	=> 'type_del',
+	    type	=> '=s@',
+	    validate	=> '__validate_type_add',
+	},
+	{
+	    name	=> 'type_set',
+	    type	=> '=s@',
+	    validate	=> '__validate_type_add',
+	},
+	{
 	    name	=> 'ignore_sam_defaults',
 	    type	=> '!',
 	},
@@ -460,7 +471,10 @@ sub files_from {
 		if ( not ref( $file ) and $arg = $rc_cache{$file} ) {
 		    ref $arg
 			or $self->__croak( $arg );
-		} elsif ( open my $fh, '<:encoding(utf-8)', $file ) {
+		} elsif ( open my $fh,	## no critic (RequireBriefOpen)
+		    '<' . $self->__get_encoding( $file, 'utf-8' ),
+		    $file
+		) {
 		    local $_ = undef;	# while (<>) does not localize $_
 		    $arg = [];
 		    while ( <$fh> ) {
@@ -546,11 +560,14 @@ sub __get_option_parser {
 }
 
 sub __get_encoding {
-    my ( $self, $file ) = @_;
-    if ( defined( $file ) && ! ref $file ) {
+    my ( $self, $file, $encoding ) = @_;
+    ref $file
+	and return '';
+    $encoding //= $self->{encoding};
+    if ( defined $file ) {
 	# TODO file-specific
     }
-    return $self->{encoding};
+    return ":encoding($encoding)";
 }
 
 sub __get_rc_file_names {
@@ -696,7 +713,7 @@ sub process {
 	my $munger = $self->{_munger};
 	my @mod;
 	my $encoding = $self->__get_encoding( $file );
-	open my $fh, "<:encoding($encoding)", $file	## no critic (RequireBriefOpen)
+	open my $fh, "<$encoding", $file	## no critic (RequireBriefOpen)
 	    or $self->__croak( "Failed to open $file for input: $!" );
 	my $lines_matched = 0;
 	local $_ = undef;	# while (<>) does not localize $_
@@ -734,7 +751,7 @@ sub process {
 		    or $self->__croak(
 		    "Unable to rename $file to $backup: $!" );
 	    }
-	    open my $fh, ">:encoding($encoding)", $file
+	    open my $fh, ">$encoding", $file
 		or $self->__croak( "Failed to open $file for output: $!" );
 	    print { $fh } @mod;
 	    close $fh;
@@ -792,7 +809,7 @@ sub __type {
     }
     if (
 	my $match = $spec->{firstlinematch}
-	    and open my $fh, "<:encoding($self->{encoding})", $path
+	    and open my $fh, '<' . $self->__get_encoding( $path ), $path
     ) {
 	local $_ = <$fh>;
 	close $fh;

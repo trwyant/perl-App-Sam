@@ -33,6 +33,23 @@ EOD
 
 }
 
+{
+    my $sam = CLASS->new(
+	argv	=> [ 'ay$' ],
+    );
+
+    my $stdout = capture_stdout {
+	$sam->process( 't/data/bright.txt' );
+    };
+
+    is $stdout, <<'EOD', 'Matched lines 3 and 4 of limmerick';
+t/data/bright.txt
+3:    She set out one day
+4:    In a relative way
+EOD
+
+}
+
 
 done_testing;
 
