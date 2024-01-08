@@ -7,13 +7,15 @@ use warnings;
 
 use utf8;
 
-use Carp ();
+use App::Sam::Util qw{ :carp __syntax_types };
 use File::Next ();
 use File::Spec;
 use Errno qw{ :POSIX };
 use Getopt::Long ();
 use List::Util ();
+use Module::Load ();
 use Term::ANSIColor ();
+use Text::Abbrev ();
 
 our $VERSION = '0.000_001';
 
@@ -137,63 +139,15 @@ EOD
     return;
 }
 
-sub __carp {
-    my ( $self, @arg ) = @_;
-    @arg
-	or @arg = ( 'Warning' );
-    if ( $self->{die} ) {
-	warn $self->__decorate_die_args( @arg );
-    } else {
-	Carp::carp( $self->__decorate_croak_args( @arg ) );
-    }
-    return;
-}
-
 sub __color {
     my ( $self, $kind, $text ) = @_;
     $self->{color}
 	or return $text;
+    $text eq ''
+	and return $text;
     defined( my $color = $self->{"color_$kind"} )
 	or $self->__confess( "Invalid color kind '$kind'" );
     return Term::ANSIColor::colored( $text, $color );
-}
-
-sub __confess {
-    my ( $self, @arg ) = @_;
-    unshift @arg, @arg ? 'Bug - ' : 'Bug';
-    if ( $self->{die} ) {
-	state $me = sprintf '%s: ', $self->__me();
-	unshift @arg, $me;
-    }
-    Carp::confess( $self->__decorate_croak_args( @arg ) );
-}
-
-sub __croak {
-    my ( $self, @arg ) = @_;
-    @arg
-	or @arg = ( 'Died' );
-    if ( $self->{die} ) {
-	die $self->__decorate_die_args( @arg );
-    } else {
-	Carp::croak( $self->__decorate_croak_args( @arg ) );
-    }
-}
-
-sub __decorate_croak_args {
-    my ( undef, @arg ) = @_;	# $self unused
-    chomp $arg[-1];
-    $arg[-1] =~ s/ [.?!] //smx;
-    return @arg;
-}
-
-sub __decorate_die_args {
-    my ( $self, @arg ) = @_;
-    chomp $arg[-1];
-    $arg[-1] =~ s/ (?<! [.?!] ) \z /./smx;
-    $arg[-1] .= $/;
-    state $me = sprintf '%s: ', $self->__me();
-    unshift @arg, $me;
-    return @arg;
 }
 
 sub files_from {
@@ -378,6 +332,22 @@ sub files_from {
 	    type	=> '=s@',
 	    validate	=> '__validate_type_add',
 	},
+	{	# Must come after type_add, type_del, and type_set
+	    name	=> 'syntax_add',
+	    type	=> '=s@',
+	    default	=> [ qw{ Perl:type:perl } ],
+	    validate	=> '__validate_syntax_add',
+	},
+	{
+	    name	=> 'syntax_del',
+	    type	=> '=s@',
+	    validate	=> '__validate_syntax_add',
+	},
+	{
+	    name	=> 'syntax_set',
+	    type	=> '=s@',
+	    validate	=> '__validate_syntax_add',
+	},
 	{
 	    name	=> 'ignore_sam_defaults',
 	    type	=> '!',
@@ -400,8 +370,17 @@ sub files_from {
 	    type	=> '=s',
 	},
 	{
+	    name	=> 'show_syntax',
+	    type	=> '!',
+	},
+	{
 	    name	=> 'show_types',
 	    type	=> '!',
+	},
+	{
+	    name	=> 'syntax',
+	    type	=> '=s@',
+	    validate	=> '__validate_syntax',
 	},
 	{
 	    name	=> 'type',
@@ -438,7 +417,7 @@ sub files_from {
 	my @opt_spec;
 	foreach ( @spec_list ) {
 	    push @opt_spec, join( '|', $_->{name}, @{ $_->{alias} || []
-		} ) . $_->{type}, $self->__get_validator( $_ );
+		} ) . $_->{type}, $self->__get_validator( $_, 1 );
 	}
 	return @opt_spec;
     }
@@ -518,11 +497,19 @@ sub files_from {
 
     # Given an argument spec, return code to validate it.
     sub __get_validator {
-	my ( $self, $spec ) = @_;
+	my ( $self, $spec, $die ) = @_;
 	my $method;
 	defined( $method = $spec->{validate} )
-	    and return sub { $self->$method( @_ ) };
-	return;
+	    or return;
+	$die
+	    and return sub {
+	    $self->$method( @_ )
+		or die "Invalid value --$_[0]=$_[1]\n";
+	    return 1;
+	};
+	return sub {
+	    return $self->$method( @_ );
+	};
     }
 
     # Validate an attribute given its name and value
@@ -701,12 +688,26 @@ sub process {
 	-T $file
 	    or return;
 
-	my @types;
+	$self->{_process}{type} = [ $self->__type( $file ) ]
+	    if $self->{show_types} || $self->{_syntax} ||
+		$self->{show_syntax};
+
+	my @show_types;
 	$self->{show_types}
-	    and push @types, join ',', $self->__type( $file );
+	    and push @show_types, join ',', @{ $self->{_process}{type} };
+
+	if ( $self->{_syntax} || $self->{show_syntax} ) {
+	    foreach my $type ( @{ $self->{_process}{type} } ) {
+		my $class = $self->{_syntax_add}{type}{$type}
+		    or next;
+		$self->{_process}{syntax_obj} =
+		    $self->{_syntax_obj}{$class} ||=
+		    "App::Sam::Syntax::$class"->new( die => $self->{die} );
+	    }
+	}
 
 	if ( $self->{f} ) {
-	    say join ' => ', $file, @types;
+	    say join ' => ', $file, @show_types;
 	    return;
 	}
 
@@ -719,8 +720,15 @@ sub process {
 	local $_ = undef;	# while (<>) does not localize $_
 	while ( <$fh> ) {
 
-	    $self->{_process}{matched} = $munger->( $self )
-		and $lines_matched++;
+	    $self->{_process}{syntax_obj}
+		and $self->{_process}{syntax} = $self->{_process}{syntax_obj}->__syntax();
+
+	    if ( $self->_process_match_p() ) {
+		$self->{_process}{matched} = $munger->( $self )
+		    and $lines_matched++;
+	    } else {
+		$self->{_process}{matched} = 0;
+	    }
 
 	    if ( $self->_process_display_p() ) {
 		if ( ! $self->{_process}{header} ) {
@@ -728,9 +736,14 @@ sub process {
 		    $self->{break}
 			and say '';
 		    say join ' => ',
-			$self->__color( filename => $file ), @types;
+			$self->__color( filename => $file ), @show_types;
 		}
-		printf '%s:%s', $self->__color( lineno => $. ), $_;
+
+		my @syntax;
+		$self->{show_syntax}
+		    and push @syntax,
+			substr $self->{_process}{syntax} // '', 0, 4;
+		print join ':', $self->__color( lineno => $. ), @syntax, $_;
 	    }
 
 	    push @mod, $_;
@@ -740,7 +753,7 @@ sub process {
 	$self->{count}
 	    and say join ' => ',
 		sprintf( '%s:%d', $self->__color( filename => $file ),
-		    $lines_matched ), @types;
+		    $lines_matched ), @show_types;
 
 	if ( $self->{replace} && ! $self->{dry_run} &&
 	    $lines_matched && ! ref $file
@@ -778,6 +791,18 @@ sub _process_display_p {
 	and return 0;
 
     return $self->{_process}{matched} || 0;
+}
+
+# NOTE: Call this ONLY from inside process(). This is broken out because
+# I expect it to get complicated if I implement ranges, syntax, etc.
+# NOTE ALSO: the current line is in $_.
+sub _process_match_p {
+    my ( $self ) = @_;
+    if ( $self->{_syntax} ) {
+	$self->{_syntax}{$self->{_process}{syntax}}
+	    or return 0;
+    }
+    return 1;
 }
 
 sub __get_file_iterator {
@@ -892,6 +917,71 @@ sub __validate_ignore {
     return 1;
 }
 
+sub __validate_syntax {
+    my ( $self, undef, $syntax_array ) = @_;	# $name unused
+    foreach my $syntax ( ref $syntax_array ? @{ $syntax_array } : $syntax_array ) {
+	state $valid = Text::Abbrev::abbrev( __syntax_types() );
+	my $expansion = $valid->{$syntax}
+	    or return 0;
+	$self->{_syntax}{$expansion} = 1;
+    }
+    return 1;
+}
+
+sub __validate_syntax_add {
+    my ( $self, $name, $spec ) = @_;
+    foreach ( ref $spec ? @{ $spec } : $spec ) {
+	my ( $syntax, $kind, $data ) = split /:/, $_, 3;
+	{
+	    local $@ = undef;
+	    my $module = "App::Sam::Syntax::$syntax";
+	    eval {
+		Module::Load::load( $module );
+		1;
+	    } or return 0;
+	}
+	defined $data
+	    or ( $kind, $data ) = ( type => $kind );
+	state $validate_kind = {
+	    type	=> sub {
+		my ( $self, $syntax, $data ) = @_;
+		my @item = split /,/, $data;
+		foreach my $type ( @item ) {
+		    $self->{_type_def}{$type}
+			or return 0;
+		    $self->{_syntax_add}{type}{$type} = $syntax;
+		    push @{ $self->{_syntax_def}{$syntax}{type} }, $type;
+		}
+		return 1;
+	    },
+	};
+	my $code = $validate_kind->{$kind}
+	    or return 0;
+	state $handler = {
+	    syntax_add	=> sub { 1 },
+	    syntax_del	=> sub {
+		my ( $self, $syntax ) = @_;
+		$self->__syntax_del( $syntax );
+		return 0;
+	    },
+	    syntax_set	=> sub {
+		my ( $self, $syntax ) = @_;
+		$self->__syntax_del( $syntax );
+		return 1;
+	    },
+	};
+	my $setup = $handler->{$name}
+	    or $self->__confess( "Unknown syntax handler '$name'" );
+
+	$setup->( $self, $syntax )
+	    or next;
+
+	$code->( $self, $syntax, $data )
+	    or return 0;
+    }
+    return 1;
+}
+
 sub __validate_type {
     my ( $self, undef, $type_array ) = @_;	# $name unused
     foreach my $type ( ref $type_array ? @{ $type_array } : $type_array ) {
@@ -916,36 +1006,36 @@ sub __validate_type_add {
 	    or ( $kind, $data ) = ( is => $kind );
 	state $validate_kind = {
 	    ext	=> sub {
-		my ( $self, $value, $type ) = @_;
-		my @item = split /,/, $value;
+		my ( $self, $type, $data ) = @_;
+		my @item = split /,/, $data;
 		push @{ $self->{_type_add}{ext}{$_} }, $type for @item;
 		push @{ $self->{_type_def}{$type}{ext} }, map { ".$_" } @item;
 		return 1;
 	    },
 	    is	=> sub {
-		my ( $self, $value, $type ) = @_;
-		# my @item = split /,/, $value;
+		my ( $self, $type, $data ) = @_;
+		# my @item = split /,/, $data;
 		# push @{ $self->{_type_add}{is}{$_} }, $type for @item;
-		push @{ $self->{_type_add}{is}{$value} }, $type;
-		push @{ $self->{_type_def}{$type}{is} }, $value;
+		push @{ $self->{_type_add}{is}{$data} }, $type;
+		push @{ $self->{_type_def}{$type}{is} }, $data;
 		return 1;
 	    },
 	    match	=> sub {
-		my ( $self, $value, $type ) = @_;
+		my ( $self, $type, $data ) = @_;
 		local $@ = undef;
-		my $code = eval "sub { $value }"	## no critic (ProhibitStringyEval)
+		my $code = eval "sub { $data }"	## no critic (ProhibitStringyEval)
 		    or return 0;
 		push @{ $self->{_type_add}{match} }, [ $code, $type ];
-		push @{ $self->{_type_def}{$type}{match} }, $value;
+		push @{ $self->{_type_def}{$type}{match} }, $data;
 		return 1;
 	    },
 	    firstlinematch	=> sub {
-		my ( $self, $value, $type ) = @_;
+		my ( $self, $type, $data ) = @_;
 		local $@ = undef;
-		my $code = eval "sub { $value }"	## no critic (ProhibitStringyEval)
+		my $code = eval "sub { $data }"	## no critic (ProhibitStringyEval)
 		    or return 0;
 		push @{ $self->{_type_add}{firstlinematch} }, [ $code, $type ];
-		push @{ $self->{_type_def}{$type}{firstlinematch} }, $value;
+		push @{ $self->{_type_def}{$type}{firstlinematch} }, $data;
 		return 1;
 	    },
 	};
@@ -968,9 +1058,9 @@ sub __validate_type_add {
 	    or $self->__confess( "Unknown type handler '$name'" );
 
 	$setup->( $self, $type )
-	    or return 1;
+	    or next;
 
-	$code->( $self, $data, $type )
+	$code->( $self, $type, $data )
 	    or return 0;
     }
     return 1;
@@ -1147,17 +1237,35 @@ This argument specifies the name of a resource file to read. This is
 read after all the default resource files, and even if C<noenv> is true.
 The file must exist.
 
+=item C<show_syntax>
+
+If this Boolean option is true, the syntax type of each line will be
+displayed between the line number and the text of the line. This will be
+empty if the file's type does not have syntax defined on it.
+
 =item C<show_types>
 
 If this Boolean option is true, file types are appended to the file name
 when displayed.
 
+=item C<syntax>
+
+This argument is a reference to an array of syntax types to select. If a
+file does not have syntax defined. all lines are selected.
+
+=item C<type>
+
+This argument is a reference to an array of file types to select. The
+type can be prefixed with C<'no'> or C<'no-'> to reject the type. In the
+case of files with more than one type, rejection takes precedence over
+selection.
+
 =item C<type_add>
 
-This argument is a reference to an array of type definitions. These are
-specified as C<type:file_selector> where the C<type> is the name
-assigned to the type and C<file_selector> is a
-L<file selector|/FILE SELECTORS>.
+This argument is a reference to an array of file type definitions. These
+are specified as C<type:file_selector> where the C<type> is the name
+assigned to the type and C<file_selector> is a L<file selector|/FILE
+SELECTORS>.
 
 =item C<word_regexp>
 

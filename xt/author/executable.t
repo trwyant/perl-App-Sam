@@ -15,6 +15,8 @@ foreach ( sort keys %{ $manifest } ) {
 	and next;
     m{ \A script / }smx
 	and next;
+    m{ \A t/data/ }smx
+	and next;
     m{ \A tools / }smx
 	and next;
 

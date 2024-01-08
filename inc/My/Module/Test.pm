@@ -10,7 +10,7 @@ use Test2::Util::Table qw{ table };
 
 use Carp;
 
-our @EXPORT_OK = qw{ capture_stdout dependencies_table };
+our @EXPORT_OK = qw{ capture_stdout dependencies_table slurp_syntax };
 our @EXPORT = @EXPORT_OK;
 
 our $VERSION = '0.000_001';
@@ -82,6 +82,20 @@ sub dependencies_table {
     }
 
     return @tables;
+}
+
+sub slurp_syntax {
+    my ( $file ) = @_;
+    my $caller = caller;
+    my $parser = $caller->CLASS()->new();
+    open my $fh, '<:encoding(utf-8)', $file
+	or die "Failed to open $file for input: $!\n";
+    local $_ = undef;	# while ( <> ) does not localize.
+    my @rslt;
+    while ( <$fh> ) {
+	push @rslt, sprintf '%4s:%s', substr( $parser->__syntax(), 0, 4 ), $_;
+    }
+    return join '', @rslt;
 }
 
 

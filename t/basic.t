@@ -15,6 +15,12 @@ use constant REF_CODE	=> ref sub {};
 
 diag $_ for dependencies_table;
 
+load_module_ok 'App::Sam::Util';
+
+load_module_ok 'App::Sam::Syntax';
+
+load_module_ok 'App::Sam::Syntax::Perl';
+
 load_module_ok 'App::Sam';
 
 # NOTE Not to be used except for testing.
@@ -46,6 +52,9 @@ is $sam, {
     match		=> '/foo/',
     munger		=> D,
     _munger		=> validator( sub { REF_CODE eq ref } ),
+    syntax_add		=> array { etc() },
+    _syntax_add		=> hash { etc() },
+    _syntax_def		=> hash { etc() },
     type_add		=> array { etc() },
     _type_add		=> hash { etc() },
     _type_def		=> hash { etc() },
@@ -197,6 +206,9 @@ is $sam, {
     match		=> '/foo/',
     munger		=> D,
     _munger		=> validator( sub { REF_CODE eq ref } ),
+    syntax_add		=> array { etc() },
+    _syntax_add		=> hash { etc() },
+    _syntax_def		=> hash { etc() },
     type_add		=> array { etc() },
     _type_add		=> hash { etc() },
     _type_def		=> hash { etc() },
