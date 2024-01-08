@@ -180,7 +180,7 @@ sub script_files {
 }
 
 sub version_from {
-    return 'lib/App/Sad.pm';
+    return 'lib/App/Sam.pm';
 }
 
 1;

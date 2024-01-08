@@ -20,6 +20,8 @@ load_module_ok 'App::Sam::Util';
 
 load_module_ok 'App::Sam::Syntax';
 
+load_module_ok 'App::Sam::Syntax::Make';
+
 load_module_ok 'App::Sam::Syntax::Perl';
 
 load_module_ok 'App::Sam';

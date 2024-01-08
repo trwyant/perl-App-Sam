@@ -16,4 +16,5 @@ __DATA__
 ack
 Fortran
 merchantability
+syntaxes
 Wyant

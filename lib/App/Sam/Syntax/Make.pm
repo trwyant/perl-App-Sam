@@ -1,4 +1,4 @@
-package App::Sam::Syntax::Perl;
+package App::Sam::Syntax::Make;
 
 use 5.010;
 
@@ -7,47 +7,18 @@ use warnings;
 
 use parent qw{ App::Sam::Syntax };
 
-use App::Sam::Util qw{ :syntax };
+use App::Sam::Util qw{ :carp :syntax };
 
 our $VERSION = '0.000_001';
 
-sub __syntax_code {
+sub __syntax {
     my ( $self ) = @_;
-    if ( m/ \A \s* \# /smx ) {
-	1 == $.
-	    and m/ perl /smx
-	    and return SYNTAX_METADATA;
-	m/ \A \#line \s+ [0-9]+ /smx
-	    and return SYNTAX_METADATA;
-	return SYNTAX_COMMENT;
-    }
-    state $is_data = { map {; "__${_}__\n" => 1 } qw{ DATA END } };
-    if ( $is_data->{$_} ) {
-	$self->{in} = SYNTAX_DATA;
-	return SYNTAX_METADATA;
-    }
-    goto &__syntax_data;
+    my $type = delete $self->{Continued} || (
+	m/ \A \s* \# /smx ? SYNTAX_COMMENT : SYNTAX_CODE );
+    m/ \\ $ /x
+	and $self->{Continued} = $type;
+    return $type;
 }
-
-# NOTE: MUST NOT be called if $self->{in} is 'documentation'
-sub __syntax_data {
-    my ( $self ) = @_;
-    if ( m/ \A = ( cut \b | [A-Za-z] ) /smx ) {
-	'cut' eq $1
-	    and return SYNTAX_DOCUMENTATION;
-	$self->{cut} = $self->{in};
-	$self->{in} = SYNTAX_DOCUMENTATION;
-    }
-    return $self->{in};
-}
-
-sub __syntax_documentation {
-    my ( $self ) = @_;
-    m/ \A = cut \b /smx
-	and $self->{in} = delete $self->{cut};
-    return SYNTAX_DOCUMENTATION;
-}
-
 
 1;
 
@@ -55,7 +26,7 @@ __END__
 
 =head1 NAME
 
-App::Sam::Syntax::Perl - Classify Perl syntax
+App::Sam::Syntax::Make - Classify Makefile syntax
 
 =head1 SYNOPSIS
 
@@ -82,21 +53,14 @@ Of course.
 
 Any line whose first non-blank character is C<'#'>.
 
-=item * SYNTAX_DATA
-
-Anything after C<__DATA__> or C<__END__> except embedded POD.
-
-=item * SYNTAX_DOCUMENTATION
-
-POD.
-
-=item * SYNTAX_METADATA
-
-The shebang line, C<__DATA__>, and C<__END__>.
-
 =back
 
-This classifier can be used for Perl, including F<.pod> files.
+A reverse solidus (C<\>) at the end of the line is a continuation
+marker. The next line is the same syntax as the current line, even if it
+does not otherwise meet the syntax rules for that syntax.
+
+This classifier can be used for C<make>, C<tcl>, and perhaps other
+syntaxes.
 
 =head1 METHODS
 
