@@ -35,6 +35,7 @@ sub build_requires {
 	'Test2::V0'	=> 0,
 	'Test2::Plugin::BailOnFail'	=> 0,
 	'Test2::Tools::LoadModule'	=> 0,
+	'Test2::Tools::Mock'		=> 0,
     };
 }
 
@@ -156,6 +157,7 @@ sub requires {
 	'Getopt::Long'	=> 0,
 	'List::Util'	=> 0,
 	'Module::Load'	=> 0,
+	'Readonly'	=> 0,
 	'Term::ANSIColor'	=> 0,
 	'Text::Abbrev'	=> 0,
 	constant	=> 0,

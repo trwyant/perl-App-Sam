@@ -14,6 +14,7 @@ use Errno qw{ :POSIX };
 use Getopt::Long ();
 use List::Util ();
 use Module::Load ();
+use Readonly;
 use Term::ANSIColor ();
 use Text::Abbrev ();
 
@@ -177,7 +178,7 @@ sub files_from {
     return;
 }
 
-{
+sub _get_spec_list {
     no warnings qw{ qw };	## no critic (ProhibitNoWarnings)
     my @spec_list = (
 	{
@@ -398,7 +399,6 @@ sub files_from {
 	    validate	=> 'help_types',
 	}
     );
-    my %spec_hash = map { $_->{name} => $_ } @spec_list;
 
     foreach ( @spec_list ) {
 	$_->{name} =~ m/ _ /smx
@@ -406,6 +406,14 @@ sub files_from {
 	( my $alias = $_->{name} ) =~ s/ _ /-/smxg;
 	push @{ $_->{alias} }, $alias;
     }
+
+    return @spec_list;
+}
+
+{
+    Readonly::Array my @spec_list => _get_spec_list();
+
+    Readonly::Hash my %spec_hash => map { $_->{name} => $_ } @spec_list;
 
     sub __get_attr_names {
 	state $attr = [ map { $_->{name} } @spec_list ];
@@ -522,17 +530,6 @@ sub files_from {
 		or return 0;
 	}
 	return 1;
-    }
-
-    # NOTE Not to be used except for testing.
-    sub __set_attr_default {
-	my ( $self, %arg ) = @_;
-	foreach my $name ( keys %arg ) {
-	    my $spec = $spec_hash{$name}
-		or $self->__confess( "Unknown attribute '$name'" );
-	    $spec->{default} = $arg{$name};
-	}
-	return;
     }
 }
 

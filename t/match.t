@@ -8,13 +8,19 @@ use warnings;
 use open qw{ :std :encoding(utf-8) };
 
 use Test2::V0 -target => 'App::Sam';
+use Test2::Tools::Mock;
 
 use lib qw{ inc };
 
 use My::Module::Test;
 
-# NOTE Not to be used except for testing.
-App::Sam->__set_attr_default( env => 0 );
+my $mock = mock 'App::Sam' => (
+    after	=> [
+	__get_attr_defaults	=> sub {
+	    $_[0]->{env}	= 0,
+	},
+    ],
+);
 
 {
     my $sam = CLASS->new(

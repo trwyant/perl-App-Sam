@@ -6,6 +6,7 @@ use warnings;
 use Test2::V0;
 use Test2::Plugin::BailOnFail;
 use Test2::Tools::LoadModule;
+use Test2::Tools::Mock;
 
 use lib qw{ inc };
 
@@ -23,10 +24,13 @@ load_module_ok 'App::Sam::Syntax::Perl';
 
 load_module_ok 'App::Sam';
 
-# NOTE Not to be used except for testing.
-App::Sam->__set_attr_default(
-    env		=> 0,		# User rc could cause test failures
-    match	=> '/foo/',	# Match argument is required
+my $mock = mock 'App::Sam' => (
+    after	=> [
+	__get_attr_defaults	=> sub {
+	    $_[0]->{env}	= 0,
+	    $_[0]->{match}	= '/foo/',
+	},
+    ],
 );
 
 my $sam;
