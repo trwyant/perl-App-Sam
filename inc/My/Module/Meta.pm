@@ -155,7 +155,7 @@ sub requires {
 	'File::Next'	=> 0,
 	'File::Spec'	=> 0,
 	'Getopt::Long'	=> 0,
-	'List::Util'	=> 0,
+	'List::Util'	=> 1.46,	# for uniqstr()
 	'Module::Load'	=> 0,
 	'Readonly'	=> 0,
 	'Term::ANSIColor'	=> 0,

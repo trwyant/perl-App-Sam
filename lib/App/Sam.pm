@@ -91,10 +91,32 @@ sub new {
 	my $alias = "_$name";
 	$self->{$alias}{match}
 	    or next;
-	my $str = join ' || ', @{ $self->{$alias}{match} };
+	my $str = join ' || ', List::Util::uniqstr( @{ $self->{$alias}{match} } );
 	my $code = eval "sub { $str }"	## no critic (ProhibitStringyEval)
 	    or $self->__confess( "Failed to compile $name match spec" );
 	$self->{$alias}{match} = $code;
+    }
+
+    foreach my $kind ( qw{ ext is } ) {
+	foreach my $spec ( values %{ $self->{_type_add}{$kind} } ) {
+	    @{ $spec } = List::Util::uniqstr( @{ $spec } );
+	}
+    }
+
+    foreach my $kind ( qw{ match firstlinematch } ) {
+	my %uniq;
+	@{ $self->{_type_add}{$kind} } =
+	    map { pop @{ $_ }; $_ }
+	    grep { ! $uniq{$_->[2]}++ }
+	    @{ $self->{_type_add}{$kind} };
+    }
+
+    foreach my $attr ( qw{ _syntax_def _type_def } ) {
+	foreach my $thing ( values %{ $self->{$attr} } ) {
+	    foreach my $spec ( values %{ $thing } ) {
+		@{ $spec } = List::Util::uniqstr( @{ $spec } );
+	    }
+	}
     }
 
     defined $self->{match}
@@ -848,8 +870,8 @@ sub __type {
 	and push @rslt, @{ $spec->{ext}{$1} };
     if ( my $match = $spec->{match} ) {
 	foreach my $m ( @{ $match } ) {
-	    $m->[0]->()
-		and push @rslt, $m->[1];
+	    $m->[1]->()
+		and push @rslt, $m->[0];
 	}
     }
     if (
@@ -859,11 +881,11 @@ sub __type {
 	local $_ = <$fh>;
 	close $fh;
 	foreach my $m ( @{ $match } ) {
-	    $m->[0]->()
-		and push @rslt, $m->[1];
+	    $m->[1]->()
+		and push @rslt, $m->[0];
 	}
     }
-    return List::Util::uniq( sort @rslt );
+    return List::Util::uniqstr( sort @rslt );
 }
 
 sub __type_del {
@@ -877,7 +899,7 @@ sub __type_del {
 	}
     }
     foreach my $kind ( qw{ match firstlinematch } ) {
-	@{ $def->{$kind} } = grep { $_->[1] ne $type } @{ $def->{$kind} };
+	@{ $def->{$kind} } = grep { $_->[0] ne $type } @{ $def->{$kind} };
     }
     delete $self->{_type_def}{$type};
     return;
@@ -910,23 +932,22 @@ sub __validate_ignore {
 	    or ( $kind, $data ) = ( is => $kind );
 	state $validate_kind = {
 	    ext	=> sub {
-		my ( $self, $name, $value ) = @_;
-		my @item = split /,/, $value;
+		my ( $self, $name, $data ) = @_;
+		my @item = split /,/, $data;
 		@{ $self->{"_$name"}{ext} }{ @item } = ( ( 1 ) x @item );
 		return 1;
 	    },
 	    is	=> sub {
-		my ( $self, $name, $value ) = @_;
-		my @item = split /,/, $value;
-		@{ $self->{"_$name"}{is} }{ @item } = ( ( 1 ) x @item );
+		my ( $self, $name, $data ) = @_;
+		$self->{"_$name"}{is}{$data} = 1;
 		return 1;
 	    },
 	    match	=> sub {
-		my ( $self, $name, $value ) = @_;
+		my ( $self, $name, $data ) = @_;
 		local $@ = undef;
-		eval "qr $value"	## no critic (ProhibitStringyEval)
+		eval "qr $data"	## no critic (ProhibitStringyEval)
 		    or return 0;
-		push @{ $self->{"_$name"}{match} }, $value;
+		push @{ $self->{"_$name"}{match} }, $data;
 		return 1;
 	    },
 	};
@@ -1035,8 +1056,6 @@ sub __validate_type_add {
 	    },
 	    is	=> sub {
 		my ( $self, $type, $data ) = @_;
-		# my @item = split /,/, $data;
-		# push @{ $self->{_type_add}{is}{$_} }, $type for @item;
 		push @{ $self->{_type_add}{is}{$data} }, $type;
 		push @{ $self->{_type_def}{$type}{is} }, $data;
 		return 1;
@@ -1046,7 +1065,8 @@ sub __validate_type_add {
 		local $@ = undef;
 		my $code = eval "sub { $data }"	## no critic (ProhibitStringyEval)
 		    or return 0;
-		push @{ $self->{_type_add}{match} }, [ $code, $type ];
+		push @{ $self->{_type_add}{match} },
+		    [ $type, $code, "$type:$data" ];
 		push @{ $self->{_type_def}{$type}{match} }, $data;
 		return 1;
 	    },
@@ -1055,7 +1075,8 @@ sub __validate_type_add {
 		local $@ = undef;
 		my $code = eval "sub { $data }"	## no critic (ProhibitStringyEval)
 		    or return 0;
-		push @{ $self->{_type_add}{firstlinematch} }, [ $code, $type ];
+		push @{ $self->{_type_add}{firstlinematch} },
+		    [ $type, $code, "$type:$data" ];
 		push @{ $self->{_type_def}{$type}{firstlinematch} }, $data;
 		return 1;
 	    },

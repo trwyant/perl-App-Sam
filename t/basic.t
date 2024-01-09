@@ -89,8 +89,8 @@ is $sam, {
 	    item validator sub {
 		REF_ARRAY eq ref $_ &&
 		@{ $_ } == 2 &&
-		REF_CODE eq ref $_->[0] &&
-		'perl' eq $_->[1]
+		'perl' eq $_->[0] &&
+		REF_CODE eq ref $_->[1]
 	    };
 #	    FIXME why isn't the below equivalent to the above?
 #	    item array {
@@ -271,8 +271,8 @@ is $sam, hash {
 	    foreach ( @{ $_ } ) {
 		REF_ARRAY eq ref
 		    and @{ $_ } == 2
-		    and REF_CODE eq ref $_->[0]
-		    and 'perl' eq $_->[1]
+		    and 'perl' eq $_->[0]
+		    and REF_CODE eq ref $_->[1]
 		    and return 0;
 	    }
 	    return 1;
