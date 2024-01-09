@@ -813,6 +813,29 @@ sub __get_file_iterator {
 	}, $file );
 }
 
+sub __syntax_del {
+    my ( $self, $syntax ) = @_;
+    delete $self->{_syntax_def}{$syntax};
+    foreach my $type ( keys %{ $self->{_syntax_add}{type} } ) {
+	$syntax eq $self->{_syntax_add}{type}{$type}
+	    and delete $self->{_syntax_add}{type}{$type};
+    }
+    return;
+}
+
+sub __syntax_type_del {
+    my ( $self, $type ) = @_;
+    foreach my $syntax ( keys %{ $self->{_syntax_def} } ) {
+	@{ $self->{_syntax_def}{$syntax}{type} } = grep { $_ ne $type }
+	    @{ $self->{_syntax_def}{$syntax}{type} }
+	    or delete $self->{_syntax_def}{$syntax}{type};
+	keys %{ $self->{_syntax_def}{$syntax} }
+	    or delete $self->{_syntax_def}{$syntax};
+    }
+    delete $self->{_syntax_add}{type}{$type};
+    return;
+}
+
 sub __type {
     ( my ( $self, $path ), local $_ ) = @_;
     my $spec = $self->{_type_add} || {};
@@ -848,8 +871,9 @@ sub __type_del {
     my $def = $self->{_type_add};
     foreach my $kind ( qw{ is ext } ) {
 	foreach my $key ( keys %{ $def->{$kind} } ) {
-	    $def->{$kind}{$key} eq $type
-		and delete $def->{$kind}{$key};
+	    @{ $def->{$kind}{$key} } = grep { $_ ne $type }
+		@{ $def->{$kind}{$key} }
+		or delete $def->{$kind}{$key};
 	}
     }
     foreach my $kind ( qw{ match firstlinematch } ) {
@@ -1048,6 +1072,7 @@ sub __validate_type_add {
 	    type_del	=> sub {
 		my ( $self, $type ) = @_;
 		$self->__type_del( $type );
+		$self->__syntax_type_del( $type );
 		return 0;
 	    },
 	};

@@ -12,6 +12,7 @@ use lib qw{ inc };
 
 use My::Module::Test;
 
+use constant REF_ARRAY	=> ref [];
 use constant REF_CODE	=> ref sub {};
 
 diag $_ for dependencies_table;
@@ -51,19 +52,63 @@ is $sam, {
     encoding		=> 'utf-8',
     env			=> 0,
     ignore_sam_defaults	=> undef,
-    ignore_directory	=> array { etc() },
-    _ignore_directory	=> hash { etc() },
-    ignore_file		=> array { etc() },
-    _ignore_file	=> hash { etc() },
+    ignore_directory	=> array { etc },
+    _ignore_directory	=> hash { etc },
+    ignore_file		=> array { etc },
+    _ignore_file	=> hash { etc },
     match		=> '/foo/',
     munger		=> D,
     _munger		=> validator( sub { REF_CODE eq ref } ),
-    syntax_add		=> array { etc() },
-    _syntax_add		=> hash { etc() },
-    _syntax_def		=> hash { etc() },
-    type_add		=> array { etc() },
-    _type_add		=> hash { etc() },
-    _type_def		=> hash { etc() },
+    syntax_add		=> array { etc },
+    _syntax_add		=> hash {	# Ensure Perl's syntax is defined.
+	field type	=> hash {
+	    field	perl => 'Perl';
+	    etc;
+	};
+	etc;
+    },
+    _syntax_def		=> hash {
+	field Perl	=> {
+	    type	=> [ 'perl' ],
+	};
+	etc;
+    },
+    type_add		=> array { etc },
+    _type_add		=> hash {
+	field ext	=> hash {	# Ensure Perl is defined.
+	    field PL	=> [ 'perl' ];
+	    field pl	=> [ 'perl' ];
+	    field pod	=> [ 'perl', 'pod' ];
+	    field psgi	=> [ 'perl' ];
+	    field t	=> [ 'perl', 'perltest' ];
+	    etc;
+	};
+	# NOTE firstlinematch is an unordered array, which I believe
+	# makes it a bag.
+	field firstlinematch => bag {
+	    item validator sub {
+		REF_ARRAY eq ref $_ &&
+		@{ $_ } == 2 &&
+		REF_CODE eq ref $_->[0] &&
+		'perl' eq $_->[1]
+	    };
+#	    FIXME why isn't the below equivalent to the above?
+#	    item array {
+#		validator sub { REF_CODE eq ref } );
+#		string 'perl';
+#		end;
+#	    };
+	    etc;
+	};
+	etc;
+    },
+    _type_def		=> hash {
+	field perl	=> {
+	    ext			=> [ qw{ .pl .PL .pm .pod .t .psgi } ],
+	    firstlinematch	=> [ '/^#!.*\bperl/' ],
+	};
+	etc;
+    },
 }, 'Got expected object';
 
 is $sam->__me(), 'basic.t', '__me() returns base name of script';
@@ -192,41 +237,62 @@ is dies { $sam = App::Sam->new(
 --backup=.bak
 --encoding
 iso-latin-1
---type-del=objc
+--type-del=perl
 EOD
     ) }, undef, 'Can instantiate App::Sam with samrc';
 isa_ok $sam, 'App::Sam';
 
-is $sam, {
-    backup		=> '.bak',
-    color_filename	=> 'bold green',
-    color_lineno	=> 'bold yellow',
-    color_match		=> 'black on_yellow',
-    encoding		=> 'iso-latin-1',
-    env			=> 0,
-    ignore_sam_defaults	=> undef,
-    ignore_directory	=> array { etc() },
-    _ignore_directory	=> hash { etc() },
-    ignore_file		=> array { etc() },
-    _ignore_file	=> hash { etc() },
-    match		=> '/foo/',
-    munger		=> D,
-    _munger		=> validator( sub { REF_CODE eq ref } ),
-    syntax_add		=> array { etc() },
-    _syntax_add		=> hash { etc() },
-    _syntax_def		=> hash { etc() },
-    type_add		=> array { etc() },
-    _type_add		=> hash { etc() },
-    _type_def		=> hash { etc() },
+is $sam, hash {
+    field backup	=> '.bak';
+    field encoding	=> 'iso-latin-1';
+    field _syntax_add	=> hash {
+	field type	=> hash {
+	    field perl	=> DNE;
+	    etc;
+	};
+	etc;
+    };
+    field _syntax_def	=> hash {
+	field Perl	=> DNE;
+	etc;
+    };
+    field _type_add	=> hash {
+	field ext	=> hash {
+	    field PL	=> DNE;
+	    field pl	=> DNE;
+	    field pod	=> [ 'pod' ];
+	    field psgi	=> DNE;
+	    field t	=> [ 'perltest' ];
+	    etc;
+	};
+	field firstlinematch => validator sub {
+	    REF_ARRAY eq ref
+		or return 0;
+	    foreach ( @{ $_ } ) {
+		REF_ARRAY eq ref
+		    and @{ $_ } == 2
+		    and REF_CODE eq ref $_->[0]
+		    and 'perl' eq $_->[1]
+		    and return 0;
+	    }
+	    return 1;
+	};
+	# FIXME firstlinematch is an unordered array, which I believe
+	# makes it a bag. How do I test if something is NOT in the
+	# unordered array?
+	etc;
+    };
+    field _type_def	=> hash {
+	field perl	=> DNE;
+	etc;
+    };
+    etc;
 }, 'Got expected object';
-
-unlike capture_stdout {
-    $sam->help_types()
-}, qr/ \b objc \s+ \.m \s+ .h \b /smx,
-    'help_types no longer includes Objective C';
 
 
 
 done_testing;
 
 1;
+
+# ex: set textwidth=72 :
