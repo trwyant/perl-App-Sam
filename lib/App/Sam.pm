@@ -460,9 +460,22 @@ sub _get_spec_list {
 	foreach my $spec ( @spec_list ) {
 	    exists $spec->{default}
 		or next;
+
+=begin comment
+
 	    $self->{$spec->{name}} = $spec->{default};
 	    $self->__validate_attr( $spec->{name},
 		$self->{$spec->{name}} );
+
+=end comment
+
+=cut
+
+	    if ( exists $spec->{validate} ) {
+		$self->__validate_attr( $spec->{name}, $spec->{default} );
+	    } else {
+		$self->{$spec->{name}} = $spec->{default};
+	    }
 	}
 	return $self;
     }
@@ -906,8 +919,11 @@ sub __type_del {
 }
 
 sub __validate_color {
-    my ( undef, undef, $color ) = @_;	# $self, $name unused
-    return Term::ANSIColor::colorvalid( $color );
+    my ( $self, $name, $color ) = @_;
+    Term::ANSIColor::colorvalid( $color )
+	or return 0;
+    $self->{$name} = $color;
+    return 1;
 }
 
 sub __validate_files_from {

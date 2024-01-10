@@ -52,14 +52,11 @@ is $sam, {
     encoding		=> 'utf-8',
     env			=> 0,
     ignore_sam_defaults	=> undef,
-    ignore_directory	=> array { etc },
     _ignore_directory	=> hash { etc },
-    ignore_file		=> array { etc },
     _ignore_file	=> hash { etc },
     match		=> '/foo/',
     munger		=> D,
     _munger		=> validator( sub { REF_CODE eq ref } ),
-    syntax_add		=> array { etc },
     _syntax_add		=> hash {	# Ensure Perl's syntax is defined.
 	field type	=> hash {
 	    field	perl => 'Perl';
@@ -73,7 +70,6 @@ is $sam, {
 	};
 	etc;
     },
-    type_add		=> array { etc },
     _type_add		=> hash {
 	field ext	=> hash {	# Ensure Perl is defined.
 	    field PL	=> [ 'perl' ];
