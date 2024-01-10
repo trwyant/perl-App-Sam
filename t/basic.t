@@ -21,6 +21,12 @@ load_module_ok 'App::Sam::Util';
 
 load_module_ok 'App::Sam::Syntax';
 
+load_module_ok 'App::Sam::Syntax::_cc_like';
+
+load_module_ok 'App::Sam::Syntax::Cc';
+
+load_module_ok 'App::Sam::Syntax::Cpp';
+
 load_module_ok 'App::Sam::Syntax::Make';
 
 load_module_ok 'App::Sam::Syntax::Perl';

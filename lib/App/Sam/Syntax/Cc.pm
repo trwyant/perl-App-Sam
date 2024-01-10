@@ -1,52 +1,13 @@
-package App::Sam::Syntax::Perl;
+package App::Sam::Syntax::Cc;
 
 use 5.010;
 
 use strict;
 use warnings;
 
-use parent qw{ App::Sam::Syntax };
-
-use App::Sam::Util qw{ :syntax };
+use parent qw{ App::Sam::Syntax::_cc_like };
 
 our $VERSION = '0.000_001';
-
-sub __syntax_code {
-    my ( $self ) = @_;
-    if ( m/ \A \s* \# /smx ) {
-	1 == $.
-	    and m/ perl /smx
-	    and return SYNTAX_METADATA;
-	m/ \A \#line \s+ [0-9]+ /smx
-	    and return SYNTAX_METADATA;
-	return SYNTAX_COMMENT;
-    }
-    state $is_data = { map {; "__${_}__\n" => 1 } qw{ DATA END } };
-    if ( $is_data->{$_} ) {
-	$self->{in} = SYNTAX_DATA;
-	return SYNTAX_METADATA;
-    }
-    goto &__syntax_data;
-}
-
-# NOTE: MUST NOT be called if $self->{in} is 'documentation'
-sub __syntax_data {
-    my ( $self ) = @_;
-    if ( m/ \A = ( cut \b | [A-Za-z] ) /smx ) {
-	'cut' eq $1
-	    and return SYNTAX_DOCUMENTATION;
-	$self->{cut} = $self->{in};
-	$self->{in} = SYNTAX_DOCUMENTATION;
-    }
-    return $self->{in};
-}
-
-sub __syntax_documentation {
-    my ( $self ) = @_;
-    m/ \A = cut \b /smx
-	and $self->{in} = delete $self->{cut};
-    return SYNTAX_DOCUMENTATION;
-}
 
 
 1;
@@ -55,7 +16,7 @@ __END__
 
 =head1 NAME
 
-App::Sam::Syntax::Perl - Classify Perl syntax
+App::Sam::Syntax::Cc - Classify C syntax
 
 =head1 SYNOPSIS
 
@@ -63,7 +24,8 @@ The user has no direct interaction with this module.
 
 =head1 DESCRIPTION
 
-This Perl class is a subclass of L<App::Sam::Syntax|App::Sam::Syntax>.
+This Perl class is a subclass of
+L<App::Sam::Syntax::_cc_like|App::Sam::Syntax::_cc_like>.
 It is B<private> to the C<App-Sam> package, and the user does not
 interact with it directly.
 
@@ -80,23 +42,17 @@ Of course.
 
 =item * SYNTAX_COMMENT
 
-Any line whose first non-blank character is C<'#'>.
+This is a C-style comment delimited by C</*> and C<*/>. Comments will be
+recognized only if there is only white space before the beginning of the
+comment.
 
-=item * SYNTAX_DATA
+=item * SYNTAX_PREPROCESSOR
 
-Anything after C<__DATA__> or C<__END__> except embedded POD.
-
-=item * SYNTAX_DOCUMENTATION
-
-POD.
-
-=item * SYNTAX_METADATA
-
-The shebang line, C<__DATA__>, C<__END__>, and the C<#line> directive.
+Preprocessor directives.
 
 =back
 
-This classifier can be used for Perl, including F<.pod> files.
+This classifier can be used for C.
 
 =head1 METHODS
 
@@ -108,6 +64,8 @@ superclass.
 L<App::Sam|App::Sam>
 
 L<App::Sam::Syntax|App::Sam::Syntax>
+
+L<App::Sam::Syntax::_cc_like|App::Sam::Syntax::_cc_like>
 
 =head1 SUPPORT
 

@@ -20,6 +20,7 @@ our @EXPORT_OK = qw{
     SYNTAX_DATA
     SYNTAX_DOCUMENTATION
     SYNTAX_METADATA
+    SYNTAX_PREPROCESSOR
     SYNTAX_OTHER
 };
 our %EXPORT_TAGS = (
@@ -33,6 +34,7 @@ use constant SYNTAX_DATA		=> 'data';
 use constant SYNTAX_DOCUMENTATION	=> 'documentation';
 use constant SYNTAX_METADATA		=> 'metadata';
 use constant SYNTAX_OTHER		=> 'other';
+use constant SYNTAX_PREPROCESSOR	=> 'preprocessor';
 
 sub __carp {
     my ( $self, @arg ) = @_;
@@ -186,6 +188,12 @@ It can be imported by name or using the C<:syntax> tag.
 =head2 SYNTAX_OTHER
 
 This syntax type represents other syntax.
+
+It can be imported by name or using the C<:syntax> tag.
+
+=head2 SYNTAX_PREPROCESSOR
+
+This syntax type represents preprocessor directives.
 
 It can be imported by name or using the C<:syntax> tag.
 

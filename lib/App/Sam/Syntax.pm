@@ -116,6 +116,7 @@ return the syntax type of the current line, selected from
  SYNTAX_DOCUMENTATION
  SYNTAX_METADATA
  SYNTAX_OTHER
+ SYNTAX_PREPROCESSOR
 
 The expected methods are
 
@@ -125,6 +126,7 @@ The expected methods are
  __syntax_documentation()
  __syntax_metadata()
  __syntax_other()
+ __syntax_preprocessor()
 
 The subclass need not (and probably should not) implement subroutines
 corresponding to syntax types that can not occur.
