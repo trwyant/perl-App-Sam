@@ -737,6 +737,12 @@ sub process {
 		    $self->{_syntax_obj}{$class} ||=
 		    "App::Sam::Syntax::$class"->new( die => $self->{die} );
 	    }
+
+	    # If --syntax was specified and we did not find a syntax
+	    # object, ignore the file.
+	    $self->{_syntax}
+		and not $self->{_process}{syntax_obj}
+		and return;
 	}
 
 	if ( $self->{f} ) {
@@ -1314,7 +1320,7 @@ when displayed.
 =item C<syntax>
 
 This argument is a reference to an array of syntax types to select. If a
-file does not have syntax defined. all lines are selected.
+file does not have syntax defined. it is ignored.
 
 =item C<type>
 
