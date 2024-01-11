@@ -22,11 +22,24 @@ our @EXPORT_OK = qw{
     SYNTAX_METADATA
     SYNTAX_PREPROCESSOR
     SYNTAX_OTHER
+    @CARP_NOT
 };
+
 our %EXPORT_TAGS = (
     carp	=> [ qw{ __carp __confess __croak } ],
     syntax	=> [ grep { m/ \A SYNTAX_ /smx } @EXPORT_OK ],
 );
+
+our @CARP_NOT = qw{
+    App::Sam
+    App::Sam::Syntax
+    App::Sam::Syntax::Cc
+    App::Sam::Syntax::Cpp
+    App::Sam::Syntax::Make
+    App::Sam::Syntax::Perl
+    App::Sam::Syntax::_cc_like
+    App::Sam::Util
+};
 
 use constant SYNTAX_CODE		=> 'code';
 use constant SYNTAX_COMMENT		=> 'comment';
@@ -150,6 +163,16 @@ This subroutine returns the names of all syntax types as defined by
 C<SYNTAX_*> L<MANIFEST CONSTANTS|/MANIFEST CONSTANTS> (see below).
 
 It can be imported by name.
+
+=head1 ARRAYS
+
+This subroutine provides the following package-private C<our> arrays
+
+=head2 @CARP_NOT
+
+This C<our> array contains the names of all modules in the package.
+L<Carp|Carp> makes use of it to determine how far up the call stack to
+go.
 
 =head1 MANIFEST CONSTANTS
 

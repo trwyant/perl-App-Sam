@@ -7,7 +7,7 @@ use warnings;
 
 use parent qw{ App::Sam::Syntax };
 
-use App::Sam::Util qw{ :carp :syntax };
+use App::Sam::Util qw{ :carp :syntax @CARP_NOT };
 
 our $VERSION = '0.000_001';
 

@@ -7,7 +7,7 @@ use warnings;
 
 use utf8;
 
-use App::Sam::Util qw{ :carp __syntax_types };
+use App::Sam::Util qw{ :carp __syntax_types @CARP_NOT };
 use File::Next ();
 use File::Spec;
 use Errno qw{ :POSIX };
@@ -831,7 +831,10 @@ sub _process_display_p {
 # NOTE ALSO: the current line is in $_.
 sub _process_match_p {
     my ( $self ) = @_;
-    if ( $self->{_syntax} ) {
+    # FIXME is this right? Or should I consider --syntax=foo to NOT
+    # select lines with unknown syntax? The more I think, the more I
+    # want the latter.
+    if ( $self->{_syntax} && defined $self->{_process}{syntax} ) {
 	$self->{_syntax}{$self->{_process}{syntax}}
 	    or return 0;
     }

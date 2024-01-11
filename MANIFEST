@@ -32,6 +32,7 @@ t/syntax_cc.t
 t/syntax_cpp.t
 t/syntax_make.t
 t/syntax_perl.t
+xt/author/carp_not.t
 xt/author/changes.t
 xt/author/critic.t
 xt/author/executable.t

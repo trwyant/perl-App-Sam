@@ -7,6 +7,8 @@ use warnings;
 
 use parent qw{ App::Sam::Syntax::_cc_like };
 
+use App::Sam::Util qw{ @CARP_NOT };
+
 our $VERSION = '0.000_001';
 
 

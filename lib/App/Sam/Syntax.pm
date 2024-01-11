@@ -5,7 +5,7 @@ use 5.010;
 use strict;
 use warnings;
 
-use App::Sam::Util qw{ :carp :syntax };
+use App::Sam::Util qw{ :carp :syntax @CARP_NOT };
 
 our $VERSION = '0.000_001';
 
