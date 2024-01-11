@@ -31,6 +31,8 @@ load_module_ok 'App::Sam::Syntax::Make';
 
 load_module_ok 'App::Sam::Syntax::Perl';
 
+load_module_ok 'App::Sam::Syntax::Raku';
+
 load_module_ok 'App::Sam';
 
 my $mock = mock 'App::Sam' => (

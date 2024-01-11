@@ -348,11 +348,13 @@ sub _get_spec_list {
 	{
 	    name	=> 'type_del',
 	    type	=> '=s@',
+	    option_only	=> 1,
 	    validate	=> '__validate_type_add',
 	},
 	{
 	    name	=> 'type_set',
 	    type	=> '=s@',
+	    option_only	=> 1,
 	    validate	=> '__validate_type_add',
 	},
 	{	# Must come after type_add, type_del, and type_set
@@ -369,11 +371,13 @@ sub _get_spec_list {
 	{
 	    name	=> 'syntax_del',
 	    type	=> '=s@',
+	    option_only	=> 1,
 	    validate	=> '__validate_syntax_add',
 	},
 	{
 	    name	=> 'syntax_set',
 	    type	=> '=s@',
+	    option_only	=> 1,
 	    validate	=> '__validate_syntax_add',
 	},
 	{
@@ -443,7 +447,11 @@ sub _get_spec_list {
     Readonly::Hash my %spec_hash => map { $_->{name} => $_ } @spec_list;
 
     sub __get_attr_names {
-	state $attr = [ map { $_->{name} } @spec_list ];
+	state $attr = [
+	    map { $_->{name} }
+	    grep { ! $_->{option_only} }
+	    @spec_list,
+	];
 	return @{ $attr };
     }
 

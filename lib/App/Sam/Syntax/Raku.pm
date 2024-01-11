@@ -1,4 +1,4 @@
-package App::Sam::Syntax::Perl;
+package App::Sam::Syntax::Raku;
 
 use 5.010;
 
@@ -8,46 +8,80 @@ use warnings;
 use parent qw{ App::Sam::Syntax };
 
 use App::Sam::Util qw{ :syntax @CARP_NOT };
+use Readonly;
 
 our $VERSION = '0.000_001';
 
+Readonly::Scalar my $open_brkt => join '',
+    "\N{U+0028}",	# Left parenthesis
+    "\N{U+007B}",	# Left curly bracket
+    "\N{U+005B}",	# Left square bracket
+    "\N{U+00AB}";	# Left-pointing double angle quotation mark
+
 sub __syntax_code {
     my ( $self ) = @_;
-    if ( m/ \A \s* \# /smx ) {
+    if ( m/ \A \s* \# /smxg ) {
 	1 == $.
-	    and m/ perl /smx
+	    and m/ raku /smx
 	    and return SYNTAX_METADATA;
-	m/ \A \#line \s+ [0-9]+ /smx
-	    and return SYNTAX_METADATA;
+	m/ \G ` ( ( [$open_brkt] ) \g{-1}* ) /smxgco and do {
+	    my $close_brkt = _close_bracket( $1 );
+	    index( $_, $close_brkt ) >= 0
+		and return SYNTAX_COMMENT;
+	    $self->{in} = SYNTAX_COMMENT;
+	    $self->{Block_end} = $close_brkt;
+	};
+	m/ \G [|=] ( [$open_brkt] )? /smxgo and do {
+	    $1
+		or return SYNTAX_DOCUMENTATION;
+	    $self->{Block_end} = _close_bracket( $1 );
+	    $self->{in} = SYNTAX_DOCUMENTATION;
+	    return SYNTAX_DOCUMENTATION;
+	};
 	return SYNTAX_COMMENT;
     }
-    state $is_data = { map {; "__${_}__\n" => 1 } qw{ DATA END } };
-    if ( $is_data->{$_} ) {
-	$self->{in} = SYNTAX_DATA;
-	return SYNTAX_METADATA;
-    }
     goto &__syntax_data;
+}
+
+sub __syntax_comment {
+    my ( $self ) = @_;
+    index( $_, $self->{Block_end} ) >= 0 and do {
+	$self->{in} = SYNTAX_CODE;
+	delete $self->{Block_end};
+    };
+    return SYNTAX_COMMENT;
 }
 
 # NOTE: MUST NOT be called if $self->{in} is 'documentation'
 sub __syntax_data {
     my ( $self ) = @_;
-    if ( m/ \A = ( cut \b | [A-Za-z] ) /smx ) {
-	'cut' eq $1
-	    and return SYNTAX_DOCUMENTATION;
-	$self->{Cut} = $self->{in};
-	$self->{in} = SYNTAX_DOCUMENTATION;
-    }
-    return $self->{in};
+
+    m/ \A = begin \s+ pod \b /smx
+	or return $self->{in};
+
+    $self->{Cut} = $self->{in};
+    $self->{in} = SYNTAX_DOCUMENTATION;
+    return SYNTAX_DOCUMENTATION;
 }
 
 sub __syntax_documentation {
     my ( $self ) = @_;
-    m/ \A = cut \b /smx
-	and $self->{in} = delete $self->{Cut};
+    if ( defined $self->{Block_end} &&
+	index( $_, $self->{Block_end} ) >= 0
+    ) {
+	$self->{in} = delete( $self->{Cut} ) // SYNTAX_CODE;
+	delete $self->{Block_end};
+    } elsif ( m/ \A = end \s+ pod \b /smx ) {
+	$self->{in} = delete( $self->{Cut} ) // SYNTAX_CODE;
+    }
     return SYNTAX_DOCUMENTATION;
 }
 
+sub _close_bracket {
+    my ( $brkt ) = @_;
+    $brkt =~ tr/({[<\N{U+AB}/)}]>\N{U+BB}/;
+    return $brkt;
+}
 
 1;
 
@@ -55,7 +89,7 @@ __END__
 
 =head1 NAME
 
-App::Sam::Syntax::Perl - Classify Perl syntax
+App::Sam::Syntax::Raku - Classify Raku syntax
 
 =head1 SYNOPSIS
 
@@ -63,7 +97,7 @@ The user has no direct interaction with this module.
 
 =head1 DESCRIPTION
 
-This Perl class is a subclass of L<App::Sam::Syntax|App::Sam::Syntax>.
+This Raku class is a subclass of L<App::Sam::Syntax|App::Sam::Syntax>.
 It is B<private> to the C<App-Sam> package, and the user does not
 interact with it directly.
 
@@ -96,7 +130,7 @@ The shebang line, C<__DATA__>, C<__END__>, and the C<#line> directive.
 
 =back
 
-This classifier can be used for Perl, including F<.pod> files.
+This classifier can be used for Raku, including F<.pod> files.
 
 =head1 METHODS
 
@@ -125,7 +159,7 @@ Thomas R. Wyant, III F<wyant at cpan dot org>
 Copyright (C) 2024 by Thomas R. Wyant, III
 
 This program is free software; you can redistribute it and/or modify it
-under the same terms as Perl 5.10.0. For more details, see the full text
+under the same terms as Raku 5.10.0. For more details, see the full text
 of the licenses in the directory LICENSES.
 
 This program is distributed in the hope that it will be useful, but

@@ -17,5 +17,6 @@ ack
 Fortran
 merchantability
 preprocessor
+Raku
 syntaxes
 Wyant
