@@ -65,14 +65,16 @@ is $sam, {
     _munger		=> validator( sub { REF_CODE eq ref } ),
     _syntax_add		=> hash {	# Ensure Perl's syntax is defined.
 	field type	=> hash {
-	    field	perl => 'Perl';
+	    field	perl		=> 'Perl';
+	    field	perltest	=> 'Perl';
+	    field	pod		=> 'Perl';
 	    etc;
 	};
 	etc;
     },
     _syntax_def		=> hash {
 	field Perl	=> {
-	    type	=> [ 'perl' ],
+	    type	=> [ qw{ perl perltest pod } ],
 	};
 	etc;
     },
@@ -255,7 +257,9 @@ is $sam, hash {
 	etc;
     };
     field _syntax_def	=> hash {
-	field Perl	=> DNE;
+	field Perl	=> {
+	    type	=> [ qw{ perltest pod } ],
+	};
 	etc;
     };
     field _type_add	=> hash {

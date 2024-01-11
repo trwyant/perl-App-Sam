@@ -358,8 +358,12 @@ sub _get_spec_list {
 	{	# Must come after type_add, type_del, and type_set
 	    name	=> 'syntax_add',
 	    type	=> '=s@',
-	    default	=> [ qw{ Cc:type:cc Cpp:type:cpp
-		Make:type:make,tcl Perl:type:perl } ],
+	    default	=> [ qw{
+		Cc:type:cc
+		Cpp:type:cpp
+		Make:type:make,tcl
+		Perl:type:perl,perltest,pod
+		} ],
 	    validate	=> '__validate_syntax_add',
 	},
 	{
