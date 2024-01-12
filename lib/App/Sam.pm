@@ -417,6 +417,7 @@ sub _get_spec_list {
 		Make:type:make,tcl
 		Perl:type:perl,perltest,pod
 		Raku:type:raku,rakutest
+		YAML:type:yaml
 		} ],
 	    validate	=> '__validate_syntax_add',
 	},
