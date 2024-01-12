@@ -1,6 +1,6 @@
 package My::Module::Meta;
 
-use 5.010;
+use 5.010001;
 
 use strict;
 use warnings;
@@ -170,7 +170,7 @@ sub requires {
 }
 
 sub requires_perl {
-    return 5.010;
+    return 5.010001;
 }
 
 

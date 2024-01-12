@@ -1,6 +1,6 @@
 package App::Sam::Syntax::_cc_like;
 
-use 5.010;
+use 5.010001;
 
 use strict;
 use warnings;
