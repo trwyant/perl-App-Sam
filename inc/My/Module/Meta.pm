@@ -34,7 +34,7 @@ sub build_requires {
 	open		=> 0,
 	'Test2::V0'	=> 0,
 	'Test2::Plugin::BailOnFail'	=> 0,
-	'Test2::Tools::LoadModule'	=> 0,
+	'Test2::Tools::LoadModule'	=> 0.002, # For all_modules_tried_ok
 	'Test2::Tools::Mock'		=> 0,
     };
 }

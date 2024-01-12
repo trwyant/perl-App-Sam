@@ -27,6 +27,8 @@ load_module_ok 'App::Sam::Syntax::Cc';
 
 load_module_ok 'App::Sam::Syntax::Cpp';
 
+load_module_ok 'App::Sam::Syntax::Java';
+
 load_module_ok 'App::Sam::Syntax::Make';
 
 load_module_ok 'App::Sam::Syntax::Perl';
@@ -297,7 +299,7 @@ is $sam, hash {
     etc;
 }, 'Got expected object';
 
-
+all_modules_tried_ok;
 
 done_testing;
 

@@ -97,12 +97,6 @@ sub new {
 	$self->{$alias}{match} = $code;
     }
 
-    foreach my $kind ( qw{ ext is } ) {
-	foreach my $spec ( values %{ $self->{_type_add}{$kind} } ) {
-	    @{ $spec } = List::Util::uniqstr( @{ $spec } );
-	}
-    }
-
     foreach my $kind ( qw{ match firstlinematch } ) {
 	my %uniq;
 	@{ $self->{_type_add}{$kind} } =
@@ -112,6 +106,13 @@ sub new {
     }
 
     foreach my $attr ( qw{ _syntax_def _type_def } ) {
+
+	foreach my $kind ( qw{ ext is } ) {
+	    foreach my $spec ( values %{ $self->{_type_add}{$kind} || {} } ) {
+		@{ $spec } = List::Util::uniqstr( @{ $spec } );
+	    }
+	}
+
 	foreach my $thing ( values %{ $self->{$attr} } ) {
 	    foreach my $spec ( values %{ $thing } ) {
 		@{ $spec } = List::Util::uniqstr( @{ $spec } );
@@ -198,6 +199,52 @@ sub files_from {
 	return $self->files_from( @{ $self->{_files_from} || [] } );
     }
     return;
+}
+
+sub _file_property {
+    ( my ( $self, $property, $path ), local $_ ) = @_;
+    my $spec = $self->{"_${property}_add"} || {};
+    $_ //= ( File::Spec->splitpath( $path ) )[2];
+    my @rslt;
+
+    $spec->{is}{$_}
+	and push @rslt, @{ $spec->{is}{$_} };
+
+    m/ [.] ( [^.]* ) \z /smx
+	and $spec->{ext}{$1}
+	and push @rslt, @{ $spec->{ext}{$1} };
+
+    if ( my $match = $spec->{match} ) {
+	foreach my $m ( @{ $match } ) {
+	    $m->[1]->()
+		and push @rslt, $m->[0];
+	}
+    }
+
+    if (
+	my $match = $spec->{firstlinematch}
+	    and open my $fh, '<' . $self->__get_encoding( $path ), $path
+    ) {
+	local $_ = <$fh>;
+	close $fh;
+	foreach my $m ( @{ $match } ) {
+	    $m->[1]->()
+		and push @rslt, $m->[0];
+	}
+    }
+
+    if ( my $type_map = $spec->{type} ) {
+	foreach my $type (
+	    $self->{_process}{type} ?
+	    @{ $self->{_process}{type} } :
+	    $self->__type( $path, $_ )
+	) {
+	    $type_map->{$type}
+		and push @rslt, $type_map->{$type};
+	}
+    }
+
+    return List::Util::uniqstr( sort @rslt );
 }
 
 sub _get_spec_list {
@@ -329,6 +376,9 @@ sub _get_spec_list {
 		plone:ext:pt,cpt,metadata,cpy,py powershell:ext:ps1,psm1
 		purescript:ext:purs python:ext:py
 		python:firstlinematch:/^#!.*\bpython/ rr:ext:R,Rmd
+		raku:ext:raku,rakumod,rakudoc,rakutest,nqp,p6,pm6,pod6
+		raku:firstlinematch:/^#!.*\braku/
+		rakutest:ext:rakutest
 		rst:ext:rst ruby:ext:rb,rhtml,rjs,rxml,erb,rake,spec
 		ruby:is:Rakefile ruby:firstlinematch:/^#!.*\bruby/
 		rust:ext:rs sass:ext:sass,scss scala:ext:scala,sbt
@@ -363,8 +413,10 @@ sub _get_spec_list {
 	    default	=> [ qw{
 		Cc:type:cc
 		Cpp:type:cpp
+		Java:ext:java
 		Make:type:make,tcl
 		Perl:type:perl,perltest,pod
+		Raku:type:raku,rakutest
 		} ],
 	    validate	=> '__validate_syntax_add',
 	},
@@ -742,9 +794,7 @@ sub process {
 	    and push @show_types, join ',', @{ $self->{_process}{type} };
 
 	if ( $self->{_syntax} || $self->{show_syntax} ) {
-	    foreach my $type ( @{ $self->{_process}{type} } ) {
-		my $class = $self->{_syntax_add}{type}{$type}
-		    or next;
+	    if ( my ( $class ) = $self->__syntax( $file ) ) {
 		$self->{_process}{syntax_obj} =
 		    $self->{_syntax_obj}{$class} ||=
 		    "App::Sam::Syntax::$class"->new( die => $self->{die} );
@@ -893,34 +943,14 @@ sub __syntax_type_del {
     return;
 }
 
+sub __syntax {
+    my ( $self, @arg ) = @_;
+    return $self->_file_property( syntax => @arg );
+}
+
 sub __type {
-    ( my ( $self, $path ), local $_ ) = @_;
-    my $spec = $self->{_type_add} || {};
-    $_ //= ( File::Spec->splitpath( $path ) )[2];
-    my @rslt;
-    $spec->{is}{$_}
-	and push @rslt, @{ $spec->{is}{$_} };
-    m/ [.] ( [^.]* ) \z /smx
-	and $spec->{ext}{$1}
-	and push @rslt, @{ $spec->{ext}{$1} };
-    if ( my $match = $spec->{match} ) {
-	foreach my $m ( @{ $match } ) {
-	    $m->[1]->()
-		and push @rslt, $m->[0];
-	}
-    }
-    if (
-	my $match = $spec->{firstlinematch}
-	    and open my $fh, '<' . $self->__get_encoding( $path ), $path
-    ) {
-	local $_ = <$fh>;
-	close $fh;
-	foreach my $m ( @{ $match } ) {
-	    $m->[1]->()
-		and push @rslt, $m->[0];
-	}
-    }
-    return List::Util::uniqstr( sort @rslt );
+    my ( $self, @arg ) = @_;
+    return $self->_file_property( type => @arg );
 }
 
 sub __type_del {
@@ -1023,6 +1053,14 @@ sub __validate_syntax_add {
 	defined $data
 	    or ( $kind, $data ) = ( type => $kind );
 	state $validate_kind = {
+	    ext	=> sub {
+		my ( $self, $syntax, $data ) = @_;
+		my @item = split /,/, $data;
+		push @{ $self->{_syntax_add}{ext}{$_} }, $syntax for @item;
+		push @{ $self->{_syntax_def}{$syntax}{ext} },
+		    map { ".$_" } @item;
+		return 1;
+	    },
 	    type	=> sub {
 		my ( $self, $syntax, $data ) = @_;
 		my @item = split /,/, $data;

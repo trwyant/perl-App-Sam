@@ -35,6 +35,7 @@ our @CARP_NOT = qw{
     App::Sam::Syntax
     App::Sam::Syntax::Cc
     App::Sam::Syntax::Cpp
+    App::Sam::Syntax::Java
     App::Sam::Syntax::Make
     App::Sam::Syntax::Perl
     App::Sam::Syntax::Raku

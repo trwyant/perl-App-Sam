@@ -35,8 +35,13 @@ sub __syntax_code {
 	    and $self->{in} = SYNTAX_PREPROCESSOR;
 	return SYNTAX_PREPROCESSOR;
     };
-    # TODO inline doc
-    # TODO block metadata
+    $self->__match_single_line_metadata()
+	and return SYNTAX_METADATA;
+    $self->__match_block_metadata_start() and do {
+	$self->__match_block_metadata_end()
+	    or $self->{in} = SYNTAX_METADATA;
+	return SYNTAX_METADATA;
+    };
     return SYNTAX_CODE;
 }
 
@@ -47,18 +52,25 @@ sub __syntax_documentation {
     return SYNTAX_DOCUMENTATION;
 }
 
-sub __syntax_preprocessor {
-    my ( $self ) = @_;
-    $self->__match_preprocessor_continuation()
-	or $self->{in} = SYNTAX_CODE;
-    return SYNTAX_PREPROCESSOR;
-}
-
 sub __syntax_comment {
     my ( $self ) = @_;
     $self->__match_block_comment_end()
 	and $self->{in} = SYNTAX_CODE;
     return SYNTAX_COMMENT;
+}
+
+sub __syntax_metadata {
+    my ( $self ) = @_;
+    $self->__match_block_metadata_end()
+	and $self->{in} = SYNTAX_CODE;
+    return SYNTAX_METADATA;
+}
+
+sub __syntax_preprocessor {
+    my ( $self ) = @_;
+    $self->__match_preprocessor_continuation()
+	or $self->{in} = SYNTAX_CODE;
+    return SYNTAX_PREPROCESSOR;
 }
 
 # Syntax implementation
@@ -88,6 +100,20 @@ sub __match_block_documentation_start {
 }
 
 sub __match_single_line_documentation {
+    return 0;
+}
+
+# Metadata
+
+sub __match_block_metadata_end {
+    return 0;
+}
+
+sub __match_block_metadata_start {
+    return 0;
+}
+
+sub __match_single_line_metadata {
     return 0;
 }
 
