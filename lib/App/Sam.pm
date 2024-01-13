@@ -237,7 +237,7 @@ sub _file_property {
 	foreach my $type (
 	    $self->{_process}{type} ?
 	    @{ $self->{_process}{type} } :
-	    $self->__type( $path, $_ )
+	    $self->__file_type( $path, $_ )
 	) {
 	    $type_map->{$type}
 		and push @rslt, $type_map->{$type};
@@ -245,6 +245,16 @@ sub _file_property {
     }
 
     return List::Util::uniqstr( sort @rslt );
+}
+
+sub __file_syntax {
+    my ( $self, @arg ) = @_;
+    return $self->_file_property( syntax => @arg );
+}
+
+sub __file_type {
+    my ( $self, @arg ) = @_;
+    return $self->_file_property( type => @arg );
 }
 
 sub _get_spec_list {
@@ -766,7 +776,7 @@ sub __ignore {
 
 	# Encoding: undef = unspecified, 0 = accept, 1 = skip
 	my $want_type;
-	foreach my $type ( $self->__type( $path, $_ ) ) {
+	foreach my $type ( $self->__file_type( $path, $_ ) ) {
 	    my $skip = $self->{_type}{$type}
 		and return 1;
 	    $want_type //= $skip;
@@ -786,7 +796,7 @@ sub process {
 	-T $file
 	    or return;
 
-	$self->{_process}{type} = [ $self->__type( $file ) ]
+	$self->{_process}{type} = [ $self->__file_type( $file ) ]
 	    if $self->{show_types} || $self->{_syntax} ||
 		$self->{show_syntax};
 
@@ -795,7 +805,7 @@ sub process {
 	    and push @show_types, join ',', @{ $self->{_process}{type} };
 
 	if ( $self->{_syntax} || $self->{show_syntax} ) {
-	    if ( my ( $class ) = $self->__syntax( $file ) ) {
+	    if ( my ( $class ) = $self->__file_syntax( $file ) ) {
 		$self->{_process}{syntax_obj} =
 		    $self->{_syntax_obj}{$class} ||=
 		    "App::Sam::Syntax::$class"->new( die => $self->{die} );
@@ -942,16 +952,6 @@ sub __syntax_type_del {
     }
     delete $self->{_syntax_add}{type}{$type};
     return;
-}
-
-sub __syntax {
-    my ( $self, @arg ) = @_;
-    return $self->_file_property( syntax => @arg );
-}
-
-sub __type {
-    my ( $self, @arg ) = @_;
-    return $self->_file_property( type => @arg );
 }
 
 sub __type_del {

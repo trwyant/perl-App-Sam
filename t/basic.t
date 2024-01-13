@@ -157,13 +157,13 @@ ok $sam->__ignore( file => '_fubar.swp' ),
 ok ! $sam->__ignore( file => 'fubar.PL' ),
     q/File 'fubar.PL' is not ignored'/;
 
-is [ $sam->__type( 'lib/App/Sam.pm' ) ], [ qw{ perl } ],
+is [ $sam->__file_type( 'lib/App/Sam.pm' ) ], [ qw{ perl } ],
     q<lib/App/Sam.pm is type 'perl'>;
 
-is [ $sam->__type( 't/basic.t' ) ], [ qw{ perl perltest } ],
+is [ $sam->__file_type( 't/basic.t' ) ], [ qw{ perl perltest } ],
     q<t/basic.t is types 'perl' and 'perltest'>;
 
-is [ $sam->__type( 'README' ) ], [],
+is [ $sam->__file_type( 'README' ) ], [],
     q<README has no type>;
 
 ok $sam->__ignore( directory => 'blib' ), q<directory 'blib' is ignored>;
