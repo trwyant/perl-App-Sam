@@ -33,7 +33,7 @@ foreach my $name ( sort keys %want ) {
     state $valid = {
 	ignore_directory	=> '__validate_ignore',
 	ignore_file		=> '__validate_ignore',
-	type_add		=> '__validate_file_type_add',
+	type_add		=> '__validate_file_property_add',
     };
     my $vld = $valid->{$name};
     $vld = defined( $vld ) ? "'$vld'" : 'undef';
@@ -52,7 +52,7 @@ __END__
 
 =head1 TITLE
 
-convert-ack-opt - Convert the Ack default options into Sad format
+convert-ack-opt - Convert the Ack default options into Sam format
 
 =head1 SYNOPSIS
 
@@ -75,7 +75,7 @@ This option displays the version of this script. The script then exits.
 
 This Perl script reads the Ack default options from
 L<App::Ack::ConfigDefault|App::Ack::ConfigDefault> and writes them to
-F<STDOUT> in Sad format.
+F<STDOUT> in Sam format.
 
 =head1 AUTHOR
 

@@ -97,22 +97,25 @@ sub new {
 	$self->{$alias}{match} = $code;
     }
 
-    foreach my $kind ( qw{ match firstlinematch } ) {
-	my %uniq;
-	@{ $self->{_type_add}{$kind} } =
-	    map { pop @{ $_ }; $_ }
-	    grep { ! $uniq{$_->[2]}++ }
-	    @{ $self->{_type_add}{$kind} };
-    }
+    foreach my $prop ( qw{ syntax type } ) {
 
-    foreach my $attr ( qw{ _syntax_def _type_def } ) {
-
+	my $attr = "_${prop}_add";
 	foreach my $kind ( qw{ ext is } ) {
-	    foreach my $spec ( values %{ $self->{_type_add}{$kind} || {} } ) {
+	    foreach my $spec ( values %{ $self->{$attr}{$kind} || {} } ) {
 		@{ $spec } = List::Util::uniqstr( @{ $spec } );
 	    }
 	}
 
+	foreach my $kind ( qw{ match firstlinematch } ) {
+	    my %uniq;
+	    @{ $self->{$attr}{$kind} } =
+		map { pop @{ $_ }; $_ }
+		grep { ! $uniq{$_->[2]}++ }
+		@{ $self->{$attr}{$kind} || [] }
+		or delete $self->{$attr}{$kind};
+	}
+
+	$attr = "_${prop}_def";
 	foreach my $thing ( values %{ $self->{$attr} } ) {
 	    foreach my $spec ( values %{ $thing } ) {
 		@{ $spec } = List::Util::uniqstr( @{ $spec } );
@@ -440,19 +443,19 @@ sub _get_spec_list {
 		verilog:ext:v,vh,sv vhdl:ext:vhd,vhdl vim:ext:vim
 		xml:ext:xml,dtd,xsd,xsl,xslt,ent,wsdl
 		xml:firstlinematch:/<[?]xml/ yaml:ext:yaml,yml } ],
-	    validate	=> '__validate_file_type_add',
+	    validate	=> '__validate_file_property_add',
 	},
 	{
 	    name	=> 'type_del',
 	    type	=> '=s@',
 	    option_only	=> 1,
-	    validate	=> '__validate_file_type_add',
+	    validate	=> '__validate_file_property_add',
 	},
 	{
 	    name	=> 'type_set',
 	    type	=> '=s@',
 	    option_only	=> 1,
-	    validate	=> '__validate_file_type_add',
+	    validate	=> '__validate_file_property_add',
 	},
 	{	# Must come after type_add, type_del, and type_set
 	    name	=> 'syntax_add',
@@ -466,19 +469,19 @@ sub _get_spec_list {
 		Raku:type:raku,rakutest
 		YAML:type:yaml
 		} ],
-	    validate	=> '__validate_file_syntax_add',
+	    validate	=> '__validate_file_property_add',
 	},
 	{
 	    name	=> 'syntax_del',
 	    type	=> '=s@',
 	    option_only	=> 1,
-	    validate	=> '__validate_file_syntax_add',
+	    validate	=> '__validate_file_property_add',
 	},
 	{
 	    name	=> 'syntax_set',
 	    type	=> '=s@',
 	    option_only	=> 1,
-	    validate	=> '__validate_file_syntax_add',
+	    validate	=> '__validate_file_property_add',
 	},
 	{
 	    name	=> 'ignore_sam_defaults',
@@ -966,37 +969,79 @@ sub __validate_color {
     return 1;
 }
 
-sub __validate_file_syntax_add {
-    my ( $self, $name, $spec ) = @_;
-    foreach ( ref $spec ? @{ $spec } : $spec ) {
-	my ( $syntax, $kind, $data ) = split /:/, $_, 3;
-	{
+sub __validate_file_property_add {
+    my ( $self, $attr_name, $spec ) = @_;
+    my ( $prop_name, $action ) = $attr_name =~ m/ \A ( .* ) _ ( .* ) \z /smx
+	or $self->__confess( "Invalid attribute name '$attr_name'" );
+
+    my $validate_prop_val = {
+	syntax	=> sub {
+	    my ( undef, $prop_val ) = @_;	# Invocant unused
 	    local $@ = undef;
-	    my $module = "App::Sam::Syntax::$syntax";
-	    eval {
-		Module::Load::load( $module );
+	    return eval {
+		Module::Load::load( "App::Sam::Syntax::$prop_val" );
 		1;
-	    } or return 0;
-	}
+	    } || 0;
+	},
+    }->{$prop_name} || sub { 1 };
+
+    foreach ( ref $spec ? @{ $spec } : $spec ) {
+	my ( $prop_val, $kind, $data ) = split /:/, $_, 3;
+
+	$validate_prop_val->( $self, $prop_val )
+	    or return 0;
+
 	defined $data
-	    or ( $kind, $data ) = ( type => $kind );
+	    or ( $kind, $data ) = ( is => $kind );
+
 	state $validate_kind = {
 	    ext	=> sub {
-		my ( $self, $syntax, $data ) = @_;
+		my ( $self, $prop_name, $prop_val, $data ) = @_;
 		my @item = split /,/, $data;
-		push @{ $self->{_syntax_add}{ext}{$_} }, $syntax for @item;
-		push @{ $self->{_syntax_def}{$syntax}{ext} },
+		push @{ $self->{"_${prop_name}_add"}{ext}{$_} }, $prop_val
+		    for @item;
+		push @{ $self->{"_${prop_name}_def"}{$prop_val}{ext} },
 		    map { ".$_" } @item;
 		return 1;
 	    },
+	    is	=> sub {
+		my ( $self, $prop_name, $prop_val, $data ) = @_;
+		push @{ $self->{"_${prop_name}_add"}{is}{$data} }, $prop_val;
+		push @{ $self->{"_${prop_name}_def"}{$prop_val}{is} }, $data;
+		return 1;
+	    },
+	    match	=> sub {
+		my ( $self, $prop_name, $prop_val, $data ) = @_;
+		local $@ = undef;
+		my $code = eval "sub { $data }"	## no critic (ProhibitStringyEval)
+		    or return 0;
+		push @{ $self->{"_${prop_name}_add"}{match} },
+		    [ $prop_val, $code, "$prop_val:$data" ];
+		push @{ $self->{"_${prop_name}_def"}{$prop_val}{match} }, $data;
+		return 1;
+	    },
+	    firstlinematch	=> sub {
+		my ( $self, $prop_name, $prop_val, $data ) = @_;
+		local $@ = undef;
+		my $code = eval "sub { $data }"	## no critic (ProhibitStringyEval)
+		    or return 0;
+		push @{ $self->{"_${prop_name}_add"}{firstlinematch} },
+		    [ $prop_val, $code, "$prop_val:$data" ];
+		push @{ $self->{"_${prop_name}_def"}{$prop_val}
+		    {firstlinematch} }, $data;
+		return 1;
+	    },
 	    type	=> sub {
-		my ( $self, $syntax, $data ) = @_;
+		# my ( $self, $syntax, $data ) = @_;
+		my ( $self, $prop_name, $prop_val, $data ) = @_;
+		$prop_name eq 'type'
+		    and return 0;
 		my @item = split /,/, $data;
-		foreach my $type ( @item ) {
-		    $self->{_type_def}{$type}
+		foreach ( @item ) {
+		    $self->{_type_def}{$_}
 			or return 0;
-		    $self->{_syntax_add}{type}{$type} = $syntax;
-		    push @{ $self->{_syntax_def}{$syntax}{type} }, $type;
+		    $self->{"_${prop_name}_add"}{type}{$_} = $prop_val;
+		    push @{ $self->{"_${prop_name}_def"}{$prop_val}{type} }, $_;
 		}
 		return 1;
 	    },
@@ -1004,93 +1049,27 @@ sub __validate_file_syntax_add {
 	my $code = $validate_kind->{$kind}
 	    or return 0;
 	state $handler = {
-	    syntax_add	=> sub { 1 },
-	    syntax_del	=> sub {
-		my ( $self, $syntax ) = @_;
-		$self->__file_syntax_del( $syntax, 1 );
+	    add	=> sub { 1 },
+	    del	=> sub {
+		my ( $self, $prop_name, $prop_val ) = @_;
+		my $method = "__file_${prop_name}_del";
+		$self->$method( $prop_val, 1 );
 		return 0;
 	    },
-	    syntax_set	=> sub {
-		my ( $self, $syntax ) = @_;
-		$self->__file_syntax_del( $syntax );
+	    set	=> sub {
+		my ( $self, $prop_name, $prop_val ) = @_;
+		my $method = "__file_${prop_name}_del";
+		$self->$method( $prop_val );
 		return 1;
 	    },
 	};
-	my $setup = $handler->{$name}
-	    or $self->__confess( "Unknown syntax handler '$name'" );
+	my $setup = $handler->{$action}
+	    or $self->__confess( "Unknown action handler '$action'" );
 
-	$setup->( $self, $syntax )
+	$setup->( $self, $prop_name, $prop_val )
 	    or next;
 
-	$code->( $self, $syntax, $data )
-	    or return 0;
-    }
-    return 1;
-}
-
-sub __validate_file_type_add {
-    my ( $self, $name, $spec ) = @_;
-    foreach ( ref $spec ? @{ $spec } : $spec ) {
-	my ( $type, $kind, $data ) = split /:/, $_, 3;
-	defined $data
-	    or ( $kind, $data ) = ( is => $kind );
-	state $validate_kind = {
-	    ext	=> sub {
-		my ( $self, $type, $data ) = @_;
-		my @item = split /,/, $data;
-		push @{ $self->{_type_add}{ext}{$_} }, $type for @item;
-		push @{ $self->{_type_def}{$type}{ext} }, map { ".$_" } @item;
-		return 1;
-	    },
-	    is	=> sub {
-		my ( $self, $type, $data ) = @_;
-		push @{ $self->{_type_add}{is}{$data} }, $type;
-		push @{ $self->{_type_def}{$type}{is} }, $data;
-		return 1;
-	    },
-	    match	=> sub {
-		my ( $self, $type, $data ) = @_;
-		local $@ = undef;
-		my $code = eval "sub { $data }"	## no critic (ProhibitStringyEval)
-		    or return 0;
-		push @{ $self->{_type_add}{match} },
-		    [ $type, $code, "$type:$data" ];
-		push @{ $self->{_type_def}{$type}{match} }, $data;
-		return 1;
-	    },
-	    firstlinematch	=> sub {
-		my ( $self, $type, $data ) = @_;
-		local $@ = undef;
-		my $code = eval "sub { $data }"	## no critic (ProhibitStringyEval)
-		    or return 0;
-		push @{ $self->{_type_add}{firstlinematch} },
-		    [ $type, $code, "$type:$data" ];
-		push @{ $self->{_type_def}{$type}{firstlinematch} }, $data;
-		return 1;
-	    },
-	};
-	my $code = $validate_kind->{$kind}
-	    or return 0;
-	state $handler = {
-	    type_add	=> sub { 1 },
-	    type_del	=> sub {
-		my ( $self, $type ) = @_;
-		$self->__file_type_del( $type, 1 );
-		return 0;
-	    },
-	    type_set	=> sub {
-		my ( $self, $type ) = @_;
-		$self->__file_type_del( $type );
-		return 1;
-	    },
-	};
-	my $setup = $handler->{$name}
-	    or $self->__confess( "Unknown type handler '$name'" );
-
-	$setup->( $self, $type )
-	    or next;
-
-	$code->( $self, $type, $data )
+	$code->( $self, $prop_name, $prop_val, $data )
 	    or return 0;
     }
     return 1;
