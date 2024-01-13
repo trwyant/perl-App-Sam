@@ -33,7 +33,7 @@ foreach my $name ( sort keys %want ) {
     state $valid = {
 	ignore_directory	=> '__validate_ignore',
 	ignore_file		=> '__validate_ignore',
-	type_add		=> '__validate_type_add',
+	type_add		=> '__validate_file_type_add',
     };
     my $vld = $valid->{$name};
     $vld = defined( $vld ) ? "'$vld'" : 'undef';

@@ -252,9 +252,46 @@ sub __file_syntax {
     return $self->_file_property( syntax => @arg );
 }
 
+sub __file_syntax_del {
+    my ( $self, $syntax ) = @_;
+    delete $self->{_syntax_def}{$syntax};
+    foreach my $type ( keys %{ $self->{_syntax_add}{type} } ) {
+	$syntax eq $self->{_syntax_add}{type}{$type}
+	    and delete $self->{_syntax_add}{type}{$type};
+    }
+    return;
+}
+
 sub __file_type {
     my ( $self, @arg ) = @_;
     return $self->_file_property( type => @arg );
+}
+
+sub __file_type_del {
+    my ( $self, $type, $really ) = @_;
+    my $def = $self->{_type_add};
+    foreach my $kind ( qw{ is ext } ) {
+	foreach my $key ( keys %{ $def->{$kind} } ) {
+	    @{ $def->{$kind}{$key} } = grep { $_ ne $type }
+		@{ $def->{$kind}{$key} }
+		or delete $def->{$kind}{$key};
+	}
+    }
+    foreach my $kind ( qw{ match firstlinematch } ) {
+	@{ $def->{$kind} } = grep { $_->[0] ne $type } @{ $def->{$kind} };
+    }
+    delete $self->{_type_def}{$type};
+    if ( $really ) {
+	foreach my $syntax ( keys %{ $self->{_syntax_def} } ) {
+	    @{ $self->{_syntax_def}{$syntax}{type} } = grep { $_ ne $type }
+		@{ $self->{_syntax_def}{$syntax}{type} }
+		or delete $self->{_syntax_def}{$syntax}{type};
+	    keys %{ $self->{_syntax_def}{$syntax} }
+		or delete $self->{_syntax_def}{$syntax};
+	}
+	delete $self->{_syntax_add}{type}{$type};
+    }
+    return;
 }
 
 sub _get_spec_list {
@@ -403,19 +440,19 @@ sub _get_spec_list {
 		verilog:ext:v,vh,sv vhdl:ext:vhd,vhdl vim:ext:vim
 		xml:ext:xml,dtd,xsd,xsl,xslt,ent,wsdl
 		xml:firstlinematch:/<[?]xml/ yaml:ext:yaml,yml } ],
-	    validate	=> '__validate_type_add',
+	    validate	=> '__validate_file_type_add',
 	},
 	{
 	    name	=> 'type_del',
 	    type	=> '=s@',
 	    option_only	=> 1,
-	    validate	=> '__validate_type_add',
+	    validate	=> '__validate_file_type_add',
 	},
 	{
 	    name	=> 'type_set',
 	    type	=> '=s@',
 	    option_only	=> 1,
-	    validate	=> '__validate_type_add',
+	    validate	=> '__validate_file_type_add',
 	},
 	{	# Must come after type_add, type_del, and type_set
 	    name	=> 'syntax_add',
@@ -429,19 +466,19 @@ sub _get_spec_list {
 		Raku:type:raku,rakutest
 		YAML:type:yaml
 		} ],
-	    validate	=> '__validate_syntax_add',
+	    validate	=> '__validate_file_syntax_add',
 	},
 	{
 	    name	=> 'syntax_del',
 	    type	=> '=s@',
 	    option_only	=> 1,
-	    validate	=> '__validate_syntax_add',
+	    validate	=> '__validate_file_syntax_add',
 	},
 	{
 	    name	=> 'syntax_set',
 	    type	=> '=s@',
 	    option_only	=> 1,
-	    validate	=> '__validate_syntax_add',
+	    validate	=> '__validate_file_syntax_add',
 	},
 	{
 	    name	=> 'ignore_sam_defaults',
@@ -536,16 +573,6 @@ sub _get_spec_list {
 	foreach my $spec ( @spec_list ) {
 	    exists $spec->{default}
 		or next;
-
-=begin comment
-
-	    $self->{$spec->{name}} = $spec->{default};
-	    $self->__validate_attr( $spec->{name},
-		$self->{$spec->{name}} );
-
-=end comment
-
-=cut
 
 	    if ( exists $spec->{validate} ) {
 		$self->__validate_attr( $spec->{name}, $spec->{default} );
@@ -931,51 +958,141 @@ sub __get_file_iterator {
 	}, $file );
 }
 
-sub __syntax_del {
-    my ( $self, $syntax ) = @_;
-    delete $self->{_syntax_def}{$syntax};
-    foreach my $type ( keys %{ $self->{_syntax_add}{type} } ) {
-	$syntax eq $self->{_syntax_add}{type}{$type}
-	    and delete $self->{_syntax_add}{type}{$type};
-    }
-    return;
-}
-
-sub __syntax_type_del {
-    my ( $self, $type ) = @_;
-    foreach my $syntax ( keys %{ $self->{_syntax_def} } ) {
-	@{ $self->{_syntax_def}{$syntax}{type} } = grep { $_ ne $type }
-	    @{ $self->{_syntax_def}{$syntax}{type} }
-	    or delete $self->{_syntax_def}{$syntax}{type};
-	keys %{ $self->{_syntax_def}{$syntax} }
-	    or delete $self->{_syntax_def}{$syntax};
-    }
-    delete $self->{_syntax_add}{type}{$type};
-    return;
-}
-
-sub __type_del {
-    my ( $self, $type ) = @_;
-    my $def = $self->{_type_add};
-    foreach my $kind ( qw{ is ext } ) {
-	foreach my $key ( keys %{ $def->{$kind} } ) {
-	    @{ $def->{$kind}{$key} } = grep { $_ ne $type }
-		@{ $def->{$kind}{$key} }
-		or delete $def->{$kind}{$key};
-	}
-    }
-    foreach my $kind ( qw{ match firstlinematch } ) {
-	@{ $def->{$kind} } = grep { $_->[0] ne $type } @{ $def->{$kind} };
-    }
-    delete $self->{_type_def}{$type};
-    return;
-}
-
 sub __validate_color {
     my ( $self, $name, $color ) = @_;
     Term::ANSIColor::colorvalid( $color )
 	or return 0;
     $self->{$name} = $color;
+    return 1;
+}
+
+sub __validate_file_syntax_add {
+    my ( $self, $name, $spec ) = @_;
+    foreach ( ref $spec ? @{ $spec } : $spec ) {
+	my ( $syntax, $kind, $data ) = split /:/, $_, 3;
+	{
+	    local $@ = undef;
+	    my $module = "App::Sam::Syntax::$syntax";
+	    eval {
+		Module::Load::load( $module );
+		1;
+	    } or return 0;
+	}
+	defined $data
+	    or ( $kind, $data ) = ( type => $kind );
+	state $validate_kind = {
+	    ext	=> sub {
+		my ( $self, $syntax, $data ) = @_;
+		my @item = split /,/, $data;
+		push @{ $self->{_syntax_add}{ext}{$_} }, $syntax for @item;
+		push @{ $self->{_syntax_def}{$syntax}{ext} },
+		    map { ".$_" } @item;
+		return 1;
+	    },
+	    type	=> sub {
+		my ( $self, $syntax, $data ) = @_;
+		my @item = split /,/, $data;
+		foreach my $type ( @item ) {
+		    $self->{_type_def}{$type}
+			or return 0;
+		    $self->{_syntax_add}{type}{$type} = $syntax;
+		    push @{ $self->{_syntax_def}{$syntax}{type} }, $type;
+		}
+		return 1;
+	    },
+	};
+	my $code = $validate_kind->{$kind}
+	    or return 0;
+	state $handler = {
+	    syntax_add	=> sub { 1 },
+	    syntax_del	=> sub {
+		my ( $self, $syntax ) = @_;
+		$self->__file_syntax_del( $syntax, 1 );
+		return 0;
+	    },
+	    syntax_set	=> sub {
+		my ( $self, $syntax ) = @_;
+		$self->__file_syntax_del( $syntax );
+		return 1;
+	    },
+	};
+	my $setup = $handler->{$name}
+	    or $self->__confess( "Unknown syntax handler '$name'" );
+
+	$setup->( $self, $syntax )
+	    or next;
+
+	$code->( $self, $syntax, $data )
+	    or return 0;
+    }
+    return 1;
+}
+
+sub __validate_file_type_add {
+    my ( $self, $name, $spec ) = @_;
+    foreach ( ref $spec ? @{ $spec } : $spec ) {
+	my ( $type, $kind, $data ) = split /:/, $_, 3;
+	defined $data
+	    or ( $kind, $data ) = ( is => $kind );
+	state $validate_kind = {
+	    ext	=> sub {
+		my ( $self, $type, $data ) = @_;
+		my @item = split /,/, $data;
+		push @{ $self->{_type_add}{ext}{$_} }, $type for @item;
+		push @{ $self->{_type_def}{$type}{ext} }, map { ".$_" } @item;
+		return 1;
+	    },
+	    is	=> sub {
+		my ( $self, $type, $data ) = @_;
+		push @{ $self->{_type_add}{is}{$data} }, $type;
+		push @{ $self->{_type_def}{$type}{is} }, $data;
+		return 1;
+	    },
+	    match	=> sub {
+		my ( $self, $type, $data ) = @_;
+		local $@ = undef;
+		my $code = eval "sub { $data }"	## no critic (ProhibitStringyEval)
+		    or return 0;
+		push @{ $self->{_type_add}{match} },
+		    [ $type, $code, "$type:$data" ];
+		push @{ $self->{_type_def}{$type}{match} }, $data;
+		return 1;
+	    },
+	    firstlinematch	=> sub {
+		my ( $self, $type, $data ) = @_;
+		local $@ = undef;
+		my $code = eval "sub { $data }"	## no critic (ProhibitStringyEval)
+		    or return 0;
+		push @{ $self->{_type_add}{firstlinematch} },
+		    [ $type, $code, "$type:$data" ];
+		push @{ $self->{_type_def}{$type}{firstlinematch} }, $data;
+		return 1;
+	    },
+	};
+	my $code = $validate_kind->{$kind}
+	    or return 0;
+	state $handler = {
+	    type_add	=> sub { 1 },
+	    type_del	=> sub {
+		my ( $self, $type ) = @_;
+		$self->__file_type_del( $type, 1 );
+		return 0;
+	    },
+	    type_set	=> sub {
+		my ( $self, $type ) = @_;
+		$self->__file_type_del( $type );
+		return 1;
+	    },
+	};
+	my $setup = $handler->{$name}
+	    or $self->__confess( "Unknown type handler '$name'" );
+
+	$setup->( $self, $type )
+	    or next;
+
+	$code->( $self, $type, $data )
+	    or return 0;
+    }
     return 1;
 }
 
@@ -1039,68 +1156,6 @@ sub __validate_syntax {
     return 1;
 }
 
-sub __validate_syntax_add {
-    my ( $self, $name, $spec ) = @_;
-    foreach ( ref $spec ? @{ $spec } : $spec ) {
-	my ( $syntax, $kind, $data ) = split /:/, $_, 3;
-	{
-	    local $@ = undef;
-	    my $module = "App::Sam::Syntax::$syntax";
-	    eval {
-		Module::Load::load( $module );
-		1;
-	    } or return 0;
-	}
-	defined $data
-	    or ( $kind, $data ) = ( type => $kind );
-	state $validate_kind = {
-	    ext	=> sub {
-		my ( $self, $syntax, $data ) = @_;
-		my @item = split /,/, $data;
-		push @{ $self->{_syntax_add}{ext}{$_} }, $syntax for @item;
-		push @{ $self->{_syntax_def}{$syntax}{ext} },
-		    map { ".$_" } @item;
-		return 1;
-	    },
-	    type	=> sub {
-		my ( $self, $syntax, $data ) = @_;
-		my @item = split /,/, $data;
-		foreach my $type ( @item ) {
-		    $self->{_type_def}{$type}
-			or return 0;
-		    $self->{_syntax_add}{type}{$type} = $syntax;
-		    push @{ $self->{_syntax_def}{$syntax}{type} }, $type;
-		}
-		return 1;
-	    },
-	};
-	my $code = $validate_kind->{$kind}
-	    or return 0;
-	state $handler = {
-	    syntax_add	=> sub { 1 },
-	    syntax_del	=> sub {
-		my ( $self, $syntax ) = @_;
-		$self->__syntax_del( $syntax );
-		return 0;
-	    },
-	    syntax_set	=> sub {
-		my ( $self, $syntax ) = @_;
-		$self->__syntax_del( $syntax );
-		return 1;
-	    },
-	};
-	my $setup = $handler->{$name}
-	    or $self->__confess( "Unknown syntax handler '$name'" );
-
-	$setup->( $self, $syntax )
-	    or next;
-
-	$code->( $self, $syntax, $data )
-	    or return 0;
-    }
-    return 1;
-}
-
 sub __validate_type {
     my ( $self, undef, $type_array ) = @_;	# $name unused
     foreach my $type ( ref $type_array ? @{ $type_array } : $type_array ) {
@@ -1113,75 +1168,6 @@ sub __validate_type {
 	} else {
 	    return 0;
 	}
-    }
-    return 1;
-}
-
-sub __validate_type_add {
-    my ( $self, $name, $spec ) = @_;
-    foreach ( ref $spec ? @{ $spec } : $spec ) {
-	my ( $type, $kind, $data ) = split /:/, $_, 3;
-	defined $data
-	    or ( $kind, $data ) = ( is => $kind );
-	state $validate_kind = {
-	    ext	=> sub {
-		my ( $self, $type, $data ) = @_;
-		my @item = split /,/, $data;
-		push @{ $self->{_type_add}{ext}{$_} }, $type for @item;
-		push @{ $self->{_type_def}{$type}{ext} }, map { ".$_" } @item;
-		return 1;
-	    },
-	    is	=> sub {
-		my ( $self, $type, $data ) = @_;
-		push @{ $self->{_type_add}{is}{$data} }, $type;
-		push @{ $self->{_type_def}{$type}{is} }, $data;
-		return 1;
-	    },
-	    match	=> sub {
-		my ( $self, $type, $data ) = @_;
-		local $@ = undef;
-		my $code = eval "sub { $data }"	## no critic (ProhibitStringyEval)
-		    or return 0;
-		push @{ $self->{_type_add}{match} },
-		    [ $type, $code, "$type:$data" ];
-		push @{ $self->{_type_def}{$type}{match} }, $data;
-		return 1;
-	    },
-	    firstlinematch	=> sub {
-		my ( $self, $type, $data ) = @_;
-		local $@ = undef;
-		my $code = eval "sub { $data }"	## no critic (ProhibitStringyEval)
-		    or return 0;
-		push @{ $self->{_type_add}{firstlinematch} },
-		    [ $type, $code, "$type:$data" ];
-		push @{ $self->{_type_def}{$type}{firstlinematch} }, $data;
-		return 1;
-	    },
-	};
-	my $code = $validate_kind->{$kind}
-	    or return 0;
-	state $handler = {
-	    type_add	=> sub { 1 },
-	    type_set	=> sub {
-		my ( $self, $type ) = @_;
-		$self->__type_del( $type );
-		return 1;
-	    },
-	    type_del	=> sub {
-		my ( $self, $type ) = @_;
-		$self->__type_del( $type );
-		$self->__syntax_type_del( $type );
-		return 0;
-	    },
-	};
-	my $setup = $handler->{$name}
-	    or $self->__confess( "Unknown type handler '$name'" );
-
-	$setup->( $self, $type )
-	    or next;
-
-	$code->( $self, $type, $data )
-	    or return 0;
     }
     return 1;
 }
