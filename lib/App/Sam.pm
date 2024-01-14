@@ -496,6 +496,7 @@ sub _get_spec_list {
 	    default	=> [ qw{
 		Cc:type:cc
 		Cpp:type:cpp
+		Fortran:type:fortran
 		Java:ext:java
 		Make:type:make,tcl
 		Perl:type:perl,perltest,pod

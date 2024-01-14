@@ -9,6 +9,7 @@ lib/App/Sam/Syntax.pm
 lib/App/Sam/Syntax/_cc_like.pm
 lib/App/Sam/Syntax/Cc.pm
 lib/App/Sam/Syntax/Cpp.pm
+lib/App/Sam/Syntax/Fortran.pm
 lib/App/Sam/Syntax/Java.pm
 lib/App/Sam/Syntax/Make.pm
 lib/App/Sam/Syntax/Perl.pm
@@ -28,6 +29,7 @@ t/basic.t
 t/data/bright.txt
 t/data/cc_file.c
 t/data/cpp_file.cpp
+t/data/fortran_file.for
 t/data/java_file.java
 t/data/make_file.mak
 t/data/perl_file.PL
@@ -38,6 +40,7 @@ t/match.t
 t/replace.t
 t/syntax_cc.t
 t/syntax_cpp.t
+t/syntax_fortran.t
 t/syntax_java.t
 t/syntax_make.t
 t/syntax_perl.t
