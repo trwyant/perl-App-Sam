@@ -38,6 +38,14 @@ if ( $dump ) {
     require YAML;
     print YAML::Dump( $sam );
 
+    my %mod;
+    foreach ( sort keys %INC ) {
+	index( $_, 'App/Sam' ) == 0
+	    or next;
+	$mod{$_} = $INC{$_};
+    }
+    print YAML::Dump( \%mod );
+
 } else {
 
     push @ARGV, $sam->files_from();

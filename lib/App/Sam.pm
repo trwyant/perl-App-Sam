@@ -499,6 +499,7 @@ sub _get_spec_list {
 		Java:ext:java
 		Make:type:make,tcl
 		Perl:type:perl,perltest,pod
+		Properties:ext:properties
 		Raku:type:raku,rakutest
 		YAML:type:yaml
 		} ],

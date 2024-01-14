@@ -38,6 +38,7 @@ our @CARP_NOT = qw{
     App::Sam::Syntax::Java
     App::Sam::Syntax::Make
     App::Sam::Syntax::Perl
+    App::Sam::Syntax::Properties
     App::Sam::Syntax::Raku
     App::Sam::Syntax::YAML
     App::Sam::Syntax::_cc_like

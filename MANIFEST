@@ -12,6 +12,7 @@ lib/App/Sam/Syntax/Cpp.pm
 lib/App/Sam/Syntax/Java.pm
 lib/App/Sam/Syntax/Make.pm
 lib/App/Sam/Syntax/Perl.pm
+lib/App/Sam/Syntax/Properties.pm
 lib/App/Sam/Syntax/Raku.pm
 lib/App/Sam/Syntax/YAML.pm
 lib/App/Sam/Util.pm
@@ -30,6 +31,7 @@ t/data/cpp_file.cpp
 t/data/java_file.java
 t/data/make_file.mak
 t/data/perl_file.PL
+t/data/properties_file.properties
 t/data/raku_file.raku
 t/data/yaml_file.yml
 t/match.t
@@ -39,6 +41,7 @@ t/syntax_cpp.t
 t/syntax_java.t
 t/syntax_make.t
 t/syntax_perl.t
+t/syntax_properties.t
 t/syntax_raku.t
 t/syntax_yaml.t
 xt/author/carp_not.t
