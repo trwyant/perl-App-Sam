@@ -129,6 +129,39 @@ sub new {
     return $self;
 }
 
+sub help_syntax {
+    my ( $self, $exit ) = @_;
+    $exit //= caller eq __PACKAGE__;
+    my $syntax_wid = List::Util::max( map { length } keys %{
+	$self->{_syntax_def} } );
+    print <<'EOD';
+The following is the list of file syntaxes supported by sam. You can
+specify a file syntax to search with --syntax=SYNTAX.
+
+EOD
+    foreach my $syntax ( sort keys %{ $self->{_syntax_def} } ) {
+	my $syntax_def = $self->{_syntax_def}{$syntax};
+	my @defs;
+	foreach my $kind ( qw{ is ext match firstlinematch type } ) {
+	    $syntax_def->{$kind}
+		and @{ $syntax_def->{$kind} }
+		or next;
+	    state $prefix = {
+		is	=> [],
+		ext	=> [],
+		match	=> [ 'Filename matches' ],
+		firstlinematch	=> [ 'First line matches' ],
+		type	=> [ 'Type' ],
+	    };
+	    push @defs, join ' ', @{ $prefix->{$kind} }, @{
+	    $syntax_def->{$kind } };
+	}
+	printf "    %-*s %s\n", $syntax_wid, $syntax, join '; ', @defs;
+    }
+    $exit and exit;
+    return;
+}
+
 sub help_types {
     my ( $self, $exit ) = @_;
     $exit //= caller eq __PACKAGE__;
@@ -531,7 +564,12 @@ sub _get_spec_list {
 	    name	=> 'help_types',
 	    type	=> '',
 	    validate	=> 'help_types',
-	}
+	},
+	{	# Must be after syntax_*
+	    name	=> 'help_syntax',
+	    type	=> '',
+	    validate	=> 'help_syntax',
+	},
     );
 
     foreach ( @spec_list ) {
@@ -1371,14 +1409,25 @@ If called without arguments, reads the files specified by the
 C<files_from> argument to L<new()|/new>, if any, and returns their
 possibly-filtered contents.
 
+=head2 help_syntax
+
+ $sad->help_syntax( $exit )
+
+This method prints help for the defined syntax types to F<STDOUT>. If
+the argument is true, it exits; otherwise it returns. The default for
+C<$exit> is true if called from the C<$sad> object (which happens if
+argument C<help_types> is true or option C<--help-types> is asserted),
+and false otherwise.
+
 =head2 help_types
 
  $sad->help_types( $exit )
 
-This method prints help for the defined types. If the argument is true,
-it exits; otherwise it returns. The default for C<$exit> is true if
-called from the C<$sad> object (which happens if argument C<help_types>
-is true or option C<--help-types> is asserted), and false otherwise.
+This method prints help for the defined file types to C<STDOUT>. If the
+argument is true, it exits; otherwise it returns. The default for
+C<$exit> is true if called from the C<$sad> object (which happens if
+argument C<help_types> is true or option C<--help-types> is asserted),
+and false otherwise.
 
 The output is similar but not identical to L<ack|ack> C<--help-types>.
 
