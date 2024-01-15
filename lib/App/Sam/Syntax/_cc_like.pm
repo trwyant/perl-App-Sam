@@ -11,7 +11,7 @@ use App::Sam::Util qw{ :syntax @CARP_NOT };
 
 our $VERSION = '0.000_001';
 
-sub __syntax_code {
+sub __classify_code {
     my ( $self ) = @_;
     $. == 1
 	and $self->__match_shebang()
@@ -45,28 +45,28 @@ sub __syntax_code {
     return SYNTAX_CODE;
 }
 
-sub __syntax_documentation {
+sub __classify_documentation {
     my ( $self ) = @_;
     $self->__match_block_documentation_end()
 	and $self->{in} = SYNTAX_CODE;
     return SYNTAX_DOCUMENTATION;
 }
 
-sub __syntax_comment {
+sub __classify_comment {
     my ( $self ) = @_;
     $self->__match_block_comment_end()
 	and $self->{in} = SYNTAX_CODE;
     return SYNTAX_COMMENT;
 }
 
-sub __syntax_metadata {
+sub __classify_metadata {
     my ( $self ) = @_;
     $self->__match_block_metadata_end()
 	and $self->{in} = SYNTAX_CODE;
     return SYNTAX_METADATA;
 }
 
-sub __syntax_preprocessor {
+sub __classify_preprocessor {
     my ( $self ) = @_;
     $self->__match_preprocessor_continuation()
 	or $self->{in} = SYNTAX_CODE;

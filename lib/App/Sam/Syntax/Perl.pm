@@ -11,7 +11,7 @@ use App::Sam::Util qw{ :syntax @CARP_NOT };
 
 our $VERSION = '0.000_001';
 
-sub __syntax_code {
+sub __classify_code {
     my ( $self ) = @_;
     if ( m/ \A \s* \# /smx ) {
 	1 == $.
@@ -26,11 +26,11 @@ sub __syntax_code {
 	$self->{in} = SYNTAX_DATA;
 	return SYNTAX_METADATA;
     }
-    goto &__syntax_data;
+    goto &__classify_data;
 }
 
 # NOTE: MUST NOT be called if $self->{in} is 'documentation'
-sub __syntax_data {
+sub __classify_data {
     my ( $self ) = @_;
     if ( m/ \A = ( cut \b | [A-Za-z] ) /smx ) {
 	'cut' eq $1
@@ -41,7 +41,7 @@ sub __syntax_data {
     return $self->{in};
 }
 
-sub __syntax_documentation {
+sub __classify_documentation {
     my ( $self ) = @_;
     m/ \A = cut \b /smx
 	and $self->{in} = delete $self->{Cut};

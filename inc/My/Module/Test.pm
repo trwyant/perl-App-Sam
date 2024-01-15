@@ -93,7 +93,7 @@ sub slurp_syntax {
     local $_ = undef;	# while ( <> ) does not localize.
     my @rslt;
     while ( <$fh> ) {
-	push @rslt, sprintf '%4s:%s', substr( $parser->__syntax(), 0, 4 ), $_;
+	push @rslt, sprintf '%4s:%s', substr( $parser->__classify(), 0, 4 ), $_;
     }
     return join '', @rslt;
 }

@@ -18,7 +18,7 @@ Readonly::Scalar my $open_brkt => join '',
     "\N{U+005B}",	# Left square bracket
     "\N{U+00AB}";	# Left-pointing double angle quotation mark
 
-sub __syntax_code {
+sub __classify_code {
     my ( $self ) = @_;
     if ( m/ \A \s* \# /smxg ) {
 	1 == $.
@@ -40,10 +40,10 @@ sub __syntax_code {
 	};
 	return SYNTAX_COMMENT;
     }
-    goto &__syntax_data;
+    goto &__classify_data;
 }
 
-sub __syntax_comment {
+sub __classify_comment {
     my ( $self ) = @_;
     index( $_, $self->{Block_end} ) >= 0 and do {
 	$self->{in} = SYNTAX_CODE;
@@ -53,7 +53,7 @@ sub __syntax_comment {
 }
 
 # NOTE: MUST NOT be called if $self->{in} is 'documentation'
-sub __syntax_data {
+sub __classify_data {
     my ( $self ) = @_;
 
     m/ \A = begin \s+ pod \b /smx
@@ -64,7 +64,7 @@ sub __syntax_data {
     return SYNTAX_DOCUMENTATION;
 }
 
-sub __syntax_documentation {
+sub __classify_documentation {
     my ( $self ) = @_;
     if ( defined $self->{Block_end} &&
 	index( $_, $self->{Block_end} ) >= 0

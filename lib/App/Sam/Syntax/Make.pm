@@ -11,7 +11,7 @@ use App::Sam::Util qw{ :carp :syntax @CARP_NOT };
 
 our $VERSION = '0.000_001';
 
-sub __syntax {
+sub __classify {
     my ( $self ) = @_;
     my $type = delete $self->{Continued} || (
 	m/ \A \s* \# /smx ? SYNTAX_COMMENT : SYNTAX_CODE );

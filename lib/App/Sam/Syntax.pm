@@ -26,11 +26,11 @@ sub __init {
     return;
 }
 
-sub __syntax {
+sub __classify {
     my ( $self ) = @_;
     my $in = $self->{in};
-    my $code = $self->can( "__syntax_$in" )
-	or $self->__confess( "__syntax_$in() not implemented" );
+    my $code = $self->can( "__classify_$in" )
+	or $self->__confess( "__classify_$in() not implemented" );
     goto &$code;
 }
 
@@ -99,7 +99,7 @@ C<SYNTAX_CODE>, and no arguments are removed.
 Overrides to this method need not call C<< $self->SUPER::__init() >>
 B<provided> they set C<< $self->{in} >> themselves.
 
-=head2 __syntax
+=head2 __classify
 
 This method dispatches the handler for the current state, as described
 below. It has no arguments other than its invocant. The line being
@@ -120,13 +120,13 @@ return the syntax type of the current line, selected from
 
 The expected methods are
 
- __syntax_code()
- __syntax_comment()
- __syntax_data()
- __syntax_documentation()
- __syntax_metadata()
- __syntax_other()
- __syntax_preprocessor()
+ __classify_code()
+ __classify_comment()
+ __classify_data()
+ __classify_documentation()
+ __classify_metadata()
+ __classify_other()
+ __classify_preprocessor()
 
 The subclass need not (and probably should not) implement subroutines
 corresponding to syntax types that can not occur.
