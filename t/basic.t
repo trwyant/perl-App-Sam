@@ -27,6 +27,8 @@ load_module_ok 'App::Sam::Syntax::Cc';
 
 load_module_ok 'App::Sam::Syntax::Cpp';
 
+load_module_ok 'App::Sam::Syntax::Data';
+
 load_module_ok 'App::Sam::Syntax::Fortran';
 
 load_module_ok 'App::Sam::Syntax::Java';

@@ -499,6 +499,7 @@ sub _get_spec_list {
 		Cpp:type:cpp
 		Fortran:type:fortran
 		Java:ext:java
+		Data:type:json
 		Make:type:make,tcl
 		Perl:type:perl,perltest,pod
 		Properties:ext:properties
