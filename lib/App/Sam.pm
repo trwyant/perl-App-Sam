@@ -397,8 +397,15 @@ sub _get_spec_list {
 	    type	=> '!',
 	},
 	{
+	    alias	=> [ qw{ i } ],
 	    name	=> 'ignore_case',
 	    type	=> '!',
+	},
+	{
+	    name	=> 'I',
+	    type	=> '|',
+	    back_end	=> 'ignore_case',
+	    validate	=> '__preprocess_logical_negation',
 	},
 	{
 	    name	=> 'ignore_directory',
@@ -692,6 +699,9 @@ sub _get_spec_list {
     # Given an argument spec, return code to validate it.
     sub __get_validator {
 	my ( $self, $attr_spec, $die ) = @_;
+	ref $attr_spec
+	    or $attr_spec = $attr_spec_hash{$attr_spec}
+	    or $self->__confess( "Undefined attribute '$_[1]'" );
 	my $method;
 	defined( $method = $attr_spec->{validate} )
 	    or return;
@@ -870,6 +880,19 @@ sub __ignore {
 	return ! defined $want_type;
     }
     return 0;
+}
+
+sub __preprocess_logical_negation {
+    my ( $self, $attr_spec, $attr_name, $attr_val ) = @_;
+    my $back_end = $attr_spec->{back_end}
+	or $self->__confess(
+	"Attribute '$attr_name' has no back_end specified" );
+    if ( my $code = $self->__get_validator( $back_end ) ) {
+	return $code->( $back_end, ! $attr_val );
+    } else {
+	$self->{$back_end} = ! $attr_val;
+	return 1;
+    }
 }
 
 sub process {
