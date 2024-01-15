@@ -697,12 +697,12 @@ sub _get_spec_list {
 	    or return;
 	$die
 	    and return sub {
-	    $self->$method( @_ )
+	    $self->$method( $attr_spec, @_ )
 		or die "Invalid value --$_[0]=$_[1]\n";
 	    return 1;
 	};
 	return sub {
-	    return $self->$method( @_ );
+	    return $self->$method( $attr_spec, @_ );
 	};
     }
 
@@ -1018,7 +1018,7 @@ sub __get_file_iterator {
 }
 
 sub __validate_color {
-    my ( $self, $attr_name, $attr_val ) = @_;
+    my ( $self, undef, $attr_name, $attr_val ) = @_;	# $attr_spec unused
     Term::ANSIColor::colorvalid( $attr_val )
 	or return 0;
     $self->{$attr_name} = $attr_val;
@@ -1026,7 +1026,7 @@ sub __validate_color {
 }
 
 sub __validate_file_property_add {
-    my ( $self, $attr_name, $attr_val ) = @_;
+    my ( $self, undef, $attr_name, $attr_val ) = @_;	# $attr_spec unused
     my ( $prop_name, $action ) = $attr_name =~ m/ \A ( .* ) _ ( .* ) \z /smx
 	or $self->__confess( "Invalid attribute name '$attr_name'" );
 
@@ -1132,7 +1132,7 @@ sub __validate_file_property_add {
 }
 
 sub __validate_files_from {
-    my ( $self, $attr_name, $attr_val ) = @_;	# invocant
+    my ( $self, undef, $attr_name, $attr_val ) = @_;	# $attr_spec unused
     not ref $attr_val
 	or REF_ARRAY eq ref $attr_val
 	or return 0;
@@ -1146,7 +1146,7 @@ sub __validate_files_from {
 }
 
 sub __validate_ignore {
-    my ( $self, $attr_name, $attr_val ) = @_;
+    my ( $self, undef, $attr_name, $attr_val ) = @_;	# $attr_spec unused
     foreach ( @{ $attr_val } ) {
 	my ( $kind, $data ) = split /:/, $_, 2;
 	defined $data
@@ -1181,7 +1181,7 @@ sub __validate_ignore {
 }
 
 sub __validate_syntax {
-    my ( $self, undef, $attr_val ) = @_;	# $attr_name unused
+    my ( $self, undef, undef, $attr_val ) = @_;	# $attr_spec, $attr_name unused
     foreach ( ref $attr_val ? @{ $attr_val } : $attr_val ) {
 	state $valid = Text::Abbrev::abbrev( __syntax_types() );
 	my $expansion = $valid->{$_}
@@ -1192,7 +1192,7 @@ sub __validate_syntax {
 }
 
 sub __validate_type {
-    my ( $self, undef, $attr_val ) = @_;	# $attr_name unused
+    my ( $self, undef, undef, $attr_val ) = @_;	# $attr_spec, $attr_name unused
     foreach ( ref $attr_val ? @{ $attr_val } : $attr_val ) {
 	my $neg;
 	if ( $self->{_type_def}{$_} ) { 
