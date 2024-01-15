@@ -16,6 +16,7 @@ lib/App/Sam/Syntax/Perl.pm
 lib/App/Sam/Syntax/Properties.pm
 lib/App/Sam/Syntax/Raku.pm
 lib/App/Sam/Syntax/Shell.pm
+lib/App/Sam/Syntax/Vim.pm
 lib/App/Sam/Syntax/YAML.pm
 lib/App/Sam/Util.pm
 LICENSES/Artistic
@@ -37,6 +38,7 @@ t/data/perl_file.PL
 t/data/properties_file.properties
 t/data/raku_file.raku
 t/data/shell_file.sh
+t/data/vim_file.vim
 t/data/yaml_file.yml
 t/match.t
 t/replace.t
@@ -49,6 +51,7 @@ t/syntax_perl.t
 t/syntax_properties.t
 t/syntax_raku.t
 t/syntax_shell.t
+t/syntax_vim.t
 t/syntax_yaml.t
 xt/author/carp_not.t
 xt/author/changes.t

@@ -503,6 +503,7 @@ sub _get_spec_list {
 		Properties:ext:properties
 		Raku:type:raku,rakutest
 		Shell:type:shell
+		Vim:type:vim
 		YAML:type:yaml
 		} ],
 	    validate	=> '__validate_file_property_add',
