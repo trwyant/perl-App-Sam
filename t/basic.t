@@ -39,6 +39,8 @@ load_module_ok 'App::Sam::Syntax::Properties';
 
 load_module_ok 'App::Sam::Syntax::Raku';
 
+load_module_ok 'App::Sam::Syntax::Shell';
+
 load_module_ok 'App::Sam::Syntax::YAML';
 
 load_module_ok 'App::Sam';

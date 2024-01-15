@@ -502,6 +502,7 @@ sub _get_spec_list {
 		Perl:type:perl,perltest,pod
 		Properties:ext:properties
 		Raku:type:raku,rakutest
+		Shell:type:shell
 		YAML:type:yaml
 		} ],
 	    validate	=> '__validate_file_property_add',
