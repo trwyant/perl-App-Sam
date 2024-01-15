@@ -20,6 +20,7 @@ use Text::Abbrev ();
 
 our $VERSION = '0.000_001';
 
+use constant CLR_EOL	=> "\e[K";
 use constant IS_WINDOWS	=> {
     MSWin32	=> 1,
 }->{$^O} || 0;
@@ -818,7 +819,18 @@ sub __make_munger {
 	$str = join '', 's ', $delim, "($match)", $mid,
 	    ' $_[0]->__color( match => $1 ) ',
 	    $delim, $modifier, 'e';
-	$code = eval "sub { $str }"	## no critic (ProhibitStringyEval)
+	# NOTE that ack uses "\e[0m\e[K" here. But "\e[K" suffices for
+	# me.
+	$code = eval <<"EOD"	## no critic (ProhibitStringyEval)
+sub {
+    if ( $str ) {
+	s/ (?= \\n ) / CLR_EOL /smxge;
+	return 1;
+    } else {
+	return 0;
+    }
+}
+EOD
 	    or $self->__confess( "Generated bad coloring code: $@" );
     }
     $self->{munger} = $str;
