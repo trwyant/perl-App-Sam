@@ -102,8 +102,8 @@ sub new {
 
 	my $attr = "_${prop}_add";
 	foreach my $kind ( qw{ ext is } ) {
-	    foreach my $spec ( values %{ $self->{$attr}{$kind} || {} } ) {
-		@{ $spec } = List::Util::uniqstr( @{ $spec } );
+	    foreach my $prop_spec ( values %{ $self->{$attr}{$kind} || {} } ) {
+		@{ $prop_spec } = List::Util::uniqstr( @{ $prop_spec } );
 	    }
 	}
 
@@ -118,8 +118,8 @@ sub new {
 
 	$attr = "_${prop}_def";
 	foreach my $thing ( values %{ $self->{$attr} } ) {
-	    foreach my $spec ( values %{ $thing } ) {
-		@{ $spec } = List::Util::uniqstr( @{ $spec } );
+	    foreach my $prop_spec ( values %{ $thing } ) {
+		@{ $prop_spec } = List::Util::uniqstr( @{ $prop_spec } );
 	    }
 	}
     }
@@ -240,18 +240,18 @@ sub files_from {
 
 sub _file_property {
     ( my ( $self, $property, $path ), local $_ ) = @_;
-    my $spec = $self->{"_${property}_add"} || {};
+    my $prop_spec = $self->{"_${property}_add"} || {};
     $_ //= ( File::Spec->splitpath( $path ) )[2];
     my @rslt;
 
-    $spec->{is}{$_}
-	and push @rslt, @{ $spec->{is}{$_} };
+    $prop_spec->{is}{$_}
+	and push @rslt, @{ $prop_spec->{is}{$_} };
 
     m/ [.] ( [^.]* ) \z /smx
-	and $spec->{ext}{$1}
-	and push @rslt, @{ $spec->{ext}{$1} };
+	and $prop_spec->{ext}{$1}
+	and push @rslt, @{ $prop_spec->{ext}{$1} };
 
-    if ( my $match = $spec->{match} ) {
+    if ( my $match = $prop_spec->{match} ) {
 	foreach my $m ( @{ $match } ) {
 	    $m->[1]->()
 		and push @rslt, $m->[0];
@@ -259,7 +259,7 @@ sub _file_property {
     }
 
     if (
-	my $match = $spec->{firstlinematch}
+	my $match = $prop_spec->{firstlinematch}
 	    and open my $fh, '<' . $self->__get_encoding( $path ), $path
     ) {
 	local $_ = <$fh>;
@@ -270,7 +270,7 @@ sub _file_property {
 	}
     }
 
-    if ( my $type_map = $spec->{type} ) {
+    if ( my $type_map = $prop_spec->{type} ) {
 	foreach my $type (
 	    $self->{_process}{type} ?
 	    @{ $self->{_process}{type} } :
@@ -333,7 +333,7 @@ sub __file_type_del {
 
 sub _get_spec_list {
     no warnings qw{ qw };	## no critic (ProhibitNoWarnings)
-    my @spec_list = (
+    my @attr_spec_list = (
 	{
 	    name	=> 'backup',
 	    type	=> '=s',
@@ -578,26 +578,26 @@ sub _get_spec_list {
 	},
     );
 
-    foreach ( @spec_list ) {
+    foreach ( @attr_spec_list ) {
 	$_->{name} =~ m/ _ /smx
 	    or next;
 	( my $alias = $_->{name} ) =~ s/ _ /-/smxg;
 	push @{ $_->{alias} }, $alias;
     }
 
-    return @spec_list;
+    return @attr_spec_list;
 }
 
 {
-    Readonly::Array my @spec_list => _get_spec_list();
+    Readonly::Array my @attr_spec_list => _get_spec_list();
 
-    Readonly::Hash my %spec_hash => map { $_->{name} => $_ } @spec_list;
+    Readonly::Hash my %attr_spec_hash => map { $_->{name} => $_ } @attr_spec_list;
 
     sub __get_attr_names {
 	state $attr = [
 	    map { $_->{name} }
 	    grep { ! $_->{option_only} }
-	    @spec_list,
+	    @attr_spec_list,
 	];
 	return @{ $attr };
     }
@@ -605,7 +605,7 @@ sub _get_spec_list {
     sub __get_opt_specs {
 	my ( $self ) = @_;
 	my @opt_spec;
-	foreach ( @spec_list ) {
+	foreach ( @attr_spec_list ) {
 	    push @opt_spec, join( '|', $_->{name}, @{ $_->{alias} || []
 		} ) . $_->{type}, $self->__get_validator( $_, 1 );
 	}
@@ -617,14 +617,15 @@ sub _get_spec_list {
 	$self ||= {};
 	$self->{ignore_sam_defaults}
 	    and return $self;
-	foreach my $spec ( @spec_list ) {
-	    exists $spec->{default}
+	foreach my $attr_spec ( @attr_spec_list ) {
+	    exists $attr_spec->{default}
 		or next;
 
-	    if ( exists $spec->{validate} ) {
-		$self->__validate_attr( $spec->{name}, $spec->{default} );
+	    if ( exists $attr_spec->{validate} ) {
+		$self->__validate_attr(
+		    $attr_spec->{name}, $attr_spec->{default} );
 	    } else {
-		$self->{$spec->{name}} = $spec->{default};
+		$self->{$attr_spec->{name}} = $attr_spec->{default};
 	    }
 	}
 	return $self;
@@ -690,9 +691,9 @@ sub _get_spec_list {
 
     # Given an argument spec, return code to validate it.
     sub __get_validator {
-	my ( $self, $spec, $die ) = @_;
+	my ( $self, $attr_spec, $die ) = @_;
 	my $method;
-	defined( $method = $spec->{validate} )
+	defined( $method = $attr_spec->{validate} )
 	    or return;
 	$die
 	    and return sub {
@@ -708,9 +709,9 @@ sub _get_spec_list {
     # Validate an attribute given its name and value
     sub __validate_attr {
 	my ( $self, $name, $value ) = @_;
-	my $spec = $spec_hash{$name}
+	my $attr_spec = $attr_spec_hash{$name}
 	    or $self->__confess( "Unknown attribute '$name'" );
-	if ( my $code = $self->__get_validator( $spec ) ) {
+	if ( my $code = $self->__get_validator( $attr_spec ) ) {
 	    $code->( $name, $value )
 		or return 0;
 	}
@@ -846,16 +847,16 @@ sub __me {
 
 sub __ignore {
     ( my ( $self, $kind, $path ), local $_ ) = @_;
-    my $spec = $self->{"_ignore_$kind"}
+    my $prop_spec = $self->{"_ignore_$kind"}
 	or $self->__confess( "Invalid ignore kind '$kind'" );
     $_ //= ( File::Spec->splitpath( $path ) )[2];
-    $spec->{is}{$_}
+    $prop_spec->{is}{$_}
 	and return 1;
     m/ [.] ( [^.]* ) \z /smx
-	and $spec->{ext}{$1}
+	and $prop_spec->{ext}{$1}
 	and return 1;
-    $spec->{match}
-	and $spec->{match}->()
+    $prop_spec->{match}
+	and $prop_spec->{match}->()
 	and return 1;
     if ( $kind eq 'file' && $self->{_type} ) {
 
@@ -1017,15 +1018,15 @@ sub __get_file_iterator {
 }
 
 sub __validate_color {
-    my ( $self, $name, $color ) = @_;
-    Term::ANSIColor::colorvalid( $color )
+    my ( $self, $attr_name, $attr_val ) = @_;
+    Term::ANSIColor::colorvalid( $attr_val )
 	or return 0;
-    $self->{$name} = $color;
+    $self->{$attr_name} = $attr_val;
     return 1;
 }
 
 sub __validate_file_property_add {
-    my ( $self, $attr_name, $spec ) = @_;
+    my ( $self, $attr_name, $attr_val ) = @_;
     my ( $prop_name, $action ) = $attr_name =~ m/ \A ( .* ) _ ( .* ) \z /smx
 	or $self->__confess( "Invalid attribute name '$attr_name'" );
 
@@ -1040,7 +1041,7 @@ sub __validate_file_property_add {
 	},
     }->{$prop_name} || sub { 1 };
 
-    foreach ( ref $spec ? @{ $spec } : $spec ) {
+    foreach ( ref $attr_val ? @{ $attr_val } : $attr_val ) {
 	my ( $prop_val, $kind, $data ) = split /:/, $_, 3;
 
 	$validate_prop_val->( $self, $prop_val )
@@ -1131,59 +1132,59 @@ sub __validate_file_property_add {
 }
 
 sub __validate_files_from {
-    my ( $self, $name, $value ) = @_;	# $self, $name unused
-    not ref $value
-	or REF_ARRAY eq ref $value
+    my ( $self, $attr_name, $attr_val ) = @_;	# invocant
+    not ref $attr_val
+	or REF_ARRAY eq ref $attr_val
 	or return 0;
-    my @valz = ref $value ? @{ $value } : $value;
+    my @valz = ref $attr_val ? @{ $attr_val } : $attr_val;
     foreach ( @valz ) {
 	-r
 	    or return 0;
-	push @{ $self->{"_$name"} }, $_;
+	push @{ $self->{"_$attr_name"} }, $_;
     }
     return 1;
 }
 
 sub __validate_ignore {
-    my ( $self, $name, $spec ) = @_;
-    foreach ( @{ $spec } ) {
+    my ( $self, $attr_name, $attr_val ) = @_;
+    foreach ( @{ $attr_val } ) {
 	my ( $kind, $data ) = split /:/, $_, 2;
 	defined $data
 	    or ( $kind, $data ) = ( is => $kind );
 	state $validate_kind = {
 	    ext	=> sub {
-		my ( $self, $name, $data ) = @_;
+		my ( $self, $attr_name, $data ) = @_;
 		my @item = split /,/, $data;
-		@{ $self->{"_$name"}{ext} }{ @item } = ( ( 1 ) x @item );
+		@{ $self->{"_$attr_name"}{ext} }{ @item } = ( ( 1 ) x @item );
 		return 1;
 	    },
 	    is	=> sub {
-		my ( $self, $name, $data ) = @_;
-		$self->{"_$name"}{is}{$data} = 1;
+		my ( $self, $attr_name, $data ) = @_;
+		$self->{"_$attr_name"}{is}{$data} = 1;
 		return 1;
 	    },
 	    match	=> sub {
-		my ( $self, $name, $data ) = @_;
+		my ( $self, $attr_name, $data ) = @_;
 		local $@ = undef;
 		eval "qr $data"	## no critic (ProhibitStringyEval)
 		    or return 0;
-		push @{ $self->{"_$name"}{match} }, $data;
+		push @{ $self->{"_$attr_name"}{match} }, $data;
 		return 1;
 	    },
 	};
 	my $code = $validate_kind->{$kind}
 	    or return 0;
-	$code->( $self, $name, $data )
+	$code->( $self, $attr_name, $data )
 	    or return 0;
     }
     return 1;
 }
 
 sub __validate_syntax {
-    my ( $self, undef, $syntax_array ) = @_;	# $name unused
-    foreach my $syntax ( ref $syntax_array ? @{ $syntax_array } : $syntax_array ) {
+    my ( $self, undef, $attr_val ) = @_;	# $attr_name unused
+    foreach ( ref $attr_val ? @{ $attr_val } : $attr_val ) {
 	state $valid = Text::Abbrev::abbrev( __syntax_types() );
-	my $expansion = $valid->{$syntax}
+	my $expansion = $valid->{$_}
 	    or return 0;
 	$self->{_syntax}{$expansion} = 1;
     }
@@ -1191,12 +1192,12 @@ sub __validate_syntax {
 }
 
 sub __validate_type {
-    my ( $self, undef, $type_array ) = @_;	# $name unused
-    foreach my $type ( ref $type_array ? @{ $type_array } : $type_array ) {
+    my ( $self, undef, $attr_val ) = @_;	# $attr_name unused
+    foreach ( ref $attr_val ? @{ $attr_val } : $attr_val ) {
 	my $neg;
-	if ( $self->{_type_def}{$type} ) { 
-	    $self->{_type}{$type} = 0;
-	} elsif ( ( $neg = $type ) =~ s/ \A no-? //smxi && (
+	if ( $self->{_type_def}{$_} ) { 
+	    $self->{_type}{$_} = 0;
+	} elsif ( ( $neg = $_ ) =~ s/ \A no-? //smxi && (
 		$self->{_type_def}{$neg} ) ) {
 	    $self->{_type}{$neg} = 1;
 	} else {
