@@ -11,6 +11,7 @@ eval {
 } or plan skip_all => 'Test::Prereq::Meta not available';
 
 my $tpm = Test::Prereq::Meta->new(
+    accept	=> 'YAML',
 );
 
 $tpm->all_prereq_ok();

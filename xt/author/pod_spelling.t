@@ -18,5 +18,6 @@ Fortran
 merchantability
 preprocessor
 Raku
+sam
 syntaxes
 Wyant

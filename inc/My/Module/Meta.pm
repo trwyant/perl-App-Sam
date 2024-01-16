@@ -157,6 +157,7 @@ sub requires {
 	'Getopt::Long'	=> 0,
 	'List::Util'	=> 1.46,	# for uniqstr()
 	'Module::Load'	=> 0,
+	'Pod::Usage'	=> 0,
 	'Readonly'	=> 0,
 	'Term::ANSIColor'	=> 0,
 	'Text::Abbrev'	=> 0,
@@ -176,6 +177,7 @@ sub requires_perl {
 
 sub script_files {
     return [
+	'script/sam',
     ];
 }
 

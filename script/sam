@@ -24,7 +24,6 @@ GetOptions( \%opt,
 ) or pod2usage( { -verbose => 0 } );
 
 my $dump = delete $opt{dump};
-my $files_from = delete $opt{files_from};
 
 my $sam = App::Sam->new(
     break	=> IS_TTY,
@@ -38,7 +37,7 @@ if ( $dump ) {
     require YAML;
     {
 	# Suppress warnings from trying to print "\N{U+FFFE}".
-	no warnings qw{ utf8 };
+	no warnings qw{ utf8 };	## no critic (ProhibitNoWarnings)
 	print YAML::Dump( $sam );
 	# Flush any "\N{U+FFFE}" remaining in the buffer. Otherwise they
 	# seem to cause utf8 warnings when the next print is done, and
@@ -61,7 +60,7 @@ if ( $dump ) {
     push @ARGV, $sam->files_from();
 
     @ARGV
-	or @ARGV = ( File::Spec->curdir() );
+	or push @ARGV, File::Spec->curdir();
 
     $sam->process( $_ ) for @ARGV;
 }
