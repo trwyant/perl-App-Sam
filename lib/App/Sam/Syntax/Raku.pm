@@ -18,6 +18,11 @@ Readonly::Scalar my $open_brkt => join '',
     "\N{U+005B}",	# Left square bracket
     "\N{U+00AB}";	# Left-pointing double angle quotation mark
 
+sub __classifications {
+    return ( SYNTAX_CODE, SYNTAX_COMMENT, SYNTAX_DOCUMENTATION,
+	SYNTAX_METADATA );
+}
+
 sub __classify_code {
     my ( $self ) = @_;
     if ( m/ \A \s* \# /smxg ) {
@@ -115,10 +120,6 @@ Of course.
 =item * SYNTAX_COMMENT
 
 Any line whose first non-blank character is C<'#'>.
-
-=item * SYNTAX_DATA
-
-Anything after C<__DATA__> or C<__END__> except embedded POD.
 
 =item * SYNTAX_DOCUMENTATION
 

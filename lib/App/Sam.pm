@@ -921,10 +921,15 @@ sub process {
 	    }
 
 	    # If --syntax was specified and we did not find a syntax
-	    # object, ignore the file.
-	    $self->{_syntax}
-		and not $self->{_process}{syntax_obj}
-		and return;
+	    # object OR it does not produce the requested syntax, ignore
+	    # the file.
+	    if ( $self->{_syntax} ) {
+		$self->{_process}{syntax_obj}
+		    or return;
+		List::Util::first( sub { $self->{_syntax}{$_} },
+		    $self->{_process}{syntax_obj}->__classifications() )
+		    or return;
+	    }
 	}
 
 	if ( $self->{f} ) {

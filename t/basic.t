@@ -23,29 +23,14 @@ load_module_ok 'App::Sam::Syntax';
 
 load_module_ok 'App::Sam::Syntax::_cc_like';
 
-load_module_ok 'App::Sam::Syntax::Cc';
+foreach my $syntax ( qw{ Cc Cpp Data Fortran Java Make Perl Properties
+    Raku Shell Vim YAML } ) {
+    my $class = "App::Sam::Syntax::$syntax";
 
-load_module_ok 'App::Sam::Syntax::Cpp';
+    load_module_ok $class;
 
-load_module_ok 'App::Sam::Syntax::Data';
-
-load_module_ok 'App::Sam::Syntax::Fortran';
-
-load_module_ok 'App::Sam::Syntax::Java';
-
-load_module_ok 'App::Sam::Syntax::Make';
-
-load_module_ok 'App::Sam::Syntax::Perl';
-
-load_module_ok 'App::Sam::Syntax::Properties';
-
-load_module_ok 'App::Sam::Syntax::Raku';
-
-load_module_ok 'App::Sam::Syntax::Shell';
-
-load_module_ok 'App::Sam::Syntax::Vim';
-
-load_module_ok 'App::Sam::Syntax::YAML';
+    can_ok $class, qw{ __classifications __classify };
+}
 
 load_module_ok 'App::Sam';
 
@@ -178,7 +163,7 @@ is [ $sam->__file_type( 'README' ) ], [],
 
 ok $sam->__ignore( directory => 'blib' ), q<directory 'blib' is ignored>;
 
-ok [ $sam->files_from( \<<'EOD' ) ], [ 't/data/limerick.t' ], 'files_from()';
+is [ $sam->files_from( \<<'EOD' ) ], [ 't/data/limerick.t' ], 'files_from()';
 t/data/limerick.t
 EOD
 

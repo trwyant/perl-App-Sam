@@ -11,6 +11,11 @@ use App::Sam::Util qw{ :syntax @CARP_NOT };
 
 our $VERSION = '0.000_001';
 
+sub __classifications {
+    return ( SYNTAX_CODE, SYNTAX_COMMENT, SYNTAX_DATA,
+	SYNTAX_DOCUMENTATION, SYNTAX_METADATA );
+}
+
 sub __classify_code {
     my ( $self ) = @_;
     if ( m/ \A \s* \# /smx ) {

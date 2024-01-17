@@ -11,6 +11,10 @@ use App::Sam::Util qw{ :carp :syntax @CARP_NOT };
 
 our $VERSION = '0.000_001';
 
+sub __classifications {
+    return ( SYNTAX_CODE, SYNTAX_COMMENT );
+}
+
 sub __classify {
     my ( $self ) = @_;
     my $type = delete $self->{Continued} || (

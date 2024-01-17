@@ -11,6 +11,10 @@ use App::Sam::Util qw{ :syntax @CARP_NOT };
 
 our $VERSION = '0.000_001';
 
+sub __classifications {
+    return ( SYNTAX_COMMENT, SYNTAX_DATA );
+}
+
 sub __classify {
     m/ \A \s* [!#] /smx
 	and return SYNTAX_COMMENT;

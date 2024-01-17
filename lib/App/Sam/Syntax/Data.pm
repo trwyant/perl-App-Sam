@@ -11,6 +11,10 @@ use App::Sam::Util qw{ :syntax @CARP_NOT };
 
 our $VERSION = '0.000_001';
 
+sub __classifications {
+    return ( SYNTAX_DATA );
+}
+
 sub __classify {
     return SYNTAX_DATA;
 }

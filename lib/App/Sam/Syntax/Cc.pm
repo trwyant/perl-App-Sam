@@ -7,10 +7,13 @@ use warnings;
 
 use parent qw{ App::Sam::Syntax::_cc_like };
 
-use App::Sam::Util qw{ @CARP_NOT };
+use App::Sam::Util qw{ :syntax @CARP_NOT };
 
 our $VERSION = '0.000_001';
 
+sub __classifications {
+    return ( SYNTAX_CODE, SYNTAX_COMMENT, SYNTAX_PREPROCESSOR );
+}
 
 1;
 

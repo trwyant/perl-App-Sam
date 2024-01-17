@@ -7,9 +7,14 @@ use warnings;
 
 use parent qw{ App::Sam::Syntax::_cc_like };
 
-use App::Sam::Util qw{ @CARP_NOT };
+use App::Sam::Util qw{ :syntax @CARP_NOT };
 
 our $VERSION = '0.000_001';
+
+sub __classifications {
+    return ( SYNTAX_CODE, SYNTAX_COMMENT, SYNTAX_DOCUMENTATION,
+	SYNTAX_PREPROCESSOR );
+}
 
 sub __match_single_line_comment {
     return m| \A \s* // |smx;
