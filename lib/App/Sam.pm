@@ -65,7 +65,8 @@ sub new {
     $argv
 	and $self->__get_attr_from_rc( $argv );
 
-    $self->__incompat_opt( qw{ f match } );
+    $self->__incompat_arg( qw{ f match } );
+    $self->__incompat_arg( qw{ f replace } );
 
     unless ( $self->{f} || defined $self->{match} ) {
 	if ( $argv && @{ $argv } ) {
@@ -331,7 +332,9 @@ sub __file_type_del {
     return;
 }
 
-sub _get_spec_list {
+our @ATTR_SPEC_LIST;
+our %ATTR_SPEC_HASH;
+{
     no warnings qw{ qw };	## no critic (ProhibitNoWarnings)
     my @attr_spec_list = (
 	{
@@ -341,7 +344,7 @@ sub _get_spec_list {
 	},
 	{
 	    name	=> 'break',
-	    type	=> '|',
+	    type	=> '!',
 	},
 	{
 	    name	=> 'color',
@@ -372,6 +375,7 @@ sub _get_spec_list {
 	},
 	{
 	    name	=> 'die',
+	    argument_only	=> 1,
 	    type	=> '!',
 	},
 	{
@@ -592,141 +596,139 @@ sub _get_spec_list {
 	push @{ $_->{alias} }, $alias;
     }
 
-    return @attr_spec_list;
+    Readonly::Array @ATTR_SPEC_LIST => @attr_spec_list;
+
+    Readonly::Hash %ATTR_SPEC_HASH => map { $_->{name} => $_ }
+	@ATTR_SPEC_LIST;
+}
+
+sub __get_attr_names {
+    state $attr = [
+	map { $_->{name} }
+	grep { ! $_->{option_only} }
+	@ATTR_SPEC_LIST,
+    ];
+    return @{ $attr };
+}
+
+sub __get_opt_specs {
+    my ( $self ) = @_;
+    my @opt_spec;
+    foreach ( @ATTR_SPEC_LIST ) {
+	next if $_->{argument_only};
+	push @opt_spec, join( '|', $_->{name}, @{ $_->{alias} || []
+	    } ) . $_->{type}, $self->__get_validator( $_, 1 );
+    }
+    return @opt_spec;
+}
+
+sub __get_attr_defaults {
+    my ( $self ) = @_;
+    $self ||= {};
+    $self->{ignore_sam_defaults}
+	and return $self;
+    foreach my $attr_spec ( @ATTR_SPEC_LIST ) {
+	exists $attr_spec->{default}
+	    or next;
+
+	if ( exists $attr_spec->{validate} ) {
+	    $self->__validate_attr(
+		$attr_spec->{name}, $attr_spec->{default} );
+	} else {
+	    $self->{$attr_spec->{name}} = $attr_spec->{default};
+	}
+    }
+    return $self;
 }
 
 {
-    Readonly::Array my @attr_spec_list => _get_spec_list();
+    my %rc_cache;
 
-    Readonly::Hash my %attr_spec_hash => map { $_->{name} => $_ } @attr_spec_list;
+    # TODO __clear_rc_cache()
 
-    sub __get_attr_names {
-	state $attr = [
-	    map { $_->{name} }
-	    grep { ! $_->{option_only} }
-	    @attr_spec_list,
-	];
-	return @{ $attr };
-    }
-
-    sub __get_opt_specs {
-	my ( $self ) = @_;
-	my @opt_spec;
-	foreach ( @attr_spec_list ) {
-	    push @opt_spec, join( '|', $_->{name}, @{ $_->{alias} || []
-		} ) . $_->{type}, $self->__get_validator( $_, 1 );
-	}
-	return @opt_spec;
-    }
-
-    sub __get_attr_defaults {
-	my ( $self ) = @_;
-	$self ||= {};
-	$self->{ignore_sam_defaults}
-	    and return $self;
-	foreach my $attr_spec ( @attr_spec_list ) {
-	    exists $attr_spec->{default}
-		or next;
-
-	    if ( exists $attr_spec->{validate} ) {
-		$self->__validate_attr(
-		    $attr_spec->{name}, $attr_spec->{default} );
-	    } else {
-		$self->{$attr_spec->{name}} = $attr_spec->{default};
-	    }
-	}
-	return $self;
-    }
-
-    {
-	my %rc_cache;
-
-	# TODO __clear_rc_cache()
-
-	# Get attributes from resource file.
-	sub __get_attr_from_rc {
-	    my ( $self, $file, $required ) = @_;
-	    my $arg = $file;
-	    unless ( REF_ARRAY eq ref $file ) {
-		if ( not ref( $file ) and $arg = $rc_cache{$file} ) {
-		    ref $arg
-			or $self->__croak( $arg );
-		} elsif ( open my $fh,	## no critic (RequireBriefOpen)
-		    '<' . $self->__get_encoding( $file, 'utf-8' ),
-		    $file
-		) {
-		    local $_ = undef;	# while (<>) does not localize $_
-		    $arg = [];
-		    while ( <$fh> ) {
-			m/ \A \s* (?: \z | \# ) /smx
-			    and next;
-			chomp;
-			push @{ $arg }, $_;
-		    }
-		    close $fh;
-		    $rc_cache{$file} = [ @{ $arg } ];
-		} elsif ( $! == ENOENT && ! $required ) {
-		    $rc_cache{$file} = {};
-		    return;
-		} else {
-		    $self->__croak( $rc_cache{$file} =
-			"Failed to open resource file $file: $!" );
+    # Get attributes from resource file.
+    sub __get_attr_from_rc {
+	my ( $self, $file, $required ) = @_;
+	my $arg = $file;
+	unless ( REF_ARRAY eq ref $file ) {
+	    if ( not ref( $file ) and $arg = $rc_cache{$file} ) {
+		ref $arg
+		    or $self->__croak( $arg );
+	    } elsif ( open my $fh,	## no critic (RequireBriefOpen)
+		'<' . $self->__get_encoding( $file, 'utf-8' ),
+		$file
+	    ) {
+		local $_ = undef;	# while (<>) does not localize $_
+		$arg = [];
+		while ( <$fh> ) {
+		    m/ \A \s* (?: \z | \# ) /smx
+			and next;
+		    chomp;
+		    push @{ $arg }, $_;
 		}
+		close $fh;
+		$rc_cache{$file} = [ @{ $arg } ];
+	    } elsif ( $! == ENOENT && ! $required ) {
+		$rc_cache{$file} = {};
+		return;
+	    } else {
+		$self->__croak( $rc_cache{$file} =
+		    "Failed to open resource file $file: $!" );
 	    }
-	    {
-		my @warning;
-		local $SIG{__WARN__} = sub { push @warning, @_ };
-		$self->__get_option_parser()->getoptionsfromarray(
-		    $arg, $self, $self->__get_opt_specs() )
-		    or do {
-			chomp @warning;
-			my $msg = join '; ', @warning;
-			ref $file
-			    or $msg .= " in $file";
-			REF_ARRAY eq ref $file
-			    or $rc_cache{$file} = $msg;
-			$self->__croak( $msg );
-		};
-	    }
-	    @{ $arg }
-		and not REF_ARRAY eq ref $file
-		and $self->__croak( $rc_cache{$file} =
-		"Non-option content in $file" );
-	    return;
 	}
-    }
-
-    # Given an argument spec, return code to validate it.
-    sub __get_validator {
-	my ( $self, $attr_spec, $die ) = @_;
-	ref $attr_spec
-	    or $attr_spec = $attr_spec_hash{$attr_spec}
-	    or $self->__confess( "Undefined attribute '$_[1]'" );
-	my $method;
-	defined( $method = $attr_spec->{validate} )
-	    or return;
-	$die
-	    and return sub {
-	    $self->$method( $attr_spec, @_ )
-		or die "Invalid value --$_[0]=$_[1]\n";
-	    return 1;
-	};
-	return sub {
-	    return $self->$method( $attr_spec, @_ );
-	};
-    }
-
-    # Validate an attribute given its name and value
-    sub __validate_attr {
-	my ( $self, $name, $value ) = @_;
-	my $attr_spec = $attr_spec_hash{$name}
-	    or $self->__confess( "Unknown attribute '$name'" );
-	if ( my $code = $self->__get_validator( $attr_spec ) ) {
-	    $code->( $name, $value )
-		or return 0;
+	{
+	    my @warning;
+	    local $SIG{__WARN__} = sub { push @warning, @_ };
+	    $self->__get_option_parser()->getoptionsfromarray(
+		$arg, $self, $self->__get_opt_specs() )
+		or do {
+		    chomp @warning;
+		    my $msg = join '; ', @warning;
+		    ref $file
+			or $msg .= " in $file";
+		    REF_ARRAY eq ref $file
+			or $rc_cache{$file} = $msg;
+		    $self->__croak( $msg );
+	    };
 	}
+	@{ $arg }
+	    and not REF_ARRAY eq ref $file
+	    and $self->__croak( $rc_cache{$file} =
+	    "Non-option content in $file" );
+	return;
+    }
+}
+
+# Given an argument spec, return code to validate it.
+sub __get_validator {
+    my ( $self, $attr_spec, $die ) = @_;
+    ref $attr_spec
+	or $attr_spec = $ATTR_SPEC_HASH{$attr_spec}
+	or $self->__confess( "Undefined attribute '$_[1]'" );
+    my $method;
+    defined( $method = $attr_spec->{validate} )
+	or return;
+    $die
+	and return sub {
+	$self->$method( $attr_spec, @_ )
+	    or die "Invalid value --$_[0]=$_[1]\n";
 	return 1;
+    };
+    return sub {
+	return $self->$method( $attr_spec, @_ );
+    };
+}
+
+# Validate an attribute given its name and value
+sub __validate_attr {
+    my ( $self, $name, $value ) = @_;
+    my $attr_spec = $ATTR_SPEC_HASH{$name}
+	or $self->__confess( "Unknown attribute '$name'" );
+    if ( my $code = $self->__get_validator( $attr_spec ) ) {
+	$code->( $name, $value )
+	    or return 0;
     }
+    return 1;
 }
 
 sub __get_option_parser {
@@ -765,7 +767,7 @@ sub __get_rc_file_names {
     return @rslt;
 }
 
-sub __incompat_opt {
+sub __incompat_arg {
     my ( $self, @opt ) = @_;
     my @have = grep { exists $self->{$_} } @opt;
     if ( @have > 1 ) {
@@ -1277,7 +1279,7 @@ This argument specifies a reference to an array which is to be processed
 for command-line options by L<Getopt::Long|Getopt::Long>. It is
 processed after all other arguments. The command-line options correspond
 to other arguments, and either override (usually) or otherwise
-modify them (things like C<type_add>, C<type_del>, and C<type_set>.
+modify them (things like C<type_add>, C<type_del>, and C<type_set>).
 Unknown options result in an exception.
 
 The argument must refer to an array that can be modified. After this
@@ -1285,40 +1287,33 @@ argument is processed, non-option arguments remain in the array.
 
 =item C<backup>
 
-This argument specifies that file modification renames the original file
-before the modification is written. The value is the string to be
-appended to the original file name. No rename is done unless the file
-was actually modified. A value of C<''> specifies no rename.
+See L<--backup|sam/--backup> in the L<sam|sam> documentation.
 
 =item C<break>
 
-This Boolean argument specifies whether a break is printed between
-output from different files. The default is false.
+See L<--break|sam/--break> in the L<sam|sam> documentation. The default
+is false.
 
 =item C<color>
 
-This Boolean argument specifies whether output should be colored. The
-default is false. Output will not be colored if C<replace> was
-specified.
+See L<--color|sam/--color> in the L<sam|sam> documentation. The default
+is false.
 
 =item C<color_filename>
 
-This argument specifies the L<Term::ANSIColor|Term::ANSIColor> coloring
-to be applied to the file name.
+See L<--color-filename|sam/--color-filename> in the L<sam|sam> documentation.
 
 =item C<color_lineno>
 
-This argument specifies the L<Term::ANSIColor|Term::ANSIColor> coloring
-to be applied to the line number.
+See L<--color-lineno|sam/--color-lineno> in the L<sam|sam> documentation.
 
 =item C<color_match>
 
-This argument specifies the L<Term::ANSIColor|Term::ANSIColor> coloring
-to be applied to the match.
+See L<--color-match|sam/--color-match> in the L<sam|sam> documentation.
 
 =item C<count>
 
-If this Boolean option is true, only the number of matches is output.
+See L<--count|sam/--count> in the L<sam|sam> documentation.
 
 =item C<die>
 
@@ -1329,24 +1324,24 @@ is false. A true value will be ignored if C<$Carp::verbose> is true.
 
 =item C<dry_run>
 
-If this Boolean argument is true, modified files are not rewritten, nor
-are the originals backed up. The default is false.
+See L<--dry-run|sam/--dry-run> in the L<sam|sam> documentation.
 
 =item C<encoding>
 
-This argument specifies the encoding to use to read and write files. The
-default is C<'utf-8'>.
+See L<--encoding|sam/--encoding> in the L<sam|sam> documentation.
+
+=item C<env>
+
+See L<--env|sam/--env> in the L<sam|sam> documentation.
 
 =item C<f>
 
-If this Boolean argument is true, no search is done, but the files that
-would be searched are printed. You may not specify the C<match> argument
-if this is true.
+See L<-f|sam/-f> in the L<sam|sam> documentation.
 
 =item C<files_from>
 
-This argument specifies the name of a file which contains the names of
-files to search. It can also be a reference to an array of such files.
+See L<--files-from|sam/--files-from> in the L<sam|sam> documentation.
+
 B<Note> that the files are not actually read until
 L<files_from()|/files_from> is called. The only validation before that
 is that the C<-r> operator must report them as readable, though this is
@@ -1354,94 +1349,92 @@ not definitive in the presence of Access Control Lists.
 
 =item C<filter_files_from>
 
-This Boolean argument specifies whether files obtained by calling
-L<files_from()|/files_from> should be filtered. The default is false,
-which is consistent with L<ack|ack>.
+See L<--filter-files-from|sam/--filter-files-from> in the L<sam|sam>
+documentation.
 
 =item C<ignore_case>
 
-If this Boolean argument is true, the match argument ignores case.
+See L<--ignore-case|sam/--ignore-case> in the L<sam|sam> documentation.
 
 =item C<ignore_directory>
 
-This argument is a reference to an array of
-L<file selectors|/FILE SELECTORS>. Directory scans will ignore
-directories that match any of the selectors.
-
-Directories specified explicitly will not be ignored even if they match
-one or more selectors.
+See L<--ignore-directory|sam/--ignore-directory> in the L<sam|sam>
+documentation. The argument is a reference to an array of
+L<file selectors|sam/FILE SELECTORS>.
 
 =item C<ignore_file>
 
-This argument is a reference to an array of
-L<file selectors|/FILE SELECTORS>. Directory scans will ignore files
-that match any of the selectors.
-
-Files specified explicitly will not be ignored even if they match one or
-more selectors.
+See L<--ignore-file|sam/--ignore-file> in the L<sam|sam>
+documentation. The argument is a reference to an array of
+L<file selectors|sam/FILE SELECTORS>.
 
 =item C<ignore_sam_defaults>
 
-If this Boolean argument is true, the built-in defaults are ignored.
+See L<--ignore-sam-defaults|sam/--ignore-sam-defaults> in the L<sam|sam>
+documentation.
 
 =item C<match>
 
-This argument specifies the regular expression to match. It can be given
-as either a C<Regexp> object or a string.
-
-=item C<env>
-
-If this Boolean argument is true. all resource files are processed. The
-default is true. Files explicitly specified by C<samrc> are exempt from
-the effects of this argument.
+See L<--match|sam/--match> in the L<sam|sam> documentation. If legal but
+not specified, the first non-option argument in C<argv> will be used.
 
 =item C<replace>
 
-If this argument is defined it represents a string to replace the
-matched string. Capture variables may be used.
+See L<--replace|sam/--replace> in the L<sam|sam> documentation.
 
 =item C<samrc>
 
-This argument specifies the name of a resource file to read. This is
-read after all the default resource files, and even if C<noenv> is true.
-The file must exist.
+See L<--samrc|sam/--samrc> in the L<sam|sam> documentation.
 
 =item C<show_syntax>
 
-If this Boolean option is true, the syntax type of each line will be
-displayed between the line number and the text of the line. This will be
-empty if the file's type does not have syntax defined on it.
+See L<--show-syntax|sam/--show-syntax> in the L<sam|sam> documentation.
 
 =item C<show_types>
 
-If this Boolean option is true, file types are appended to the file name
-when displayed.
+See L<--show-types|sam/--show-types> in the L<sam|sam> documentation.
 
 =item C<syntax>
 
-This argument is a reference to an array of syntax types to select. If a
-file does not have syntax defined. it is ignored.
+See L<--syntax|sam/--syntax> in the L<sam|sam> documentation.
+
+This argument takes either a scalar syntax type or a reference to an
+array of them. Syntax type names can be abbreviated as long as the
+abbreviation is unique.
+
+=item C<syntax_add>
+
+See L<--syntax-add|sam/--syntax-add> in the L<sam|sam> documentation.
+
+=item C<syntax_del>
+
+See L<--syntax-del|sam/--syntax-del> in the L<sam|sam> documentation.
+
+=item C<syntax_set>
+
+See L<--syntax-set|sam/--syntax-set> in the L<sam|sam> documentation.
 
 =item C<type>
 
-This argument is a reference to an array of file types to select. The
-type can be prefixed with C<'no'> or C<'no-'> to reject the type. In the
-case of files with more than one type, rejection takes precedence over
-selection.
+See L<--type|sam/--type> in the L<sam|sam> documentation. The argument
+is either a scalar type or a reference to an array of types, which may
+be prefixed by C<'no'> or C<'no-'> to reject the type.
 
 =item C<type_add>
 
-This argument is a reference to an array of file type definitions. These
-are specified as C<type:file_selector> where the C<type> is the name
-assigned to the type and C<file_selector> is a L<file selector|/FILE
-SELECTORS>.
+See L<--type-add|sam/--type-add> in the L<sam|sam> documentation.
+
+=item C<type_del>
+
+See L<--type-del|sam/--type-del> in the L<sam|sam> documentation.
+
+=item C<type_set>
+
+See L<--type-set|sam/--type-set> in the L<sam|sam> documentation.
 
 =item C<word_regexp>
 
-If this Boolean argument is true, then if the beginning and/or end of
-the match expression is a word character, a C<\b> assertion will be
-prepended/appended. That is to say, C<foo> will become C<\bfoo\b>, but
-C<(foo)> will remain C<(foo)>.
+See L<--word-regexp|sam/--word-regexp> in the L<sam|sam> documentation.
 
 =back
 
@@ -1495,47 +1488,6 @@ provided they are not ignored. Nothing is returned.
 
 If the file is not a directory and is actually processed, its contents
 (possibly modified) will be returned. Otherwise nothing is returned.
-
-=head1 FILE SELECTORS
-
-Various functions of this package require selecting files or directories
-for inclusion or exclusion. File selectors are specified as
-C<'type:arg'>, where the C<type> is one of the known selector types
-listed below, and the C<arg> is an argument specific to the selector
-type.
-
-=over
-
-=item C<is>
-
-The argument is the base name of the file to be selected. For example,
-C<is:Makefile> selects all files named F<Makefile>, wherever they appear
-in the directory hierarchy.
-
-=item C<ext>
-
-The argument is a comma-separated list of file name extensions/suffixes
-to be selected. For example, C<ext:pl,t> selects all files whose names
-end in F<.pl> or F<.t>.
-
-B<Note> that unlike L<ack|ack>, this selector is case-sensitive:
-C<ext:pl,t> does B<not> select F<Makefile.PL>; to do that, you must
-include the C<PL> explicitly.
-
-=item C<match>
-
-The argument is a delimited regular expression that matches the base
-name of the file to be selected. For example, C<match:/[._].*[.]swp$/>
-selects C<vi*> swap files.
-
-=item C<firstlinematch>
-
-The argument is a delimited regular expression that matches the first
-line of the file to be selected. For example, C<perl:firstlinematch:/^#!.*\bperl/> matches a Perl script.
-
-This selector may not be used to select a directory.
-
-=back
 
 =head1 SEE ALSO
 

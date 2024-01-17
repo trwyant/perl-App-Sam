@@ -74,25 +74,406 @@ sam - Search for strings in files, and possibly modify them
 =head1 SYNOPSIS
 
  sam foo *.txt
+ sam foo --replace bar *.txt
  sam --help
  sam --version
 
 =head1 OPTIONS
 
-<<< replace boiler plate >>>
+=head2 --backup
+
+This option specifies that file modification renames the original file
+before the modification is written. The value is the string to be
+appended to the original file name. No rename is done unless the file
+was actually modified. A value of C<''> specifies no rename.
+
+The default is C<--backup=''>.
+
+=head2 --break
+
+This Boolean option specifies whether a break is printed between
+output from different files. The default is C<--break> if output is to a
+terminal, and C<--no-break> otherwise.
+
+=head2 --color
+
+This Boolean option specifies whether output should be colored. The
+default is C<--color> if output is to a terminal, and C<--no-color>
+otherwise. Coloring will not be done if L<--replace|/--replace> is
+specified.
+
+=head2 --colour
+
+This Boolean option is an alternative spelling to L<--color|/--color>.
+
+=head2 --color-filename
+
+This option specifies the L<Term::ANSIColor|Term::ANSIColor> coloring to
+be applied to the file name. The default is
+
+ --color-filename='bold green'
+
+=head2 --color-lineno
+
+This option specifies the L<Term::ANSIColor|Term::ANSIColor> coloring to
+be applied to the line number. The default is
+
+ --color-lineno='bold yellow'
+
+=head2 --color-match
+
+This option specifies the L<Term::ANSIColor|Term::ANSIColor> coloring
+to be applied to the match. The default is
+
+ --color-match='black on_yellow'
+
+=head2 --count
+
+If this Boolean option is true, only the number of matches is output for
+each file. The default is C<--no-count>.
+
+=head2 --dry-run
+
+If this Boolean option is true, modified files are not rewritten, nor
+are the originals backed up. It has no effect unless
+L<--replace|/--replace> is specified. The default is C<--no-dry-run>.
+
+=head2 --encoding
+
+This Boolean option specifies the encoding to use to read and write
+files. The default is C<--encoding=utf-8>.
+
+=head2 --env
+
+This Boolean option specifies whether environment variables and
+resource files are to be used to configure C<sam>. The default is
+C<--env>, but this can be negated by specifying C<--no-env>. Resource
+files explicitly specified by L<--samrc|/--samrc> are exempt from the
+effects of this option.
+
+=head2 -f
+
+If this Boolean option is true, no search is done, but the files that
+would be searched are printed. You may not specify the
+L<--match|/--match> or L<--replace|/--replace> options if this is true.
+The default is C<--no-f>.
+
+=head2 --files-from
+
+This option specifies the name of a file which contains the names of
+files to search. It can be specified more than once.
+
+These files are B<not> filtered unless
+L<--filter-files-from|/--filter-files-from> is asserted.
+
+=head2 --filter-files-from
+
+This Boolean option specifies whether files obtained by calling
+L<files_from()|App::Sam/files_from> should be filtered. The default is
+C<--no-filter-files-from>, which is consistent with L<ack|ack>.
 
 =head2 --help
 
 This option displays the documentation for this script. The script then
 exits.
 
+=head2 --help-syntax
+
+This option displays the current syntax filter definitions to F<STDOUT>.
+The script then exits.
+
+=head2 --help-types
+
+This option displays the current file type definitions to F<STDOUT>. The
+script then exits.
+
+=head2 --ignore-case
+
+If this Boolean option is true, the L<--match|/--match> option ignores
+case. The default is C<--no-ignore-case>.
+
+=head2 -i
+
+This Boolean option is equivalent to L<--ignore-case|/--ignore-case>.
+
+=head2 -I
+
+This Boolean option is equivalent to L<--no-ignore-case|/--ignore-case>.
+
+=head2 --ignore-directory
+
+This option specifies a directory to ignore. It can be specified more
+than once. The argument is a L<file selector|/FILE SELECTORS>.
+
+Directories specified explicitly will not be ignored even if they match
+one or more selectors.
+
+=head2 --ignore-file
+
+This option specifies a directory to ignore. It can be specified more
+than once. The argument is a L<file selector|/FILE SELECTORS>.
+
+Directories specified explicitly will not be ignored even if they match
+one or more selectors.
+
+=head2 --ignore-sam-defaults
+
+If this Boolean option is true, the built-in defaults are ignored. The
+default is C<--no-ignore-sam-defaults>.
+
+=head2 --match
+
+This option specifies the regular expression to match. It is illegal to
+specify this in the presence of non-matching options such as C<-f|/-f>.
+If this option is legal but not specified, the first non-option
+command-line argument will be used as the match expression.
+
+=head2 --replace
+
+This option specifies the replacement string. If this is specified,
+L<--match|/--match> is required.
+
+=head2 --samrc
+
+This option specifies the name of a resource file to read. This is read
+after all the default resource files, and even if L<--no-env|/--env> is
+specified. The file must exist.
+
+=head2 --show-syntax
+
+If this Boolean option is asserted, the syntax type of each line will be
+displayed before the text of the line. This will be empty if the file's
+type does not have syntax defined on it.
+
+=head2 --show-types
+
+If this Boolean option is asserted, file types are appended to the file
+name when displayed.
+
+=head2 --syntax
+
+This option specifies the syntax types to search. It can be specified
+more than once. The valid syntax types are:
+
+ code
+ comment
+ data
+ documentation
+ metadata
+ other
+ preprocessor
+
+Syntax type names can be abbreviated as long as the abbreviation is
+unique. For example, C<'code'> can be abbreviated to C<'cod'>, but not
+to C<'co'>.
+
+Syntax types are implemented by modules named C<App::Sam::Syntax::*>.
+These are associated with files via the L<--syntax-add|/--syntax-add>
+option and friends. They are implemented by C<App::Sam::Syntax::*>
+modules.
+
+Not all files will have syntax modules associated with them, and not all
+syntax modules provide all syntax types. If C<--syntax> is specified,
+files that do not have the given syntax type will not be searched.
+
+=head2 --syntax-add
+
+This option associates a syntax module with a
+L<file selector|/FILE SELECTORS>. It can be specified more than
+once. The argument is the short name of the syntax module (i.e. without
+the leading C<'App::Sam::Syntax::'>), a colon, and a
+L<file selector|/FILE SELECTORS>. For example,
+
+ --syntax-add=Perl:ext:psgi
+
+associates C<App::Sam::Syntax::Perl> with any file whose name ends in
+F<.psgi>.
+
+You can associate the same syntax module with multiple file selectors.
+
+=head2 --syntax-del
+
+This option dissociates a syntax module from all files with which it was
+previously associated. For example,
+
+ --syntax-del=Perl
+
+dissociates C<App::Sam::Syntax::Perl> from all files (if any) with which
+it was previously associated.
+
+=head2 --syntax-set
+
+This convenience option is equivalent to C<--syntax-del> followed by
+C<--syntax-add>.
+
+=head2 --type
+
+This option specifies a file type to select. It can be specified more
+than once. The type can be prefixed with C<'no'> or C<'no-'> to reject
+the type. In the case of files with more than one type, rejection takes
+precedence over selection.
+
+=head2 --type-add
+
+This option defines a file type. It can be specified more than once. The
+argument is the name of the file type followed by a colon (C<':'>) and a
+L<file selector|/FILE SELECTORS>. For example,
+
+ --type-add text:ext:txt,text
+
+adds type C<'text'>, and associates it with any file whose name ends in
+F<.txt> or F<.text>.
+
+You can associate the same file type with multiple file selectors.
+
+=head2 --type-del
+
+This option dissociates a file type from all files with which it was
+previously associated. For example,
+
+ --type-del=text
+
+deletes file type C<'text'>, dissociating it from all files (if any)
+with which it was previously associated.
+
+=head2 --type-set
+
+This convenience option is equivalent to C<--type-del> followed by
+C<--type-add>.
+
 =head2 --version
 
 This option displays the version of this script. The script then exits.
 
+=head2 --word-regexp
+
+If this Boolean option is asserted, then if the beginning and/or end of
+the match expression is a word character, a C<\b> assertion will be
+prepended/appended. That is to say, C<foo> will become C<\bfoo\b>, but
+C<(foo)> will remain C<(foo)>.
+
+=head2 -w
+
+This Boolean option is equivalent to L<--word-regexp|/--word-regexp>.
+
 =head1 DETAILS
 
-<<< replace boiler plate >>>
+This Perl script was inspired by both L<ack|ack>, and one of my earliest
+Perl scripts called F<sad>, for Search and Destroy. It implements a
+fair-sided subset of L<ack|ack>' file search capabilities, in a way
+more-or-less compatible with L<ack|ack>. It adds functionality that I
+thought useful:
+
+=over
+
+=item * Line selection by syntax type
+
+This functionality is specified by the L<--syntax|/--syntax> option.
+Syntax classification is on a per-line basis, which is a bit of a forced
+fit for languages like C<C>, but may be better than nothing. The actual
+classification is by C<App::Sam::Syntax::*> modules, and associated with
+files using a mechanism similar to L<ack|ack>'s file type machinery.
+
+=item * Replacement of matched strings
+
+This functionality is specified by the L<--replace|/--replace> option.
+Replacement strings may make use of capture variables defined in the
+L<--match|/--match> option's argument.
+
+This is actually the functionality that gave rise to the script's name:
+Search And Modify. It would have been called C<sad> like its
+predecessor, but that name was taken by the
+L<Games-Scott-Adams|https://metacpan.org/dist/Games-ScottAdams> package,
+as was C<sac>.
+
+=back
+
+=head1 CONFIGURATION
+
+Configuration is by a number of configuration files, checked for and
+read (if present) in the following order:
+
+=over
+
+=item * The built-in defaults
+
+These are ignored if L<--ignore-sam-defaults|/--ignore-sam-defaults> was
+specified.
+
+=item * The global configuration file
+
+This is F</etc/samrc> on Unix systems. It is ignored if
+L<--no-env|/--env> was specified.
+
+=item * The user's configuration file
+
+This is the file pointed to by environment variable C<SAMRC> if that
+exists. Otherwise it is F<~/.samrc> on Unix systems. It is ignored if
+L<--no-env|/--env> was specified.
+
+=item * The file specified by the L<--samrc|/--samrc> option.
+
+This file must exist.
+
+=item * Configuration given by command-line options
+
+=back
+
+The configuration files are actually command options, specified at one
+per line. Empty lines and lines whose first non-whitespace character is
+C<'#'> are ignored.
+
+Options can be specified on either one or two lines, as either
+
+ --type-add=text:ext:txt
+
+or
+
+ --type-add
+ text:ext:txt
+
+Non-option arguments are not allowed in configuration files.
+
+=head1 FILE SELECTORS
+
+Various functions of this package require selecting files or directories
+for inclusion or exclusion. File selectors are specified as
+C<'type:arg'>, where the C<type> is one of the known selector types
+listed below, and the C<arg> is an argument specific to the selector
+type.
+
+=over
+
+=item C<is>
+
+The argument is the base name of the file to be selected. For example,
+C<is:Makefile> selects all files named F<Makefile>, wherever they appear
+in the directory hierarchy.
+
+=item C<ext>
+
+The argument is a comma-separated list of file name extensions/suffixes
+to be selected. For example, C<ext:pl,t> selects all files whose names
+end in F<.pl> or F<.t>.
+
+B<Note> that unlike L<ack|ack>, this selector is case-sensitive:
+C<ext:pl,t> does B<not> select F<Makefile.PL>; to do that, you must
+include the C<PL> explicitly.
+
+=item C<match>
+
+The argument is a delimited regular expression that matches the base
+name of the file to be selected. For example, C<match:/[._].*[.]swp$/>
+selects C<vi*> swap files.
+
+=item C<firstlinematch>
+
+The argument is a delimited regular expression that matches the first
+line of the file to be selected. For example, C<perl:firstlinematch:/^#!.*\bperl/> matches a Perl script.
+
+This selector may not be used to select a directory.
+
+=back
 
 =head1 AUTHOR
 

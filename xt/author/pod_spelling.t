@@ -14,10 +14,14 @@ all_pod_files_spelling_ok();
 1;
 __DATA__
 ack
+del
+env
 Fortran
+lineno
 merchantability
 preprocessor
 Raku
 sam
+samrc
 syntaxes
 Wyant
