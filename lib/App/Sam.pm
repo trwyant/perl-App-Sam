@@ -335,6 +335,30 @@ sub __file_type_del {
 our @ATTR_SPEC_LIST;
 our %ATTR_SPEC_HASH;
 {
+    # The following keys are defined:
+    # {name} - the name of the attribute, with underscores rather than
+    #         dashes. This is required.
+    # {type} - the type of the associated option, expressed as a
+    #         GetOpt::Long suffix. Required.
+    # {default} - The default value of the attribute. Optional.
+    # {alias} - A reference to an array of aliases to the option. The
+    #         variants with dashes rather than underscores need not be
+    #         specified here as they will be generated. Optional.
+    # {validate} - The name of the method used to validate the option.
+    #         Optional.
+    # {argument_only} - A true value means this is only an argument to
+    #         new(), and no corresponding option will be generated.
+    #         Optional.
+    # {back_end} - The name of an attribute that corresponds to this
+    #         option. If the {validate} key is present it represents the
+    #         name of a method to transform the value before it is
+    #         processed as the {back_end} attribute. It is the
+    #         responsibility of this method to set the back-end
+    #         attribute if it has no {validate} method. Optional.
+    # {option_only} - A true value means this is only an option, and
+    #         there is no corresponding attribute. It is up to the
+    #         {validate} method to ensure that the value of this option
+    #         is taken into account.
     no warnings qw{ qw };	## no critic (ProhibitNoWarnings)
     my @attr_spec_list = (
 	{
@@ -605,7 +629,7 @@ our %ATTR_SPEC_HASH;
 sub __get_attr_names {
     state $attr = [
 	map { $_->{name} }
-	grep { ! $_->{option_only} }
+	grep { ! $_->{option_only} && ! $_->{back_end} }
 	@ATTR_SPEC_LIST,
     ];
     return @{ $attr };
