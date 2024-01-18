@@ -461,6 +461,11 @@ our %ATTR_SPEC_HASH;
 	    validate	=> '__validate_ignore',
 	},
 	{
+	    name	=> 'literal',
+	    type	=> '!',
+	    alias	=> [ 'Q' ],
+	},
+	{
 	    name	=> 'passthru',
 	    type	=> '!',
 	    alias	=> [ 'passthrough' ],
@@ -846,8 +851,9 @@ sub __make_munger {
     $self->{ignore_case}
 	and $modifier .= 'i';
     my $match = $self->{match};
+    $self->{literal}
+	and $match = quotemeta $match;
     if ( $self->{word_regexp} ) {
-
 	$match =~ s/ \A (?= \w ) /\\b/smx;
 	$match =~ s/ (?<= \w ) \z /\\b/smx;
     }
@@ -855,6 +861,8 @@ sub __make_munger {
     my $code = eval "sub { $str }"	## no critic (ProhibitStringyEval)
 	or $self->__croak( "Invalid match '$match': $@" );
     if ( defined( my $repl = $self->{replace} ) ) {
+	$self->{literal}
+	    and $repl = quotemeta $repl;
 	$str = join '', 's ', $delim, $match, $mid, $repl, $delim,
 	    $modifier;
 	$code = eval "sub { $str }"	## no critic (ProhibitStringyEval)
@@ -1405,6 +1413,10 @@ L<file selectors|sam/FILE SELECTORS>.
 
 See L<--ignore-sam-defaults|sam/--ignore-sam-defaults> in the L<sam|sam>
 documentation.
+
+=item C<literal>
+
+See L<--literal|sam/--literal> in the L<sam|sam> documentation.
 
 =item C<match>
 

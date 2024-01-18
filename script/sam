@@ -36,8 +36,9 @@ if ( $dump ) {
 
     require YAML;
     {
-	# Suppress warnings from trying to print "\N{U+FFFE}".
-	no warnings qw{ utf8 };	## no critic (ProhibitNoWarnings)
+	# Suppress warnings from YAML and trying to print "\N{U+FFFE}".
+	no warnings qw{ once utf8 };	## no critic (ProhibitNoWarnings)
+	local $YAML::UseCode = 1;
 	print YAML::Dump( $sam );
 	# Flush any "\N{U+FFFE}" remaining in the buffer. Otherwise they
 	# seem to cause utf8 warnings when the next print is done, and
@@ -129,13 +130,13 @@ to be applied to the match. The default is
 
 =head2 --count
 
-If this Boolean option is true, only the number of matches is output for
-each file. The default is C<--no-count>.
+If this Boolean option is asserted, only the number of matches is output
+for each file. The default is C<--no-count>.
 
 =head2 --dry-run
 
-If this Boolean option is true, modified files are not rewritten, nor
-are the originals backed up. It has no effect unless
+If this Boolean option is asserted, modified files are not rewritten,
+nor are the originals backed up. It has no effect unless
 L<--replace|/--replace> is specified. The default is C<--no-dry-run>.
 
 =head2 --encoding
@@ -153,10 +154,10 @@ effects of this option.
 
 =head2 -f
 
-If this Boolean option is true, no search is done, but the files that
-would be searched are printed. You may not specify the
-L<--match|/--match> or L<--replace|/--replace> options if this is true.
-The default is C<--no-f>.
+If this Boolean option is asserted, no search is done, but the files
+that would be searched are printed. You may not specify the
+L<--match|/--match> or L<--replace|/--replace> options if this option is
+asserted. The default is C<--no-f>.
 
 =head2 --files-from
 
@@ -189,16 +190,16 @@ script then exits.
 
 =head2 --ignore-case
 
-If this Boolean option is true, the L<--match|/--match> option ignores
-case. The default is C<--no-ignore-case>.
+If this Boolean option is asserted, the L<--match|/--match> option
+ignores case. The default is C<--no-ignore-case>.
 
 =head2 -i
 
-This Boolean option is equivalent to L<--ignore-case|/--ignore-case>.
+This Boolean option is a synonym for L<--ignore-case|/--ignore-case>.
 
 =head2 -I
 
-This Boolean option is equivalent to L<--no-ignore-case|/--ignore-case>.
+This Boolean option is a synonym for L<--no-ignore-case|/--ignore-case>.
 
 =head2 --ignore-directory
 
@@ -218,8 +219,14 @@ one or more selectors.
 
 =head2 --ignore-sam-defaults
 
-If this Boolean option is true, the built-in defaults are ignored. The
-default is C<--no-ignore-sam-defaults>.
+If this Boolean option is asserted, the built-in defaults are ignored.
+The default is C<--no-ignore-sam-defaults>.
+
+=head2 --literal
+
+If this Boolean option is asserted, the L<--match|/--match> and
+L<--replace|/--replace> option values are taken as literal strings, and
+all meta-characters are escaped. The default is C<--no-literal>.
 
 =head2 --match
 
@@ -236,6 +243,10 @@ not they match. This option is incompatible with L<--count|/--count>.
 =head2 --passthrough
 
 This Boolean option is a synonym for L<--passthru|/--passthru>.
+
+=head2 -Q
+
+This Boolean option is a synonym for L<--ignore-case|/--ignore-case>.
 
 =head2 --replace
 
@@ -312,7 +323,7 @@ it was previously associated.
 
 =head2 --syntax-set
 
-This convenience option is equivalent to C<--syntax-del> followed by
+This convenience option is a synonym for C<--syntax-del> followed by
 C<--syntax-add>.
 
 =head2 --type
