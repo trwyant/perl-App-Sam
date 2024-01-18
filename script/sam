@@ -222,6 +222,14 @@ one or more selectors.
 If this Boolean option is asserted, the built-in defaults are ignored.
 The default is C<--no-ignore-sam-defaults>.
 
+=head2 --invert-match
+
+If this Boolean option is asserted, non-matching lines are selected
+and counted rather than matching lines. This does not affect
+highlighting should the line be displayed, nor does it affect
+replacement if L<--replace|/--replace> was specified. The default is
+C<--no-invert-match>.
+
 =head2 --literal
 
 If this Boolean option is asserted, the L<--match|/--match> and
@@ -370,6 +378,10 @@ with which it was previously associated.
 
 This convenience option is equivalent to C<--type-del> followed by
 C<--type-add>.
+
+=head2 -v
+
+This Boolean option is a synonym for L<--invert-match|/--invert-match>.
 
 =head2 --version
 

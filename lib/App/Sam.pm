@@ -461,6 +461,11 @@ our %ATTR_SPEC_HASH;
 	    validate	=> '__validate_ignore',
 	},
 	{
+	    name	=> 'invert_match',
+	    type	=> '!',
+	    alias	=> [ 'v' ],
+	},
+	{
 	    name	=> 'known_types',
 	    type	=> '!',
 	    alias	=> [ 'k' ],
@@ -863,16 +868,19 @@ sub __make_munger {
 	$match =~ s/ (?<= \w ) \z /\\b/smx;
     }
     my $str = join '', 'm ', $delim, $match, $delim, $modifier;
-    my $code = eval "sub { $str }"	## no critic (ProhibitStringyEval)
+    my $inv = $self->{invert_match} ? '! ' : '';
+    my $code = eval "sub { $inv$str }"	## no critic (ProhibitStringyEval)
 	or $self->__croak( "Invalid match '$match': $@" );
     if ( defined( my $repl = $self->{replace} ) ) {
 	$self->{literal}
 	    and $repl = quotemeta $repl;
 	$str = join '', 's ', $delim, $match, $mid, $repl, $delim,
 	    $modifier;
-	$code = eval "sub { $str }"	## no critic (ProhibitStringyEval)
+	$code = eval "sub { $inv$str }"	## no critic (ProhibitStringyEval)
 	    or $self->__croak( "Invalid replace '$repl': $@" );
     } elsif ( $self->{color} ) {
+	my ( $did_match, $did_not_match ) =
+	    $self->{invert_match} ? ( 0, 1 ) : ( 1, 0 );
 	$str = join '', 's ', $delim, "($match)", $mid,
 	    ' $_[0]->__color( match => $1 ) ',
 	    $delim, $modifier, 'e';
@@ -882,9 +890,9 @@ sub __make_munger {
 sub {
     if ( $str ) {
 	s/ (?= \\n ) / CLR_EOL /smxge;
-	return 1;
+	return $did_match;
     } else {
-	return 0;
+	return $did_not_match;
     }
 }
 EOD
@@ -1422,6 +1430,10 @@ L<file selectors|sam/FILE SELECTORS>.
 
 See L<--ignore-sam-defaults|sam/--ignore-sam-defaults> in the L<sam|sam>
 documentation.
+
+=item C<invert_match>
+
+See L<--known-types|sam/--known-types> in the L<sam|sam> documentation.
 
 =item C<known_types>
 
