@@ -228,6 +228,15 @@ specify this in the presence of non-matching options such as C<-f|/-f>.
 If this option is legal but not specified, the first non-option
 command-line argument will be used as the match expression.
 
+=head2 --passthru
+
+If this Boolean option is asserted, all lines are displayed whether or
+not they match. This option is incompatible with L<--count|/--count>.
+
+=head2 --passthrough
+
+This Boolean option is a synonym for L<--passthru|/--passthru>.
+
 =head2 --replace
 
 This option specifies the replacement string. If this is specified,

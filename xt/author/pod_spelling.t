@@ -19,6 +19,8 @@ env
 Fortran
 lineno
 merchantability
+passthrough
+passthru
 preprocessor
 Raku
 sam

@@ -67,6 +67,7 @@ sub new {
 
     $self->__incompat_arg( qw{ f match } );
     $self->__incompat_arg( qw{ f replace } );
+    $self->__incompat_arg( qw{ count passthru } );
 
     unless ( $self->{f} || defined $self->{match} ) {
 	if ( $argv && @{ $argv } ) {
@@ -458,6 +459,11 @@ our %ATTR_SPEC_HASH;
 		ext:gif,jpg,jpeg,png ext:gz,tar,tgz,zip ext:pyc,pyd,pyo
 		ext:pkl,pickle ext:so ext:mo } ],
 	    validate	=> '__validate_ignore',
+	},
+	{
+	    name	=> 'passthru',
+	    type	=> '!',
+	    alias	=> [ 'passthrough' ],
 	},
 	{
 	    name	=> 'type_add',	# NOTE: Must come before type
@@ -1042,6 +1048,9 @@ sub _process_display_p {
     $self->{count}
 	and return 0;
 
+    $self->{passthru}
+	and return 1;
+
     return $self->{_process}{matched} || 0;
 }
 
@@ -1401,6 +1410,10 @@ documentation.
 
 See L<--match|sam/--match> in the L<sam|sam> documentation. If legal but
 not specified, the first non-option argument in C<argv> will be used.
+
+=item C<passthru>
+
+See L<--passthru|sam/--passthru> in the L<sam|sam> documentation.
 
 =item C<replace>
 
