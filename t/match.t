@@ -56,6 +56,58 @@ EOD
 
 }
 
+{
+    my $sam = CLASS->new(
+	f	=> 1,
+    );
+
+    my $stdout = capture_stdout {
+	$sam->process( 't/data' );
+    };
+
+    is $stdout, <<'EOD', '-f listed everything in t/data';
+t/data/bright.txt
+t/data/cc_file.c
+t/data/cpp_file.cpp
+t/data/fortran_file.for
+t/data/java_file.java
+t/data/json_file.json
+t/data/make_file.mak
+t/data/perl_file.PL
+t/data/properties_file.properties
+t/data/raku_file.raku
+t/data/shell_file.sh
+t/data/vim_file.vim
+t/data/yaml_file.yml
+EOD
+}
+
+{
+    my $sam = CLASS->new(
+	f	=> 1,
+	known_types	=> 1,
+    );
+
+    my $stdout = capture_stdout {
+	$sam->process( 't/data' );
+    };
+
+    is $stdout, <<'EOD', '-fk listed only known types in t/data';
+t/data/cc_file.c
+t/data/cpp_file.cpp
+t/data/fortran_file.for
+t/data/java_file.java
+t/data/json_file.json
+t/data/make_file.mak
+t/data/perl_file.PL
+t/data/properties_file.properties
+t/data/raku_file.raku
+t/data/shell_file.sh
+t/data/vim_file.vim
+t/data/yaml_file.yml
+EOD
+}
+
 
 done_testing;
 

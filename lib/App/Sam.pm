@@ -461,6 +461,11 @@ our %ATTR_SPEC_HASH;
 	    validate	=> '__validate_ignore',
 	},
 	{
+	    name	=> 'known_types',
+	    type	=> '!',
+	    alias	=> [ 'k' ],
+	},
+	{
 	    name	=> 'literal',
 	    type	=> '!',
 	    alias	=> [ 'Q' ],
@@ -946,8 +951,12 @@ sub process {
 	    or return;
 
 	$self->{_process}{type} = [ $self->__file_type( $file ) ]
-	    if $self->{show_types} || $self->{_syntax} ||
-		$self->{show_syntax};
+	    if $self->{show_types} || $self->{known_types} ||
+		$self->{_syntax} || $self->{show_syntax};
+
+	$self->{known_types}
+	    and not @{ $self->{_process}{type} }
+	    and return;
 
 	my @show_types;
 	$self->{show_types}
@@ -1413,6 +1422,10 @@ L<file selectors|sam/FILE SELECTORS>.
 
 See L<--ignore-sam-defaults|sam/--ignore-sam-defaults> in the L<sam|sam>
 documentation.
+
+=item C<known_types>
+
+See L<--known-types|sam/--known-types> in the L<sam|sam> documentation.
 
 =item C<literal>
 

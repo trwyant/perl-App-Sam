@@ -228,6 +228,16 @@ If this Boolean option is asserted, the L<--match|/--match> and
 L<--replace|/--replace> option values are taken as literal strings, and
 all meta-characters are escaped. The default is C<--no-literal>.
 
+=head2 --known-types
+
+If this Boolean option is asserted, only files having known types are
+processed. The default is C<--no-known-types>, which allows any text
+file to be processed.
+
+=head2 -k
+
+This Boolean option is a synonym for L<--known-types|/--known-types>.
+
 =head2 --match
 
 This option specifies the regular expression to match. It is illegal to
