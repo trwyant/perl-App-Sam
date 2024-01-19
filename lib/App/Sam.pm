@@ -26,14 +26,36 @@ use constant IS_WINDOWS	=> {
 }->{$^O} || 0;
 use constant REF_ARRAY	=> ref [];
 
-sub new {
-    my ( $class, %arg ) = @_;
+# To be filled in (and made read-only) later.
+our @ATTR_SPEC_LIST;
+our %ATTR_SPEC_HASH;
 
-    my $argv = delete $arg{argv};
+sub new {
+    my ( $class, @raw_arg ) = @_;
+
+    @raw_arg % 2
+	and __croak( (), 'Odd number of arguments to new()' );
+
+    # This rigamarole is because some of the arguments need to be
+    # processed out of order.
+    my %priority_arg;
+    my @cooked_arg;
+    while ( @raw_arg ) {
+	my ( $arg_name, $arg_val ) = splice @raw_arg, 0, 2;
+	state $prioritize = { map { $_ => 1 } qw{ argv env
+	    ignore_sam_defaults samrc } };
+	if ( $prioritize->{$arg_name} ) {
+	    $priority_arg{$arg_name} = $arg_val;
+	} else {
+	    push @cooked_arg, [ $arg_name, $arg_val ];
+	}
+    }
+
+    my $argv = $priority_arg{argv};
 
     my $self = bless {
-	ignore_sam_defaults	=> delete $arg{ignore_sam_defaults},
-	env			=> delete $arg{env},
+	ignore_sam_defaults	=> $priority_arg{ignore_sam_defaults},
+	env			=> $priority_arg{env},
     }, $class;
 
     $argv
@@ -50,16 +72,17 @@ sub new {
 	$self->__get_attr_from_rc( $file );
     }
 
-    if ( my $file = delete $arg{samrc} ) {
+    if ( my $file = $priority_arg{samrc} ) {
 	$self->__get_attr_from_rc( $file, 1 );	# Required to exist
     }
 
-    foreach my $name ( $self->__get_attr_names() ) {
-	exists $arg{$name}
-	    or next;
-	$self->__validate_attr( $name, $arg{$name} )
-	    or $self->__croak( "Invalid $name value '$arg{$name}'" );
-	$self->{$name} = delete $arg{$name};
+    foreach my $argument ( @cooked_arg ) {
+	my ( $attr_name, $attr_val ) = @{ $argument };
+	$ATTR_SPEC_HASH{$attr_name}
+	    or $self->__croak( "Invalid argument '$attr_name' to new()" );
+	$self->__validate_attr( $attr_name, $attr_val )
+	    or $self->__croak( "Invalid $attr_name value '$attr_val'" );
+	$self->{$attr_name} = $attr_val;
     }
 
     $argv
@@ -83,9 +106,6 @@ sub new {
 	$Carp::Verbose
 	    and delete $self->{die};
     }
-
-    keys %arg
-	and $self->__croak( 'Invalid arguments to new()' );
 
     defined $self->{replace}
 	and delete $self->{color};
@@ -333,8 +353,6 @@ sub __file_type_del {
     return;
 }
 
-our @ATTR_SPEC_LIST;
-our %ATTR_SPEC_HASH;
 {
     # The following keys are defined:
     # {name} - the name of the attribute, with underscores rather than
@@ -647,15 +665,6 @@ our %ATTR_SPEC_HASH;
 	@ATTR_SPEC_LIST;
 }
 
-sub __get_attr_names {
-    state $attr = [
-	map { $_->{name} }
-	grep { ! $_->{option_only} && ! $_->{back_end} }
-	@ATTR_SPEC_LIST,
-    ];
-    return @{ $attr };
-}
-
 sub __get_opt_specs {
     my ( $self ) = @_;
     my @opt_spec;
@@ -669,7 +678,6 @@ sub __get_opt_specs {
 
 sub __get_attr_defaults {
     my ( $self ) = @_;
-    $self ||= {};
     $self->{ignore_sam_defaults}
 	and return $self;
     foreach my $attr_spec ( @ATTR_SPEC_LIST ) {
