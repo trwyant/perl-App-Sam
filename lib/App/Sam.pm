@@ -28,14 +28,16 @@ use constant IS_WINDOWS	=> {
 
 use constant REF_ARRAY	=> ref [];
 
-use constant SPECIAL_EARLY	=> 1 << 2;
-use constant SPECIAL_LATE	=> 1 << 1;
+use constant SPECIAL_EARLY	=> 1 << 3;
+use constant SPECIAL_LATE	=> 1 << 2;
+use constant SPECIAL_NEVER	=> 1 << 1;	# Not an option.
 use constant SPECIAL_NOT	=> 1 << 0;
-use constant SPECIAL_ALL	=>
+# NOTE The following deliberately excludes SPECIAL_NEVER
+use constant SPECIAL_ANY_OPT	=>
     SPECIAL_EARLY | SPECIAL_LATE | SPECIAL_NOT;
 
 # To be filled in (and made read-only) later.
-our %ATTR_SPEC_HASH;
+our %ATTR_SPEC;
 
 sub new {
     my ( $class, @raw_arg ) = @_;
@@ -50,9 +52,9 @@ sub new {
     my %priority_arg;
     while ( @raw_arg ) {
 	my ( $arg_name, $arg_val ) = splice @raw_arg, 0, 2;
-	if ( ! $ATTR_SPEC_HASH{$arg_name} ) {
+	if ( ! $ATTR_SPEC{$arg_name} ) {
 	    push @bad_arg, $arg_name;
-	} elsif ( $ATTR_SPEC_HASH{$arg_name}{special} ) {
+	} elsif ( $ATTR_SPEC{$arg_name}{special} & ~ SPECIAL_NOT ) {
 	    $priority_arg{$arg_name} = $arg_val;
 	} else {
 	    push @cooked_arg, [ $arg_name, $arg_val ];
@@ -64,6 +66,7 @@ sub new {
     my $self = bless {
 	ignore_sam_defaults	=> $priority_arg{ignore_sam_defaults},
 	env			=> $priority_arg{env},
+	die			=> $priority_arg{die},
     }, $class;
 
     if ( REF_ARRAY eq ref $argv ) {
@@ -88,7 +91,7 @@ sub new {
 
     foreach my $argument ( @cooked_arg ) {
 	my ( $attr_name, $attr_val ) = @{ $argument };
-	$ATTR_SPEC_HASH{$attr_name}
+	$ATTR_SPEC{$attr_name}
 	    or $self->__croak( "Invalid argument '$attr_name' to new()" );
 	$self->__validate_attr( $attr_name, $attr_val )
 	    or $self->__croak( "Invalid $attr_name value '$attr_val'" );
@@ -388,8 +391,9 @@ sub __file_type_del {
     #         value must be (at the moment) exactly one of:
     #         SPECIAL_EARLY - Process before the typical attribute
     #         SPECIAL_LATE -- Process after the typical attribute
+    #         SPECIAL_NEVER - Not an option at all
     #         SPECIAL_NOT --- A typical attribute, and the default
-    #         SPECIAL_ALL --- Do not use in an attribute definition.
+    #         SPECIAL_ANY_OPT --- Do not use in an attribute definition.
     my %attr_spec_hash = (
 	argv	=> {
 	    type	=> '=s@',
@@ -421,8 +425,8 @@ sub __file_type_del {
 	    type	=> '!',
 	},
 	die	=> {
-	    argument_only	=> 1,
 	    type	=> '!',
+	    special	=> SPECIAL_NEVER,
 	},
 	dry_run	=> {
 	    type	=> '!',
@@ -546,20 +550,21 @@ sub __file_type_del {
     foreach my $key ( keys %attr_spec_hash ) {
 	my $val = $attr_spec_hash{$key};
 	$val->{name} = $key;
+	$val->{special} //= SPECIAL_NOT;
 	if ( $key =~ m/ _ /smx ) {
 	    ( my $alias = $key ) =~ s/ _ /-/smxg;
 	    push @{ $val->{alias} }, $alias;
 	}
     }
 
-    Readonly::Hash %ATTR_SPEC_HASH => %attr_spec_hash;
+    Readonly::Hash %ATTR_SPEC => %attr_spec_hash;
 }
 
 sub __get_opt_specs {
     my ( $self, $special ) = @_;
-    $special ||= SPECIAL_ALL;
+    $special ||= SPECIAL_ANY_OPT;
     my @opt_spec;
-    foreach ( values %ATTR_SPEC_HASH ) {
+    foreach ( values %ATTR_SPEC ) {
 	next if $_->{argument_only};
 	next unless $special & ( $_->{special} // SPECIAL_NOT );
 	push @opt_spec, join( '|', $_->{name}, @{ $_->{alias} || []
@@ -1108,11 +1113,6 @@ sub __get_attr_defaults {
 ### Encoding
 
 --encoding=utf-8
-
-
-### Read environment configuration
-
---env
 EOD
     $self->{backup} //= '';
     return;
@@ -1157,7 +1157,8 @@ EOD
 	    my @warning;
 	    local $SIG{__WARN__} = sub { push @warning, @_ };
 	    $self->__get_option_parser()->getoptionsfromarray(
-		$arg, $self, $self->__get_opt_specs() )
+		$arg, $self, $self->__get_opt_specs( SPECIAL_ANY_OPT & ~
+		    SPECIAL_EARLY ) )
 		or do {
 		    chomp @warning;
 		    my $msg = join '; ', @warning;
@@ -1180,7 +1181,7 @@ EOD
 sub __get_validator {
     my ( $self, $attr_spec, $die ) = @_;
     ref $attr_spec
-	or $attr_spec = $ATTR_SPEC_HASH{$attr_spec}
+	or $attr_spec = $ATTR_SPEC{$attr_spec}
 	or $self->__confess( "Undefined attribute '$_[1]'" );
     my $method;
     defined( $method = $attr_spec->{validate} )
@@ -1199,7 +1200,7 @@ sub __get_validator {
 # Validate an attribute given its name and value
 sub __validate_attr {
     my ( $self, $name, $value ) = @_;
-    my $attr_spec = $ATTR_SPEC_HASH{$name}
+    my $attr_spec = $ATTR_SPEC{$name}
 	or $self->__confess( "Unknown attribute '$name'" );
     if ( my $code = $self->__get_validator( $attr_spec ) ) {
 	$code->( $name, $value )

@@ -56,6 +56,7 @@ is $sam, {
     color_filename	=> 'bold green',
     color_lineno	=> 'bold yellow',
     color_match		=> 'black on_yellow',
+    die			=> undef,
     encoding		=> 'utf-8',
     env			=> 0,
     ignore_sam_defaults	=> undef,
