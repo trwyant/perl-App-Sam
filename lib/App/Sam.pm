@@ -21,13 +21,20 @@ use Text::Abbrev ();
 our $VERSION = '0.000_001';
 
 use constant CLR_EOL	=> "\e[K";
+
 use constant IS_WINDOWS	=> {
     MSWin32	=> 1,
 }->{$^O} || 0;
+
 use constant REF_ARRAY	=> ref [];
 
+use constant SPECIAL_EARLY	=> 1 << 2;
+use constant SPECIAL_LATE	=> 1 << 1;
+use constant SPECIAL_NOT	=> 1 << 0;
+use constant SPECIAL_ALL	=>
+    SPECIAL_EARLY | SPECIAL_LATE | SPECIAL_NOT;
+
 # To be filled in (and made read-only) later.
-our @ATTR_SPEC_LIST;
 our %ATTR_SPEC_HASH;
 
 sub new {
@@ -38,13 +45,14 @@ sub new {
 
     # This rigamarole is because some of the arguments need to be
     # processed out of order.
-    my %priority_arg;
+    my @bad_arg;
     my @cooked_arg;
+    my %priority_arg;
     while ( @raw_arg ) {
 	my ( $arg_name, $arg_val ) = splice @raw_arg, 0, 2;
-	state $prioritize = { map { $_ => 1 } qw{ argv env
-	    ignore_sam_defaults samrc } };
-	if ( $prioritize->{$arg_name} ) {
+	if ( ! $ATTR_SPEC_HASH{$arg_name} ) {
+	    push @bad_arg, $arg_name;
+	} elsif ( $ATTR_SPEC_HASH{$arg_name}{special} ) {
 	    $priority_arg{$arg_name} = $arg_val;
 	} else {
 	    push @cooked_arg, [ $arg_name, $arg_val ];
@@ -58,15 +66,17 @@ sub new {
 	env			=> $priority_arg{env},
     }, $class;
 
-    $argv
-	and not REF_ARRAY eq ref $argv
-	and $self->__croak( 'Argument argv must be an ARRAY reference' );
+    if ( REF_ARRAY eq ref $argv ) {
+	$self->__get_option_parser( 1 )->getoptionsfromarray( $argv,
+	    $self, $self->__get_opt_specs( SPECIAL_EARLY ) );
+    } elsif ( defined $argv ) {
+	$self->__croak( 'Argument argv must be an ARRAY reference' );
+    }
+
+    @bad_arg
+	and $self->__croak( "Unknown new() arguments @bad_arg" );
 
     $self->__get_attr_defaults();
-    $self->{ignore_sam_defaults}	# Chicken-and-egg problem
-	and %{ $self } = (
-	    ignore_sam_defaults => $self->{ignore_sam_defaults}
-	);
 
     foreach my $file ( $self->__get_rc_file_names() ) {
 	$self->__get_attr_from_rc( $file );
@@ -359,12 +369,12 @@ sub __file_type_del {
     #         dashes. This is required.
     # {type} - the type of the associated option, expressed as a
     #         GetOpt::Long suffix. Required.
-    # {default} - The default value of the attribute. Optional.
     # {alias} - A reference to an array of aliases to the option. The
     #         variants with dashes rather than underscores need not be
-    #         specified here as they will be generated. Optional.
-    # {validate} - The name of the method used to validate the option.
-    #         Optional.
+    #         specified here as they will be generated. Does not apply
+    #         to attribute processing. Optional.
+    # {validate} - The name of the method used to validate the
+    #         attribute. Optional.
     # {argument_only} - A true value means this is only an argument to
     #         new(), and no corresponding option will be generated.
     #         Optional.
@@ -374,302 +384,184 @@ sub __file_type_del {
     #         processed as the {back_end} attribute. It is the
     #         responsibility of this method to set the back-end
     #         attribute if it has no {validate} method. Optional.
-    # {option_only} - A true value means this is only an option, and
-    #         there is no corresponding attribute. It is up to the
-    #         {validate} method to ensure that the value of this option
-    #         is taken into account.
-    no warnings qw{ qw };	## no critic (ProhibitNoWarnings)
-    my @attr_spec_list = (
-	{
-	    name	=> 'backup',
-	    type	=> '=s',
-	    default	=> '',
+    #  {special} - This is a bit mask specifying special processing. The
+    #         value must be (at the moment) exactly one of:
+    #         SPECIAL_EARLY - Process before the typical attribute
+    #         SPECIAL_LATE -- Process after the typical attribute
+    #         SPECIAL_NOT --- A typical attribute, and the default
+    #         SPECIAL_ALL --- Do not use in an attribute definition.
+    my %attr_spec_hash = (
+	argv	=> {
+	    type	=> '=s@',
+	    special	=> SPECIAL_LATE,
 	},
-	{
-	    name	=> 'break',
+	backup	=> {
+	    type	=> '=s',
+	},
+	break	=> {
 	    type	=> '!',
 	},
-	{
-	    name	=> 'color',
+	color	=> {
 	    type	=> '!',
 	    alias	=> [ qw{ colour } ],
 	},
-	{
-	    name	=> 'color_filename',
+	color_filename	=> {
 	    type	=> '=s',
-	    default	=> 'bold green',
 	    validate	=> '__validate_color',
 	},
-	{
-	    name	=> 'color_lineno',
+	color_lineno	=> {
 	    type	=> '=s',
-	    default	=> 'bold yellow',
 	    validate	=> '__validate_color',
 	},
-	{
-	    name	=> 'color_match',
+	color_match	=> {
 	    type	=> '=s',
-	    default	=> 'black on_yellow',
 	    validate	=> '__validate_color',
 	},
-	{
-	    name	=> 'count',
+	count	=> {
 	    type	=> '!',
 	},
-	{
-	    name	=> 'die',
+	die	=> {
 	    argument_only	=> 1,
 	    type	=> '!',
 	},
-	{
-	    name	=> 'dry_run',
+	dry_run	=> {
 	    type	=> '!',
 	},
-	{
-	    name	=> 'encoding',
+	encoding	=> {
 	    type	=> '=s',
-	    default	=> 'utf-8',
 	},
-	{
-	    name	=> 'f',
+	env	=> {
+	    type	=> '!',
+	    special	=> SPECIAL_EARLY,
+	},
+	f	=> {
 	    type	=> '!',
 	},
-	{
-	    name	=> 'files_from',
+	files_from	=> {
 	    type	=> '=s@',
 	    validate	=> '__validate_files_from',
 	},
-	{
-	    name	=> 'filter_files_from',
+	filter_files_from	=> {
 	    type	=> '!',
 	},
-	{
+	ignore_case	=> {
 	    alias	=> [ qw{ i } ],
-	    name	=> 'ignore_case',
 	    type	=> '!',
 	},
-	{
-	    name	=> 'I',
+	I	=> {
 	    type	=> '|',
 	    back_end	=> 'ignore_case',
 	    validate	=> '__preprocess_logical_negation',
 	},
-	{
-	    name	=> 'ignore_directory',
+	ignore_directory	=> {
 	    type	=> '=s@',
-	    default	=> [ qw{ is:.bzr is:.cdv is:~.dep is:~.dot
-		is:~.nib is:~.plst is:.git is:.hg is:.pc is:.svn is:_MTN
-		is:CVS is:RCS is:SCCS is:_darcs is:_sgbak
-		is:autom4te.cache is:blib is:_build is:cover_db
-		is:node_modules is:CMakeFiles is:.metadata
-		is:.cabal-sandbox is:__pycache__ is:.pytest_cache
-		is:__MACOSX is:.vscode } ],
 	    validate	=> '__validate_ignore',
 	},
-	{
-	    name	=> 'ignore_file',
+	ignore_file	=> {
 	    type	=> '=s@',
-	    default	=> [ qw{ is:.git is:.DS_Store ext:bak match:/~$/
-		match:/^#.+#$/ match:/[._].*[.]swp$/ match:/core[.]\d+$/
-		match:/[.-]min[.]js$/ match:/[.]js[.]min$/
-		match:/[.]min[.]css$/ match:/[.]css[.]min$/
-		match:/[.]js[.]map$/ match:/[.]css[.]map$/ ext:pdf
-		ext:gif,jpg,jpeg,png ext:gz,tar,tgz,zip ext:pyc,pyd,pyo
-		ext:pkl,pickle ext:so ext:mo } ],
 	    validate	=> '__validate_ignore',
 	},
-	{
-	    name	=> 'invert_match',
+	ignore_sam_defaults	=> {
+	    type	=> '!',
+	    special	=> SPECIAL_EARLY,
+	},
+	invert_match	=> {
 	    type	=> '!',
 	    alias	=> [ 'v' ],
 	},
-	{
-	    name	=> 'known_types',
+	known_types	=> {
 	    type	=> '!',
 	    alias	=> [ 'k' ],
 	},
-	{
-	    name	=> 'literal',
+	literal	=> {
 	    type	=> '!',
 	    alias	=> [ 'Q' ],
 	},
-	{
-	    name	=> 'passthru',
+	passthru	=> {
 	    type	=> '!',
 	    alias	=> [ 'passthrough' ],
 	},
-	{
-	    name	=> 'type_add',	# NOTE: Must come before type
+	type_add	=> {
 	    type	=> '=s@',
-	    default	=> [ qw{ make:ext:mk make:ext:mak
-		make:is:makefile make:is:Makefile make:is:Makefile.Debug
-		make:is:Makefile.Release make:is:GNUmakefile
-		rake:is:Rakefile cmake:is:CMakeLists.txt cmake:ext:cmake
-		bazel:ext:bzl bazel:ext:bazelrc bazel:is:BUILD
-		bazel:is:WORKSPACE actionscript:ext:as,mxml
-		ada:ext:ada,adb,ads asp:ext:asp
-		aspx:ext:master,ascx,asmx,aspx,svc asm:ext:asm,s
-		batch:ext:bat,cmd cfmx:ext:cfc,cfm,cfml
-		clojure:ext:clj,cljs,edn,cljc cc:ext:c,h,xs hh:ext:h
-		coffeescript:ext:coffee
-		cpp:ext:cpp,cc,cxx,m,hpp,hh,h,hxx hpp:ext:hpp,hh,h,hxx
-		csharp:ext:cs crystal:ext:cr,ecr css:ext:css
-		dart:ext:dart
-		delphi:ext:pas,int,dfm,nfm,dof,dpk,dproj,groupproj,bdsgroup,bdsproj
-		elixir:ext:ex,exs elm:ext:elm elisp:ext:el
-		erlang:ext:erl,hrl
-		fortran:ext:f,f77,f90,f95,f03,for,ftn,fpp go:ext:go
-		groovy:ext:groovy,gtmpl,gpp,grunit,gradle gsp:ext:gsp
-		haskell:ext:hs,lhs html:ext:htm,html,xhtml jade:ext:jade
-		java:ext:java,properties js:ext:js
-		jsp:ext:jsp,jspx,jspf,jhtm,jhtml json:ext:json
-		kotlin:ext:kt,kts less:ext:less lisp:ext:lisp,lsp
-		lua:ext:lua lua:firstlinematch:/^#!.*\blua(jit)?/
-		markdown:ext:md,markdown matlab:ext:m objc:ext:m,h
-		objcpp:ext:mm,h ocaml:ext:ml,mli,mll,mly
-		perl:ext:pl,PL,pm,pod,t,psgi
-		perl:firstlinematch:/^#!.*\bperl/ perltest:ext:t
-		pod:ext:pod php:ext:php,phpt,php3,php4,php5,phtml
-		php:firstlinematch:/^#!.*\bphp/
-		plone:ext:pt,cpt,metadata,cpy,py powershell:ext:ps1,psm1
-		purescript:ext:purs python:ext:py
-		python:firstlinematch:/^#!.*\bpython/ rr:ext:R,Rmd
-		raku:ext:raku,rakumod,rakudoc,rakutest,nqp,p6,pm6,pod6
-		raku:firstlinematch:/^#!.*\braku/
-		rakutest:ext:rakutest
-		rst:ext:rst ruby:ext:rb,rhtml,rjs,rxml,erb,rake,spec
-		ruby:is:Rakefile ruby:firstlinematch:/^#!.*\bruby/
-		rust:ext:rs sass:ext:sass,scss scala:ext:scala,sbt
-		scheme:ext:scm,ss
-		shell:ext:sh,bash,csh,tcsh,ksh,zsh,fish
-		shell:firstlinematch:/^#!.*\b(?:ba|t?c|k|z|fi)?sh\b/
-		smalltalk:ext:st smarty:ext:tpl sql:ext:sql,ctl
-		stylus:ext:styl svg:ext:svg swift:ext:swift
-		swift:firstlinematch:/^#!.*\bswift/ tcl:ext:tcl,itcl,itk
-		tex:ext:tex,cls,sty ttml:ext:tt,tt2,ttml toml:ext:toml
-		ts:ext:ts,tsx vb:ext:bas,cls,frm,ctl,vb,resx
-		verilog:ext:v,vh,sv vhdl:ext:vhd,vhdl vim:ext:vim
-		xml:ext:xml,dtd,xsd,xsl,xslt,ent,wsdl
-		xml:firstlinematch:/<[?]xml/ yaml:ext:yaml,yml } ],
 	    validate	=> '__validate_file_property_add',
 	},
-	{
-	    name	=> 'type_del',
+	type_del	=> {
 	    type	=> '=s@',
-	    option_only	=> 1,
 	    validate	=> '__validate_file_property_add',
 	},
-	{
-	    name	=> 'type_set',
+	type_set	=> {
 	    type	=> '=s@',
-	    option_only	=> 1,
 	    validate	=> '__validate_file_property_add',
 	},
-	{	# Must come after type_add, type_del, and type_set
-	    name	=> 'syntax_add',
+	syntax_add	=> {
 	    type	=> '=s@',
-	    default	=> [ qw{
-		Cc:type:cc
-		Cpp:type:cpp
-		Fortran:type:fortran
-		Java:ext:java
-		Data:type:json
-		Make:type:make,tcl
-		Perl:type:perl,perltest,pod
-		Properties:ext:properties
-		Raku:type:raku,rakutest
-		Shell:type:shell
-		Vim:type:vim
-		YAML:type:yaml
-		} ],
 	    validate	=> '__validate_file_property_add',
 	},
-	{
-	    name	=> 'syntax_del',
+	syntax_del	=> {
 	    type	=> '=s@',
-	    option_only	=> 1,
 	    validate	=> '__validate_file_property_add',
 	},
-	{
-	    name	=> 'syntax_set',
+	syntax_set	=> {
 	    type	=> '=s@',
-	    option_only	=> 1,
 	    validate	=> '__validate_file_property_add',
 	},
-	{
-	    name	=> 'ignore_sam_defaults',
-	    type	=> '!',
-	},
-	{
-	    name	=> 'match',
+	match	=> {
 	    type	=> '=s',
 	},
-	{
-	    name	=> 'env',
-	    type	=> '!',
-	    default	=> 1,
-	},
-	{
-	    name	=> 'replace',
+	replace	=> {
 	    type	=> '=s',
 	},
-	{
-	    name	=> 'samrc',
+	samrc	=> {
 	    type	=> '=s',
+	    special	=> SPECIAL_LATE,
 	},
-	{
-	    name	=> 'show_syntax',
+	show_syntax	=> {
 	    type	=> '!',
 	},
-	{
-	    name	=> 'show_types',
+	show_types	=> {
 	    type	=> '!',
 	},
-	{
-	    name	=> 'syntax',
+	syntax	=> {
 	    type	=> '=s@',
 	    validate	=> '__validate_syntax',
 	},
-	{
-	    name	=> 'type',
+	type	=> {
 	    type	=> '=s@',
 	    validate	=> '__validate_type',
 	},
-	{
-	    name	=> 'word_regexp',
+	word_regexp	=> {
 	    type	=> '!',
 	    alias	=> [ qw/ w / ],
 	},
-	{	# Must be after type_*
-	    name	=> 'help_types',
+	help_types	=> {
 	    type	=> '',
 	    validate	=> 'help_types',
 	},
-	{	# Must be after syntax_*
-	    name	=> 'help_syntax',
+	help_syntax	=> {
 	    type	=> '',
 	    validate	=> 'help_syntax',
 	},
     );
 
-    foreach ( @attr_spec_list ) {
-	$_->{name} =~ m/ _ /smx
-	    or next;
-	( my $alias = $_->{name} ) =~ s/ _ /-/smxg;
-	push @{ $_->{alias} }, $alias;
+    foreach my $key ( keys %attr_spec_hash ) {
+	my $val = $attr_spec_hash{$key};
+	$val->{name} = $key;
+	if ( $key =~ m/ _ /smx ) {
+	    ( my $alias = $key ) =~ s/ _ /-/smxg;
+	    push @{ $val->{alias} }, $alias;
+	}
     }
 
-    Readonly::Array @ATTR_SPEC_LIST => @attr_spec_list;
-
-    Readonly::Hash %ATTR_SPEC_HASH => map { $_->{name} => $_ }
-	@ATTR_SPEC_LIST;
+    Readonly::Hash %ATTR_SPEC_HASH => %attr_spec_hash;
 }
 
 sub __get_opt_specs {
-    my ( $self ) = @_;
+    my ( $self, $special ) = @_;
+    $special ||= SPECIAL_ALL;
     my @opt_spec;
-    foreach ( @ATTR_SPEC_LIST ) {
+    foreach ( values %ATTR_SPEC_HASH ) {
 	next if $_->{argument_only};
+	next unless $special & ( $_->{special} // SPECIAL_NOT );
 	push @opt_spec, join( '|', $_->{name}, @{ $_->{alias} || []
 	    } ) . $_->{type}, $self->__get_validator( $_, 1 );
     }
@@ -680,18 +572,550 @@ sub __get_attr_defaults {
     my ( $self ) = @_;
     $self->{ignore_sam_defaults}
 	and return $self;
-    foreach my $attr_spec ( @ATTR_SPEC_LIST ) {
-	exists $attr_spec->{default}
-	    or next;
+    $self->{ignore_sam_defaults}
+	and return $self;
+    $self->__get_attr_from_rc( \<<'EOD' );
+# This is the default samrc for sam version ==VERSION==.
 
-	if ( exists $attr_spec->{validate} ) {
-	    $self->__validate_attr(
-		$attr_spec->{name}, $attr_spec->{default} );
-	} else {
-	    $self->{$attr_spec->{name}} = $attr_spec->{default};
-	}
-    }
-    return $self;
+# There are four different ways to match
+#
+# is:  Match the filename exactly
+#
+# ext: Match the extension of the filename exactly
+#
+# match: Match the filename against a Perl regular expression
+#
+# firstlinematch: Match the first 250 characters of the first line
+#   of text against a Perl regular expression.  This is only for
+#   the --type-add option.
+
+
+### Directories to ignore
+
+# Bazaar
+# https://bazaar.canonical.com/
+--ignore-directory=is:.bzr
+
+# Codeville
+# http://freshmeat.sourceforge.net/projects/codeville
+--ignore-directory=is:.cdv
+
+# Interface Builder (Xcode)
+# https://en.wikipedia.org/wiki/Interface_Builder
+--ignore-directory=is:~.dep
+--ignore-directory=is:~.dot
+--ignore-directory=is:~.nib
+--ignore-directory=is:~.plst
+
+# Git
+# https://git-scm.com/
+--ignore-directory=is:.git
+# When submodules are used, .git is a file.
+--ignore-file=is:.git
+
+# Mercurial
+# https://www.mercurial-scm.org/
+--ignore-directory=is:.hg
+
+# Quilt
+# https://directory.fsf.org/wiki/Quilt
+--ignore-directory=is:.pc
+
+# Subversion
+# https://subversion.apache.org/
+--ignore-directory=is:.svn
+
+# Monotone
+# https://www.monotone.ca/
+--ignore-directory=is:_MTN
+
+# CVS
+# https://savannah.nongnu.org/projects/cvs
+--ignore-directory=is:CVS
+
+# RCS
+# https://www.gnu.org/software/rcs/
+--ignore-directory=is:RCS
+
+# SCCS
+# https://en.wikipedia.org/wiki/Source_Code_Control_System
+--ignore-directory=is:SCCS
+
+# darcs
+# http://darcs.net/
+--ignore-directory=is:_darcs
+
+# Vault/Fortress
+--ignore-directory=is:_sgbak
+
+# autoconf
+# https://www.gnu.org/software/autoconf/
+--ignore-directory=is:autom4te.cache
+
+# Perl module building
+--ignore-directory=is:blib
+--ignore-directory=is:_build
+
+# Perl Devel::Cover module's output directory
+# https://metacpan.org/release/Devel-Cover
+--ignore-directory=is:cover_db
+
+# Node modules created by npm
+--ignore-directory=is:node_modules
+
+# CMake cache
+# https://www.cmake.org/
+--ignore-directory=is:CMakeFiles
+
+# Eclipse workspace folder
+# https://eclipse.org/
+--ignore-directory=is:.metadata
+
+# Cabal (Haskell) sandboxes
+# https://www.haskell.org/cabal/users-guide/installing-packages.html
+--ignore-directory=is:.cabal-sandbox
+
+# Python caches
+# https://docs.python.org/3/tutorial/modules.html
+--ignore-directory=is:__pycache__
+--ignore-directory=is:.pytest_cache
+
+# macOS Finder remnants
+--ignore-directory=is:__MACOSX
+--ignore-file=is:.DS_Store
+
+### Files to ignore
+
+# Backup files
+--ignore-file=ext:bak
+--ignore-file=match:/~$/
+
+# Emacs swap files
+--ignore-file=match:/^#.+#$/
+
+# vi/vim swap files https://www.vim.org/
+--ignore-file=match:/[._].*[.]swp$/
+
+# core dumps
+--ignore-file=match:/core[.]\d+$/
+
+# minified JavaScript
+--ignore-file=match:/[.-]min[.]js$/
+--ignore-file=match:/[.]js[.]min$/
+
+# minified CSS
+--ignore-file=match:/[.]min[.]css$/
+--ignore-file=match:/[.]css[.]min$/
+
+# JS and CSS source maps
+--ignore-file=match:/[.]js[.]map$/
+--ignore-file=match:/[.]css[.]map$/
+
+# PDFs, because they pass Perl's -T detection
+--ignore-file=ext:pdf
+
+# Common graphics, just as an optimization
+--ignore-file=ext:gif,jpg,jpeg,png
+
+# Common archives, as an optimization
+--ignore-file=ext:gz,tar,tgz,zip
+
+# Python compiled modules
+--ignore-file=ext:pyc,pyd,pyo
+
+# Python's pickle serialization format
+# https://docs.python.org/2/library/pickle.html#example
+# https://docs.python.org/3.7/library/pickle.html#examples
+--ignore-file=ext:pkl,pickle
+
+# C extensions
+--ignore-file=ext:so
+
+# Compiled gettext files
+--ignore-file=ext:mo
+
+# Visual Studio user and workspace settings
+# https://code.visualstudio.com/docs/getstarted/settings
+--ignore-dir=is:.vscode
+
+### Filetypes defined
+
+# Makefiles
+# https://www.gnu.org/s/make/
+--type-add=make:ext:mk
+--type-add=make:ext:mak
+--type-add=make:is:makefile
+--type-add=make:is:Makefile
+--type-add=make:is:Makefile.Debug
+--type-add=make:is:Makefile.Release
+--type-add=make:is:GNUmakefile
+
+# Rakefiles
+# https://rake.rubyforge.org/
+--type-add=rake:is:Rakefile
+
+# CMake
+# https://cmake.org/
+--type-add=cmake:is:CMakeLists.txt
+--type-add=cmake:ext:cmake
+
+# Bazel build tool
+# https://docs.bazel.build/versions/master/skylark/bzl-style.html
+--type-add=bazel:ext:bzl
+# https://docs.bazel.build/versions/master/guide.html#bazelrc-the-bazel-configuration-file
+--type-add=bazel:ext:bazelrc
+# https://docs.bazel.build/versions/master/build-ref.html#BUILD_files
+--type-add=bazel:is:BUILD
+# https://docs.bazel.build/versions/master/build-ref.html#workspace
+--type-add=bazel:is:WORKSPACE
+
+
+# Actionscript
+--type-add=actionscript:ext:as,mxml
+
+# Ada
+# https://www.adaic.org/
+--type-add=ada:ext:ada,adb,ads
+
+# ASP
+# https://docs.microsoft.com/en-us/previous-versions/office/developer/server-technologies/aa286483(v=msdn.10)
+--type-add=asp:ext:asp
+
+# ASP.Net
+# https://dotnet.microsoft.com/apps/aspnet
+--type-add=aspx:ext:master,ascx,asmx,aspx,svc
+
+# Assembly
+--type-add=asm:ext:asm,s
+
+# DOS/Windows batch
+--type-add=batch:ext:bat,cmd
+
+# ColdFusion
+# https://en.wikipedia.org/wiki/ColdFusion
+--type-add=cfmx:ext:cfc,cfm,cfml
+
+# Clojure
+# https://clojure.org/
+--type-add=clojure:ext:clj,cljs,edn,cljc
+
+# C
+# .xs are Perl C files
+--type-add=cc:ext:c,h,xs
+
+# C header files
+--type-add=hh:ext:h
+
+# CoffeeScript
+# https://coffeescript.org/
+--type-add=coffeescript:ext:coffee
+
+# C++
+--type-add=cpp:ext:cpp,cc,cxx,m,hpp,hh,h,hxx
+
+# C++ header files
+--type-add=hpp:ext:hpp,hh,h,hxx
+
+# C#
+--type-add=csharp:ext:cs
+
+# Crystal-lang
+# https://crystal-lang.org/
+--type-add=crystal:ext:cr,ecr
+
+# CSS
+# https://www.w3.org/Style/CSS/
+--type-add=css:ext:css
+
+# Dart
+# https://dart.dev/
+--type-add=dart:ext:dart
+
+# Delphi
+# https://en.wikipedia.org/wiki/Embarcadero_Delphi
+--type-add=delphi:ext:pas,int,dfm,nfm,dof,dpk,dproj,groupproj,bdsgroup,bdsproj
+
+# Elixir
+# https://elixir-lang.org/
+--type-add=elixir:ext:ex,exs
+
+# Elm
+# https://elm-lang.org
+--type-add=elm:ext:elm
+
+# Emacs Lisp
+# https://www.gnu.org/software/emacs
+--type-add=elisp:ext:el
+
+# Erlang
+# https://www.erlang.org/
+--type-add=erlang:ext:erl,hrl
+
+# Fortran
+# https://en.wikipedia.org/wiki/Fortran
+--type-add=fortran:ext:f,f77,f90,f95,f03,for,ftn,fpp
+
+# Go
+# https://golang.org/
+--type-add=go:ext:go
+
+# Groovy
+# https://www.groovy-lang.org/
+--type-add=groovy:ext:groovy,gtmpl,gpp,grunit,gradle
+
+# GSP
+# https://gsp.grails.org/
+--type-add=gsp:ext:gsp
+
+# Haskell
+# https://www.haskell.org/
+--type-add=haskell:ext:hs,lhs
+
+# HTML
+--type-add=html:ext:htm,html,xhtml
+
+# Jade
+# http://jade-lang.com/
+--type-add=jade:ext:jade
+
+# Java
+# https://www.oracle.com/technetwork/java/index.html
+--type-add=java:ext:java,properties
+
+# JavaScript
+--type-add=js:ext:js
+
+# JSP
+# https://www.oracle.com/technetwork/java/javaee/jsp/index.html
+--type-add=jsp:ext:jsp,jspx,jspf,jhtm,jhtml
+
+# JSON
+# https://json.org/
+--type-add=json:ext:json
+
+# Kotlin
+# https://kotlinlang.org/
+--type-add=kotlin:ext:kt,kts
+
+# Less
+# http://www.lesscss.org/
+--type-add=less:ext:less
+
+# Common Lisp
+# https://common-lisp.net/
+--type-add=lisp:ext:lisp,lsp
+
+# Lua
+# https://www.lua.org/
+--type-add=lua:ext:lua
+--type-add=lua:firstlinematch:/^#!.*\blua(jit)?/
+
+# Markdown
+# https://en.wikipedia.org/wiki/Markdown
+--type-add=markdown:ext:md,markdown
+# We understand that there are many ad hoc extensions for markdown
+# that people use.  .md and .markdown are the two that ack recognizes.
+# You are free to add your own in your ackrc file.
+
+# Matlab
+# https://en.wikipedia.org/wiki/MATLAB
+--type-add=matlab:ext:m
+
+# Objective-C
+--type-add=objc:ext:m,h
+
+# Objective-C++
+--type-add=objcpp:ext:mm,h
+
+# OCaml
+# https://ocaml.org/
+--type-add=ocaml:ext:ml,mli,mll,mly
+
+# Perl
+# https://perl.org/
+--type-add=perl:ext:pl,PL,pm,pod,t,psgi
+--type-add=perl:firstlinematch:/^#!.*\bperl/
+
+# Perl tests
+--type-add=perltest:ext:t
+
+# Perl's Plain Old Documentation format, POD
+--type-add=pod:ext:pod
+
+# PHP
+# https://www.php.net/
+--type-add=php:ext:php,phpt,php3,php4,php5,phtml
+--type-add=php:firstlinematch:/^#!.*\bphp/
+
+# Plone
+# https://plone.org/
+--type-add=plone:ext:pt,cpt,metadata,cpy,py
+
+# PowerShell
+# https://learn.microsoft.com/en-us/powershell/module/microsoft.powershell.core/about/about_scripts
+# https://learn.microsoft.com/en-us/powershell/scripting/developer/module/understanding-a-windows-powershell-module
+--type-add=powershell:ext:ps1,psm1
+
+# PureScript
+# https://www.purescript.org
+--type-add=purescript:ext:purs
+
+# Python
+# https://www.python.org/
+--type-add=python:ext:py
+--type-add=python:firstlinematch:/^#!.*\bpython/
+
+# R
+# https://www.r-project.org/
+# https://r4ds.had.co.nz/r-markdown.html
+--type-add=rr:ext:R,Rmd
+
+# Raku
+# https://raku.org/
+--type-add=raku:ext:raku,rakumod,rakudoc,rakutest,nqp,p6,pm6,pod6
+--type-add=raku:firstlinematch:/^#!.*\braku/
+
+# Raku tests
+--type-add=rakutest:ext:rakutest
+
+# reStructured Text
+# https://docutils.sourceforge.io/rst.html
+--type-add=rst:ext:rst
+
+# Ruby
+# https://www.ruby-lang.org/
+--type-add=ruby:ext:rb,rhtml,rjs,rxml,erb,rake,spec
+--type-add=ruby:is:Rakefile
+--type-add=ruby:firstlinematch:/^#!.*\bruby/
+
+# Rust
+# https://www.rust-lang.org/
+--type-add=rust:ext:rs
+
+# Sass
+# https://sass-lang.com
+--type-add=sass:ext:sass,scss
+
+# Scala
+# https://www.scala-lang.org/
+--type-add=scala:ext:scala,sbt
+
+# Scheme
+# https://groups.csail.mit.edu/mac/projects/scheme/
+--type-add=scheme:ext:scm,ss
+
+# Shell
+--type-add=shell:ext:sh,bash,csh,tcsh,ksh,zsh,fish
+--type-add=shell:firstlinematch:/^#!.*\b(?:ba|t?c|k|z|fi)?sh\b/
+
+# Smalltalk
+# http://www.smalltalk.org/
+--type-add=smalltalk:ext:st
+
+# Smarty
+# https://www.smarty.net/
+--type-add=smarty:ext:tpl
+
+# SQL
+# https://www.iso.org/standard/45498.html
+--type-add=sql:ext:sql,ctl
+
+# Stylus
+# http://stylus-lang.com/
+--type-add=stylus:ext:styl
+
+# SVG
+# https://en.wikipedia.org/wiki/Scalable_Vector_Graphics
+--type-add=svg:ext:svg
+
+# Swift
+# https://developer.apple.com/swift/
+--type-add=swift:ext:swift
+--type-add=swift:firstlinematch:/^#!.*\bswift/
+
+# Tcl
+# https://www.tcl.tk/
+--type-add=tcl:ext:tcl,itcl,itk
+
+# TeX & LaTeX
+# https://www.latex-project.org/
+--type-add=tex:ext:tex,cls,sty
+
+# Template Toolkit (Perl)
+# http//template-toolkit.org/
+--type-add=ttml:ext:tt,tt2,ttml
+
+# TOML
+# https://toml.io/
+--type-add=toml:ext:toml
+
+# TypeScript
+# https://www.typescriptlang.org/
+--type-add=ts:ext:ts,tsx
+
+# Visual Basic
+--type-add=vb:ext:bas,cls,frm,ctl,vb,resx
+
+# Verilog
+--type-add=verilog:ext:v,vh,sv
+
+# VHDL
+# http://www.eda.org/twiki/bin/view.cgi/P1076/WebHome
+--type-add=vhdl:ext:vhd,vhdl
+
+# Vim
+# https://www.vim.org/
+--type-add=vim:ext:vim
+
+# XML
+# https://www.w3.org/TR/REC-xml/
+--type-add=xml:ext:xml,dtd,xsd,xsl,xslt,ent,wsdl
+--type-add=xml:firstlinematch:/<[?]xml/
+
+# YAML
+# https://yaml.org/
+--type-add=yaml:ext:yaml,yml
+
+
+### Syntax types defined
+
+--syntax-add=Cc:type:cc
+--syntax-add=Cpp:type:cpp
+--syntax-add=Fortran:type:fortran
+--syntax-add=Java:ext:java
+--syntax-add=Data:type:json
+--syntax-add=Make:type:make,tcl
+--syntax-add=Perl:type:perl,perltest,pod
+--syntax-add=Properties:ext:properties
+--syntax-add=Raku:type:raku,rakutest
+--syntax-add=Shell:type:shell
+--syntax-add=Vim:type:vim
+--syntax-add=YAML:type:yaml
+
+
+### Backup file name extension (empty disables)
+
+# --backup=
+
+
+### Coloring
+
+--color-filename=bold green
+--color-lineno=bold yellow
+--color-match=black on_yellow
+
+
+### Encoding
+
+--encoding=utf-8
+
+
+### Read environment configuration
+
+--env
+EOD
+    $self->{backup} //= '';
+    return;
 }
 
 {
@@ -785,13 +1209,17 @@ sub __validate_attr {
 }
 
 sub __get_option_parser {
-    state $opt_psr = do {
+    my ( undef, $pass_thru ) = @_;
+    $pass_thru = $pass_thru ? 1 : 0;
+    state $opt_psr = [];
+    return $opt_psr->[$pass_thru] ||= do {
 	my $p = Getopt::Long::Parser->new();
 	$p->configure( qw{
 	    bundling no_ignore_case } );
+	$pass_thru
+	    and $p->configure( qw{ pass_through } );
 	$p;
     };
-    return $opt_psr;
 }
 
 sub __get_encoding {
@@ -1243,7 +1671,7 @@ sub __validate_files_from {
 
 sub __validate_ignore {
     my ( $self, undef, $attr_name, $attr_val ) = @_;	# $attr_spec unused
-    foreach ( @{ $attr_val } ) {
+    foreach ( ref $attr_val ? @{ $attr_val } : $attr_val ) {
 	my ( $kind, $data ) = split /:/, $_, 2;
 	defined $data
 	    or ( $kind, $data ) = ( is => $kind );
