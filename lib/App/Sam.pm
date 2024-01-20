@@ -28,11 +28,8 @@ use constant IS_WINDOWS	=> {
 
 use constant REF_ARRAY	=> ref [];
 
-use constant SPECIAL_EARLY	=> 1 << 3;
-use constant SPECIAL_LATE	=> 1 << 2;
-use constant SPECIAL_NEVER	=> 1 << 1;	# Not an option.
-use constant SPECIAL_NOT	=> 1 << 0;
-# NOTE The following deliberately excludes SPECIAL_NEVER
+use enum qw{ BITMASK:SPECIAL_ EARLY LATE NON_OPT NOT };
+# NOTE The following deliberately excludes SPECIAL_NON_OPT
 use constant SPECIAL_ANY_OPT	=>
     SPECIAL_EARLY | SPECIAL_LATE | SPECIAL_NOT;
 
@@ -52,7 +49,7 @@ sub new {
     my %priority_arg;
     while ( @raw_arg ) {
 	my ( $arg_name, $arg_val ) = splice @raw_arg, 0, 2;
-	if ( ! $ATTR_SPEC{$arg_name} ) {
+	if ( ! $ATTR_SPEC{$arg_name} || $ATTR_SPEC{$arg_name}{back_end} ) {
 	    push @bad_arg, $arg_name;
 	} elsif ( $ATTR_SPEC{$arg_name}{special} & ~ SPECIAL_NOT ) {
 	    $priority_arg{$arg_name} = $arg_val;
@@ -382,20 +379,18 @@ sub __file_type_del {
     #         to attribute processing. Optional.
     # {validate} - The name of the method used to validate the
     #         attribute. Optional.
-    # {argument_only} - A true value means this is only an argument to
-    #         new(), and no corresponding option will be generated.
-    #         Optional.
     # {back_end} - The name of an attribute that corresponds to this
     #         option. If the {validate} key is present it represents the
     #         name of a method to transform the value before it is
     #         processed as the {back_end} attribute. It is the
     #         responsibility of this method to set the back-end
-    #         attribute if it has no {validate} method. Optional.
+    #         attribute if it has no {validate} method. If this key is
+    #         true this is an option but not an argument. Optional.
     #  {special} - This is a bit mask specifying special processing. The
     #         value must be (at the moment) exactly one of:
     #         SPECIAL_EARLY - Process before the typical attribute
     #         SPECIAL_LATE -- Process after the typical attribute
-    #         SPECIAL_NEVER - Not an option at all
+    #         SPECIAL_NON_OPT - Argument only, not option
     #         SPECIAL_NOT --- A typical attribute, and the default
     #         SPECIAL_ANY_OPT --- Do not use in an attribute definition.
     my %attr_spec_hash = (
@@ -436,7 +431,7 @@ sub __file_type_del {
 	},
 	die	=> {
 	    type	=> '!',
-	    special	=> SPECIAL_NEVER,
+	    special	=> SPECIAL_NON_OPT,
 	},
 	dry_run	=> {
 	    type	=> '!',
@@ -573,10 +568,11 @@ sub __file_type_del {
 sub __get_opt_specs {
     my ( $self, $special ) = @_;
     $special ||= SPECIAL_ANY_OPT;
+    $special &= SPECIAL_ANY_OPT;
     my @opt_spec;
     foreach ( values %ATTR_SPEC ) {
-	next if $_->{argument_only};
-	next unless $special & ( $_->{special} // SPECIAL_NOT );
+	next if $_->{special} & SPECIAL_NON_OPT;
+	next unless $special & $_->{special};
 	push @opt_spec, join( '|', $_->{name}, @{ $_->{alias} || []
 	    } ) . $_->{type}, $self->__get_validator( $_, 1 );
     }

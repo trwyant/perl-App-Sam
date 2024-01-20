@@ -162,6 +162,7 @@ sub requires {
 	'Term::ANSIColor'	=> 0,
 	'Text::Abbrev'	=> 0,
 	constant	=> 0,
+	enum		=> 0,
 	parent		=> 0,
 	strict		=> 0,
 	utf8		=> 0,
