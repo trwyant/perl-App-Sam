@@ -86,9 +86,17 @@ sam - Search for strings in files, and possibly modify them
 This option specifies that file modification renames the original file
 before the modification is written. The value is the string to be
 appended to the original file name. No rename is done unless the file
-was actually modified. A value of C<''> specifies no rename.
+was actually modified.
 
-The default is C<--backup=''>.
+The default is L<--no-backup|/--no-backup>.
+
+=head2 --no-backup
+
+This option specifies that no backup of modified files is to be done.
+
+=head2 --nobackup
+
+This option is equivalent to L<--no-backup|/--no-backup>.
 
 =head2 --break
 

@@ -123,6 +123,10 @@ sub new {
     defined $self->{replace}
 	and delete $self->{color};
 
+    defined $self->{backup}
+	and $self->{backup} eq ''
+	and delete $self->{backup};
+
     foreach my $name ( qw{ ignore_file ignore_directory } ) {
 	my $alias = "_$name";
 	$self->{$alias}{match}
@@ -401,6 +405,12 @@ sub __file_type_del {
 	},
 	backup	=> {
 	    type	=> '=s',
+	},
+	no_backup	=> {
+	    type	=> '',
+	    alias	=> [ 'nobackup' ],
+	    back_end	=> 'backup',
+	    validate	=> '__preprocess_logical_negation',
 	},
 	break	=> {
 	    type	=> '!',
@@ -1114,7 +1124,6 @@ sub __get_attr_defaults {
 
 --encoding=utf-8
 EOD
-    $self->{backup} //= '';
     return;
 }
 
@@ -1379,10 +1388,12 @@ sub __preprocess_logical_negation {
 	"Attribute '$attr_name' has no back_end specified" );
     if ( my $code = $self->__get_validator( $back_end ) ) {
 	return $code->( $back_end, ! $attr_val );
+    } elsif ( $attr_val ) {
+	delete $self->{$back_end}
     } else {
-	$self->{$back_end} = ! $attr_val;
-	return 1;
+	$self->{$back_end} = 1;
     }
+    return 1;
 }
 
 sub process {
@@ -1478,7 +1489,7 @@ sub process {
 	if ( $self->{replace} && ! $self->{dry_run} &&
 	    $lines_matched && ! ref $file
 	) {
-	    if ( $self->{backup} ne '' ) {
+	    if ( defined $self->{backup} ) {
 		my $backup = "$file$self->{backup}";
 		rename $file, $backup
 		    or $self->__croak(
@@ -1782,7 +1793,8 @@ argument is processed, non-option arguments remain in the array.
 
 =item C<backup>
 
-See L<--backup|sam/--backup> in the L<sam|sam> documentation.
+See L<--backup|sam/--backup> in the L<sam|sam> documentation. A value of
+C<undef> or C<''> specifies no backup.
 
 =item C<break>
 

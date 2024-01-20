@@ -52,7 +52,6 @@ is dies { $sam = App::Sam->new() }, undef, 'Can instantiate App::Sam';
 isa_ok $sam, 'App::Sam';
 
 is $sam, {
-    backup		=> '',
     color_filename	=> 'bold green',
     color_lineno	=> 'bold yellow',
     color_match		=> 'black on_yellow',
