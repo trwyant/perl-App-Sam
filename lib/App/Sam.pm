@@ -379,6 +379,7 @@ sub __file_type_del {
     #         to attribute processing. Optional.
     # {validate} - The name of the method used to validate the
     #         attribute. Optional.
+    # {arg} - Available for use by the {validate} code.
     # {back_end} - The name of an attribute that corresponds to this
     #         option. If the {validate} key is present it represents the
     #         name of a method to transform the value before it is
@@ -519,6 +520,18 @@ sub __file_type_del {
 	},
 	replace	=> {
 	    type	=> '=s',
+	},
+	remove		=> {
+	    type	=> '',
+	    back_end	=> 'replace',
+	    validate	=> '__preprocess_logical_negation',
+	    arg		=> { 1 => '' },
+	},
+	no_replace	=> {
+	    type	=> '',
+	    alias	=> [ qw{ noreplace no_remove no-remove noremove } ],
+	    back_end	=> 'replace',
+	    validate	=> '__preprocess_logical_negation',
 	},
 	samrc	=> {
 	    type	=> '=s',
@@ -1377,7 +1390,7 @@ sub __ignore {
     return 0;
 }
 
-sub __preprocess_logical_negation {
+sub __preprocess_logical_negation_x {
     my ( $self, $attr_spec, $attr_name, $attr_val ) = @_;
     my $back_end = $attr_spec->{back_end}
 	or $self->__confess(
@@ -1388,6 +1401,25 @@ sub __preprocess_logical_negation {
 	delete $self->{$back_end}
     } else {
 	$self->{$back_end} = 1;
+    }
+    return 1;
+}
+
+sub __preprocess_logical_negation {
+    my ( $self, $attr_spec, $attr_name, $attr_val ) = @_;
+    my $back_end = $attr_spec->{back_end}
+	or $self->__confess(
+	"Attribute '$attr_name' has no back_end specified" );
+    if ( my $code = $self->__get_validator( $back_end ) ) {
+	return $code->( $back_end, ! $attr_val );
+    } else {
+	my $arg = $attr_spec->{arg} || { 0 => 1 };
+	my $val = $attr_val ? 1 : 0;
+	if ( exists $arg->{$val} ) {
+	    $self->{$back_end} = $arg->{$val};
+	} else {
+	    delete $self->{$back_end};
+	}
     }
     return 1;
 }
@@ -1482,7 +1514,7 @@ sub process {
 		sprintf( '%s:%d', $self->__color( filename => $file ),
 		    $lines_matched ), @show_types;
 
-	if ( $self->{replace} && ! $self->{dry_run} &&
+	if ( defined( $self->{replace} ) && ! $self->{dry_run} &&
 	    $lines_matched && ! ref $file
 	) {
 	    if ( defined $self->{backup} ) {

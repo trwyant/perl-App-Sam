@@ -18,14 +18,15 @@ our $VERSION = '0.000_001';
 sub capture_stdout (&) {
     my ( $code ) = @_;
     my $data;
-    open my $stdout, '>', \$data	# Purposefully not encoded
-	or croak "Failed to open scalar reference for output: $!";
-    $stdout->autoflush( 1 );
     {
-	local *STDOUT = $stdout;
+	# Thanks to David Farrell for the algorithm. Specifically:
+	# https://www.perl.com/article/45/2013/10/27/How-to-redirect-and-restore-STDOUT/
+	local *STDOUT;
+	open STDOUT, '>', \$data
+	    or croak "Failed to open scalar reference for output: $!";
+	STDOUT->autoflush( 1 );
 	$code->();
     }
-    close $stdout;
     return $data;
 }
 

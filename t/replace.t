@@ -39,9 +39,34 @@ EOD
 	'Modified the original text';
     };
 
-    is $stdout, <<'EOD', 'Matched line 1 of limmerick';
+    is $stdout, <<'EOD', 'Matched line 1 of limerick';
 t/data/bright.txt
 1:There was a young lady named Wright
+EOD
+}
+
+{
+    my $sam = CLASS->new(
+	dry_run		=> 1,	# Don't write the original back
+	match		=> '\s*bright\b',
+	ignore_case	=> 1,
+	argv		=> [ qw{ --remove } ],
+    );
+
+    my $stdout = capture_stdout {
+	is $sam->process( 't/data/bright.txt' ), <<'EOD',
+There was a young lady named
+Who could travel much faster than light.
+    She set out one day
+    In a relative way
+And returned the previous night.
+EOD
+	'Modified the original text';
+    };
+
+    is $stdout, <<'EOD', 'Matched line 1 of limerick';
+t/data/bright.txt
+1:There was a young lady named
 EOD
 }
 

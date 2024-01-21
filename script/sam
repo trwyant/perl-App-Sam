@@ -83,6 +83,8 @@ sam - Search for strings in files, and possibly modify them
 
 =head2 --backup
 
+ --backup=.bak
+
 This option specifies that file modification renames the original file
 before the modification is written. The value is the string to be
 appended to the original file name. No rename is done unless the file
@@ -93,10 +95,10 @@ The default is L<--no-backup|/--no-backup>.
 =head2 --no-backup
 
 This option specifies that no backup of modified files is to be done.
+This is the default behavior, but the option is provided in case you
+need to undo a L<--backup|/--backup>.
 
-=head2 --nobackup
-
-This option is equivalent to L<--no-backup|/--no-backup>.
+This option can also be specified as C<--nobackup>.
 
 =head2 --break
 
@@ -261,6 +263,20 @@ specify this in the presence of non-matching options such as C<-f|/-f>.
 If this option is legal but not specified, the first non-option
 command-line argument will be used as the match expression.
 
+=head2 --no-replace
+
+This option specifies that replacement is not to be done. This is the
+default behavior, but the option is provided in case you need to undo a
+L<--replace|/--replace>.
+
+This option can also be specified as C<--noreplace>.
+
+=head2 --no-remove
+
+This convenience option is a synonym for L<--no-replace|/--no-replace>.
+
+This option can also be specified as C<--noremove>.
+
 =head2 --passthru
 
 If this Boolean option is asserted, all lines are displayed whether or
@@ -277,7 +293,13 @@ This Boolean option is a synonym for L<--ignore-case|/--ignore-case>.
 =head2 --replace
 
 This option specifies the replacement string. If this is specified,
-L<--match|/--match> is required.
+a match string is required.
+
+=head2 --remove
+
+This option specifies an empty replacement string. It is needed because
+L<Getopt::Long|Getopt::Long> considers C<--replace=> to be missing an
+argument. If this option is specified, a match string is required.
 
 =head2 --samrc
 
@@ -404,7 +426,7 @@ C<(foo)> will remain C<(foo)>.
 
 =head2 -w
 
-This Boolean option is equivalent to L<--word-regexp|/--word-regexp>.
+This Boolean option is a synonym for L<--word-regexp|/--word-regexp>.
 
 =head1 DETAILS
 
