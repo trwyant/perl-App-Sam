@@ -106,8 +106,8 @@ L<App::Sam::Syntax::_cc_like|App::Sam::Syntax::_cc_like>
 =head1 SUPPORT
 
 Support is by the author. Please file bug reports at
-L<https://rt.cpan.org/Public/Dist/Display.html?Name=App-Sad>,
-L<https://github.com/trwyant/perl-App-Sad/issues/>, or in
+L<https://rt.cpan.org/Public/Dist/Display.html?Name=App-Sam>,
+L<https://github.com/trwyant/perl-App-Sam/issues/>, or in
 electronic mail to the author.
 
 =head1 AUTHOR

@@ -413,7 +413,7 @@ sub __file_type_del {
     my %attr_spec_hash = (
 	argv	=> {
 	    type	=> '=s@',
-	    special	=> SPECIAL_LATE,
+	    special	=> SPECIAL_LATE | SPECIAL_NON_OPT,
 	},
 	backup	=> {
 	    type	=> '=s',
@@ -1268,12 +1268,12 @@ App::Sam - Search and (possibly) modify files
 =head1 SYNOPSIS
 
  use App::Sam;
- my $sad = App::Sam->new(
+ my $sam = App::Sam->new(
    backup  => '.bak',
    match   => '\bfoo\b',
    replace => 'bar',
  );
- $sad->process( 'foo.txt' );
+ $sam->process( 'foo.txt' );
 
 =head1 DESCRIPTION
 
@@ -1286,7 +1286,7 @@ This class supports the following public methods:
 
 =head2 new
 
- my $sad = App::Sam->new();
+ my $sam = App::Sam->new();
 
 This static method instantiates an application object. It takes the
 following named arguments:
@@ -1336,6 +1336,11 @@ See L<--color-match|sam/--color-match> in the L<sam|sam> documentation.
 
 See L<--count|sam/--count> in the L<sam|sam> documentation.
 
+=item C<create_samrc>
+
+See L<--create-samrc|sam/--create-samrc> in the L<sam|sam>
+documentation.
+
 =item C<die>
 
 This Boolean argument specifies how warnings and errors are delivered. A
@@ -1372,6 +1377,14 @@ not definitive in the presence of Access Control Lists.
 
 See L<--filter-files-from|sam/--filter-files-from> in the L<sam|sam>
 documentation.
+
+=item C<help_syntax>
+
+See L<--help-syntax|sam/--help-syntax> in the L<sam|sam> documentation.
+
+=item C<help_types>
+
+See L<--help-types|sam/--help-types> in the L<sam|sam> documentation.
 
 =item C<ignore_case>
 
@@ -1481,7 +1494,7 @@ See L<--word-regexp|sam/--word-regexp> in the L<sam|sam> documentation.
 
 This method prints the default configuration to C<STDOUT>. If the
 argument is true, it exits. Otherwise it returns. The default for
-C<$exit> is true if called from the C<$sad> object.
+C<$exit> is true if called from the C<$sam> object.
 
 =head2 files_from
 
@@ -1495,21 +1508,21 @@ possibly-filtered contents.
 
 =head2 help_syntax
 
- $sad->help_syntax( $exit )
+ $sam->help_syntax( $exit )
 
 This method prints help for the defined syntax types to F<STDOUT>. If
 the argument is true, it exits; otherwise it returns. The default for
-C<$exit> is true if called from the C<$sad> object (which happens if
+C<$exit> is true if called from the C<$sam> object (which happens if
 argument C<help_types> is true or option C<--help-types> is asserted),
 and false otherwise.
 
 =head2 help_types
 
- $sad->help_types( $exit )
+ $sam->help_types( $exit )
 
 This method prints help for the defined file types to C<STDOUT>. If the
 argument is true, it exits; otherwise it returns. The default for
-C<$exit> is true if called from the C<$sad> object (which happens if
+C<$exit> is true if called from the C<$sam> object (which happens if
 argument C<help_types> is true or option C<--help-types> is asserted),
 and false otherwise.
 
@@ -1517,7 +1530,7 @@ The output is similar but not identical to L<ack|ack> C<--help-types>.
 
 =head2 process
 
- $sad->process( $file )
+ $sam->process( $file )
 
 This method processes a single file or directory. Match output is
 written to F<STDOUT>. If any files are modified, the modified file is

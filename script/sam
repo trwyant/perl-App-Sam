@@ -143,6 +143,11 @@ to be applied to the match. The default is
 If this Boolean option is asserted, only the number of matches is output
 for each file. The default is C<--no-count>.
 
+=head2 --create-samrc
+
+This option causes a copy of the default configuration (before applying
+any resource files) to be written to F<STDOUT>. The script then exits.
+
 =head2 --dry-run
 
 If this Boolean option is asserted, modified files are not rewritten,
@@ -431,7 +436,7 @@ This Boolean option is a synonym for L<--word-regexp|/--word-regexp>.
 =head1 DETAILS
 
 This Perl script was inspired by both L<ack|ack>, and one of my earliest
-Perl scripts called F<sad>, for Search and Destroy. It implements a
+Perl scripts called F<sam>, for Search and Destroy. It implements a
 fair-sided subset of L<ack|ack>' file search capabilities, in a way
 more-or-less compatible with L<ack|ack>. It adds functionality that I
 thought useful:
@@ -453,7 +458,7 @@ Replacement strings may make use of capture variables defined in the
 L<--match|/--match> option's argument.
 
 This is actually the functionality that gave rise to the script's name:
-Search And Modify. It would have been called C<sad> like its
+Search And Modify. It would have been called C<sam> like its
 predecessor, but that name was taken by the
 L<Games-Scott-Adams|https://metacpan.org/dist/Games-ScottAdams> package,
 as was C<sac>.
