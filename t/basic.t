@@ -24,7 +24,7 @@ load_module_ok 'App::Sam::Syntax';
 load_module_ok 'App::Sam::Syntax::_cc_like';
 
 foreach my $syntax ( qw{ Cc Cpp Data Fortran Java Make Perl Properties
-    Raku Shell Vim YAML } ) {
+    Python Raku Shell Vim YAML } ) {
     my $class = "App::Sam::Syntax::$syntax";
 
     load_module_ok $class;

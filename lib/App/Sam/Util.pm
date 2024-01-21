@@ -41,6 +41,7 @@ our @CARP_NOT = qw{
     App::Sam::Syntax::Make
     App::Sam::Syntax::Perl
     App::Sam::Syntax::Properties
+    App::Sam::Syntax::Python
     App::Sam::Syntax::Raku
     App::Sam::Syntax::Shell
     App::Sam::Syntax::Vim

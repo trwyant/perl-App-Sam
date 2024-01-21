@@ -75,6 +75,7 @@ t/data/json_file.json
 t/data/make_file.mak
 t/data/perl_file.PL
 t/data/properties_file.properties
+t/data/python_file.py
 t/data/raku_file.raku
 t/data/shell_file.sh
 t/data/vim_file.vim
@@ -101,6 +102,7 @@ t/data/json_file.json
 t/data/make_file.mak
 t/data/perl_file.PL
 t/data/properties_file.properties
+t/data/python_file.py
 t/data/raku_file.raku
 t/data/shell_file.sh
 t/data/vim_file.vim

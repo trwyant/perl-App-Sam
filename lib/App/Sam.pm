@@ -1110,6 +1110,7 @@ sub __get_attr_defaults {
 --syntax-add=Data:type:json
 --syntax-add=Make:type:make,tcl
 --syntax-add=Perl:type:perl,perltest,pod
+--syntax-add=Python:type:python
 --syntax-add=Properties:ext:properties
 --syntax-add=Raku:type:raku,rakutest
 --syntax-add=Shell:type:shell
