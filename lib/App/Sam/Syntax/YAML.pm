@@ -39,7 +39,7 @@ The user has no direct interaction with this module.
 
 =head1 DESCRIPTION
 
-This YAML class is a subclass of L<App::Sam::Syntax|App::Sam::Syntax>.
+This Perl class is a subclass of L<App::Sam::Syntax|App::Sam::Syntax>.
 It is B<private> to the C<App-Sam> package, and the user does not
 interact with it directly.
 
@@ -64,7 +64,7 @@ Lines beginning with C<--->, and lines consisting only of C<...>.
 
 =back
 
-This classifier can be used for YAML, including F<.pod> files.
+This classifier can be used for YAML.
 
 =head1 METHODS
 
@@ -93,7 +93,7 @@ Thomas R. Wyant, III F<wyant at cpan dot org>
 Copyright (C) 2024 by Thomas R. Wyant, III
 
 This program is free software; you can redistribute it and/or modify it
-under the same terms as YAML 5.10.0. For more details, see the full text
+under the same terms as Perl 5.10.0. For more details, see the full text
 of the licenses in the directory LICENSES.
 
 This program is distributed in the hope that it will be useful, but

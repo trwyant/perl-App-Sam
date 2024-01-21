@@ -102,7 +102,7 @@ The user has no direct interaction with this module.
 
 =head1 DESCRIPTION
 
-This Raku class is a subclass of L<App::Sam::Syntax|App::Sam::Syntax>.
+This Perl class is a subclass of L<App::Sam::Syntax|App::Sam::Syntax>.
 It is B<private> to the C<App-Sam> package, and the user does not
 interact with it directly.
 
@@ -131,7 +131,7 @@ The shebang line, C<__DATA__>, C<__END__>, and the C<#line> directive.
 
 =back
 
-This classifier can be used for Raku, including F<.pod> files.
+This classifier can be used for Raku.
 
 =head1 METHODS
 
@@ -160,7 +160,7 @@ Thomas R. Wyant, III F<wyant at cpan dot org>
 Copyright (C) 2024 by Thomas R. Wyant, III
 
 This program is free software; you can redistribute it and/or modify it
-under the same terms as Raku 5.10.0. For more details, see the full text
+under the same terms as Perl 5.10.0. For more details, see the full text
 of the licenses in the directory LICENSES.
 
 This program is distributed in the hope that it will be useful, but
