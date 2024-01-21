@@ -3,9 +3,11 @@ use 5.010001;
 use strict;
 use warnings;
 
+use ExtUtils::MakeMaker;
+use File::ShareDir::Install;
+
 use lib qw{ inc };
 
-use ExtUtils::MakeMaker;
 use My::Module::Meta;
 
 ( my $mmv = ExtUtils::MakeMaker->VERSION ) =~ s/_//g;
@@ -60,6 +62,8 @@ if ( $mmv >= 6.52 ) {
     }
 }
 
+install_share dist => $meta->share_dir();
+
 WriteMakefile( %args );
 
 sub MY::postamble {
@@ -72,7 +76,7 @@ sub MY::postamble {
     $authortest =~ s/ \A \s+ //smx;
     chomp $authortest;
 
-    return <<"EOD";
+    return <<"EOD" . File::ShareDir::Install::postamble( $self );
 
 AUTHORTEST_FILES = t/*.t xt/author/*.t
 

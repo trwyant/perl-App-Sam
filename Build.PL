@@ -25,6 +25,7 @@ my %args = (
 	perl	=> $meta->requires_perl(),
     ),
     script_files	=> $meta->script_files(),
+    share_dir	=> $meta->share_dir(),
 );
 
 if ( $mbv >= 0.28 ) {

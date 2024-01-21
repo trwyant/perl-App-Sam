@@ -16,8 +16,11 @@ use My::Module::Test;
 
 my $mock = mock 'App::Sam' => (
     after	=> [
-	__get_attr_defaults	=> sub {
-	    $_[0]->{env}	= 0,
+	__get_attr_from_rc	=> sub {
+	    if ( $_[1] eq $_[0]->__get_attr_default_file_name() ) {
+		$_[0]->{env}	= 0,
+	    }
+	    return;
 	},
     ],
 );

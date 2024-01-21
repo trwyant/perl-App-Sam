@@ -29,6 +29,7 @@ META.json
 META.yml
 README
 script/sam
+share/default_samrc
 t/basic.t
 t/data/bright.txt
 t/data/cc_file.c

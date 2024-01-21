@@ -36,9 +36,12 @@ load_module_ok 'App::Sam';
 
 my $mock = mock 'App::Sam' => (
     after	=> [
-	__get_attr_defaults	=> sub {
-	    $_[0]->{env}	= 0,
-	    $_[0]->{match}	= '/foo/',
+	__get_attr_from_rc	=> sub {
+	    if ( $_[1] eq $_[0]->__get_attr_default_file_name() ) {
+		$_[0]->{env}	= 0,
+		$_[0]->{match}	= 'foo',
+	    }
+	    return;
 	},
     ],
 );
@@ -61,7 +64,7 @@ is $sam, {
     ignore_sam_defaults	=> undef,
     _ignore_directory	=> hash { etc },
     _ignore_file	=> hash { etc },
-    match		=> '/foo/',
+    match		=> 'foo',
     munger		=> D,
     _munger		=> validator( sub { REF_CODE eq ref } ),
     _syntax_add		=> hash {	# Ensure Perl's syntax is defined.
@@ -174,7 +177,10 @@ EOD
 	# TODO Windows code
     } else {
 	is [ $sam->__get_rc_file_names() ],
-	    [ '/etc/samrc', "$ENV{HOME}/.samrc", '.samrc' ],
+	    [
+		$sam->__get_attr_default_file_name(),
+		'/etc/samrc', "$ENV{HOME}/.samrc", '.samrc',
+	    ],
 	    'Resource file names under anything but Windows';
     }
 }

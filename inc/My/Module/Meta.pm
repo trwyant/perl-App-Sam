@@ -44,6 +44,7 @@ sub configure_requires {
 	'lib'	=> 0,
 	'strict'	=> 0,
 	'warnings'	=> 0,
+	'File::ShareDir::Install'	=> 0,
     };
 }
 
@@ -153,6 +154,7 @@ sub requires {
 	'Errno'		=> 0,
 	'Exporter'	=> 0,
 	'File::Next'	=> 0,
+	'File::ShareDir'	=> 1.00,
 	'File::Spec'	=> 0,
 	'Getopt::Long'	=> 0,
 	'List::Util'	=> 1.46,	# for uniqstr()
@@ -180,6 +182,10 @@ sub script_files {
     return [
 	'script/sam',
     ];
+}
+
+sub share_dir {
+    return 'share';
 }
 
 sub version_from {
@@ -326,6 +332,11 @@ This method returns the version of Perl required by the package.
 
 This method returns a reference to an array containing the names of
 script files provided by this distribution. This array may be empty.
+
+=head2 share_dir
+
+This method returns the relative path to the location of data files
+installed with the distribution.
 
 =head2 version_from
 
