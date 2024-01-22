@@ -830,18 +830,7 @@ sub __make_munger {
 	$str = join '', 's ', $DELIM, "($match)", $MID,
 	    ' $_[0]->__color( match => $1 ) ',
 	    $DELIM, $modifier, 'e';
-	# NOTE that ack uses "\e[0m\e[K" here. But "\e[K" suffices for
-	# me.
-	$code = eval <<"EOD"	## no critic (ProhibitStringyEval)
-sub {
-    if ( $str ) {
-	s/ (?= \\n ) / CLR_EOL /smxge;
-	return $did_match;
-    } else {
-	return $did_not_match;
-    }
-}
-EOD
+	$code = eval "sub { $inv$str }"	## no critic (ProhibitStringyEval)
 	    or $self->__confess( "Generated bad coloring code: $@" );
     }
     $self->{munger} = $str;
@@ -971,11 +960,17 @@ sub process {
 	while ( <$fh> ) {
 
 	    $self->{_process}{syntax_obj}
-		and $self->{_process}{syntax} = $self->{_process}{syntax_obj}->__classify();
+		and $self->{_process}{syntax} =
+		    $self->{_process}{syntax_obj}->__classify();
 
 	    if ( $self->_process_match_p() ) {
-		$self->{_process}{matched} = $munger->( $self )
-		    and $lines_matched++;
+		if ( $self->{_process}{matched} = $munger->( $self ) ) {
+		    $lines_matched++;
+		    # NOTE that ack uses "\e[0m\e[K" here. But "\e[K"
+		    # suffices for me.
+		    $self->{color}
+			and s/ (?= \n ) / CLR_EOL /smxge;
+		}
 	    } else {
 		$self->{_process}{matched} = 0;
 	    }
@@ -985,6 +980,9 @@ sub process {
 		    $self->{_process}{header} = 1;
 		    $self->{break}
 			and say '';
+		    # TODO append CLR_EOL if $self->{color} is true.
+		    # Should I centralize this just to be on the safe
+		    # side?
 		    say join ' => ',
 			$self->__color( filename => $file ), @show_types;
 		}
