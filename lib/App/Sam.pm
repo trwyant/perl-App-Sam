@@ -816,21 +816,20 @@ sub __make_munger {
 	$match =~ s/ (?<= \w ) \z /\\b/smx;
     }
     my $str = join '', 'm ', $DELIM, $match, $DELIM, $modifier;
-    my $inv = $self->{invert_match} ? '! ' : '';
-    my $code = eval "sub { $inv$str }"	## no critic (ProhibitStringyEval)
+    my $code = eval "sub { $str }"	## no critic (ProhibitStringyEval)
 	or $self->__croak( "Invalid match '$match': $@" );
     if ( defined( my $repl = $self->{replace} ) ) {
 	$self->{literal}
 	    and $repl = quotemeta $repl;
 	$str = join '', 's ', $DELIM, $match, $MID, $repl, $DELIM,
 	    $modifier;
-	$code = eval "sub { $inv$str }"	## no critic (ProhibitStringyEval)
+	$code = eval "sub { $str }"	## no critic (ProhibitStringyEval)
 	    or $self->__croak( "Invalid replace '$repl': $@" );
     } elsif ( $self->{color} ) {
 	$str = join '', 's ', $DELIM, "($match)", $MID,
 	    ' $_[0]->__color( match => $1 ) ',
 	    $DELIM, $modifier, 'e';
-	$code = eval "sub { $inv$str }"	## no critic (ProhibitStringyEval)
+	$code = eval "sub { $str }"	## no critic (ProhibitStringyEval)
 	    or $self->__confess( "Generated bad coloring code: $@" );
     }
     $self->{munger} = $str;
@@ -976,11 +975,11 @@ sub process {
 		    $self->{_process}{syntax_obj}->__classify();
 
 	    if ( $self->_process_match_p() ) {
-		$self->{_process}{matched} = $munger->( $self )
+		$self->{_process}{matched} = ( $munger->( $self ) xor
+		    $self->{invert_match} )
 		    and $lines_matched++;
 	    } else {
-		# FIXME? Should this be $self->{invert_match}?
-		$self->{_process}{matched} = 0;
+		$self->{_process}{matched} = $self->{invert_match};
 	    }
 
 	    if ( $self->_process_display_p() ) {
@@ -988,9 +987,6 @@ sub process {
 		    $self->{_process}{header} = 1;
 		    $self->{break}
 			and say '';
-		    # TODO append CLR_EOL if $self->{color} is true.
-		    # Should I centralize this just to be on the safe
-		    # side?
 		    $self->__say(
 			join ' => ',
 			$self->__color( filename => $file ),
