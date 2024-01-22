@@ -37,6 +37,26 @@ use constant SPECIAL_ANY_OPT	=>
 # To be filled in (and made read-only) later.
 our %ATTR_SPEC;
 
+# NOTE that the status of weird characters as delimiters is extremely
+# murky. The only documentation I am aware of is in perl5290delta and
+# the associated perldeprecation, which say that that release drops
+# support for combining characters and unassigned characters.
+# Noncharacters and out-of-range characters are explicitly allowed. But
+# Perl 5.12.5 and earlier seem to have a problem with "\N{U+FFFF}",
+# resulting in various errors depending on the version. And there
+# appears to have been a change in semantics at Perl 5.20. Before that
+# version, noncharacters were treated as paired delimiters (paired with
+# themselves), so the replacement string of a substitution needed its
+# own start delimiter. At or after that version, it is a normal
+# delimiter, so in a substitution the end delimiter of the regular
+# expression is also the start delimiter of the replacement.
+Readonly::Scalar our $DELIM => do {
+    # no warnings qw{ utf8 }; needed before 5.14.
+    no warnings qw{ utf8 };	## no critic (ProhibitNoWarnings)
+    "\N{U+FFFE}";	# Noncharacter.
+};
+Readonly::Scalar our $MID => "$]" < 5.020 ? "$DELIM $DELIM" : $DELIM;
+
 sub new {
     my ( $class, @raw_arg ) = @_;
 
@@ -123,11 +143,12 @@ sub new {
 	and $self->{backup} eq ''
 	and delete $self->{backup};
 
-    foreach my $name ( qw{ ignore_file ignore_directory } ) {
+    foreach my $name ( qw{ ignore_file ignore_directory not } ) {
 	my $alias = "_$name";
 	$self->{$alias}{match}
 	    or next;
-	my $str = join ' || ', List::Util::uniqstr( @{ $self->{$alias}{match} } );
+	my $str = join ' || ', map { "m $_" }
+	    List::Util::uniqstr( @{ $self->{$alias}{match} } );
 	my $code = eval "sub { $str }"	## no critic (ProhibitStringyEval)
 	    or $self->__confess( "Failed to compile $name match spec" );
 	$self->{$alias}{match} = $code;
@@ -507,6 +528,10 @@ sub __file_type_del {
 	    type	=> '!',
 	    alias	=> [ 'Q' ],
 	},
+	not		=> {
+	    type	=> '=s@',
+	    validate	=> '__validate_not'
+	},
 	passthru	=> {
 	    type	=> '!',
 	    alias	=> [ 'passthrough' ],
@@ -778,26 +803,6 @@ sub __incompat_arg {
 
 sub __make_munger {
     my ( $self ) = @_;
-    # NOTE that the status of weird characters as delimiters is
-    # extremely murky. The only documentation I am aware of is in
-    # perl5290delta and the associated perldeprecation, which say that
-    # that release drops support for combining characters and unassigned
-    # characters. Noncharacters and out-of-range characters are
-    # explicitly allowed. But Perl 5.12.5 and earlier seem to have a
-    # problem with "\N{U+FFFF}", resulting in various errors depending
-    # on the version. And there appears to have been a change in
-    # semantics at Perl 5.20. Before that version, noncharacters were
-    # treated as paired delimiters (paired with themselves), so the
-    # replacement string of a substitution needed its own start
-    # delimiter. At or after that version, it is a normal delimiter, so
-    # in a substitution the end delimiter of the regular expression is
-    # also the start delimiter of the replacement.
-    state $delim = do {
-	# no warnings qw{ utf8 }; needed before 5.14.
-	no warnings qw{ utf8 };	## no critic (ProhibitNoWarnings)
-	"\N{U+FFFE}";	# Noncharacter.
-    };
-    state $mid = "$]" < 5.020 ? "$delim $delim" : $delim;
     my $modifier = 'g';
     $self->{ignore_case}
 	and $modifier .= 'i';
@@ -808,23 +813,23 @@ sub __make_munger {
 	$match =~ s/ \A (?= \w ) /\\b/smx;
 	$match =~ s/ (?<= \w ) \z /\\b/smx;
     }
-    my $str = join '', 'm ', $delim, $match, $delim, $modifier;
+    my $str = join '', 'm ', $DELIM, $match, $DELIM, $modifier;
     my $inv = $self->{invert_match} ? '! ' : '';
     my $code = eval "sub { $inv$str }"	## no critic (ProhibitStringyEval)
 	or $self->__croak( "Invalid match '$match': $@" );
     if ( defined( my $repl = $self->{replace} ) ) {
 	$self->{literal}
 	    and $repl = quotemeta $repl;
-	$str = join '', 's ', $delim, $match, $mid, $repl, $delim,
+	$str = join '', 's ', $DELIM, $match, $MID, $repl, $DELIM,
 	    $modifier;
 	$code = eval "sub { $inv$str }"	## no critic (ProhibitStringyEval)
 	    or $self->__croak( "Invalid replace '$repl': $@" );
     } elsif ( $self->{color} ) {
 	my ( $did_match, $did_not_match ) =
 	    $self->{invert_match} ? ( 0, 1 ) : ( 1, 0 );
-	$str = join '', 's ', $delim, "($match)", $mid,
+	$str = join '', 's ', $DELIM, "($match)", $MID,
 	    ' $_[0]->__color( match => $1 ) ',
-	    $delim, $modifier, 'e';
+	    $DELIM, $modifier, 'e';
 	# NOTE that ack uses "\e[0m\e[K" here. But "\e[K" suffices for
 	# me.
 	$code = eval <<"EOD"	## no critic (ProhibitStringyEval)
@@ -1046,9 +1051,9 @@ sub _process_display_p {
 # NOTE ALSO: the current line is in $_.
 sub _process_match_p {
     my ( $self ) = @_;
-    # FIXME is this right? Or should I consider --syntax=foo to NOT
-    # select lines with unknown syntax? The more I think, the more I
-    # want the latter.
+    $self->{_not}{match}
+	and $self->{_not}{match}->()
+	and return 0;
     if ( $self->{_syntax} && defined $self->{_process}{syntax} ) {
 	$self->{_syntax}{$self->{_process}{syntax}}
 	    or return 0;
@@ -1226,6 +1231,20 @@ sub __validate_ignore {
 	    or return 0;
 	$code->( $self, $attr_name, $data )
 	    or return 0;
+    }
+    return 1;
+}
+
+sub __validate_not {
+    my ( $self, undef, undef, $attr_val ) = @_;	# $attr_spec, $attr_name not used.
+    foreach ( ref $attr_val ? @{ $attr_val } : $attr_val ) {
+	local $@ = undef;
+	eval "qr $DELIM$_$DELIM"	## no critic (ProhibitStringyEval)
+	    or return 0;
+	# NOTE functionally the expressions could be stored directly in
+	# {_not}, but the {match} means I can process this with the same
+	# code that processes ignore_directory and ignore_file.
+	push @{ $self->{_not}{match} }, "$DELIM$_$DELIM";
     }
     return 1;
 }
@@ -1423,6 +1442,11 @@ See L<--literal|sam/--literal> in the L<sam|sam> documentation.
 
 See L<--match|sam/--match> in the L<sam|sam> documentation. If legal but
 not specified, the first non-option argument in C<argv> will be used.
+
+=item C<not>
+
+See L<--not|sam/--not> in the L<sam|sam> documentation. The value is a
+reference to an array.
 
 =item C<passthru>
 

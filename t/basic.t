@@ -67,6 +67,7 @@ is $sam, {
     match		=> 'foo',
     munger		=> D,
     _munger		=> validator( sub { REF_CODE eq ref } ),
+    _not		=> {},
     _syntax_add		=> hash {	# Ensure Perl's syntax is defined.
 	field type	=> hash {
 	    field	perl		=> 'Perl';
