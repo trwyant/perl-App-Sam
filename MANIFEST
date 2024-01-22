@@ -7,6 +7,7 @@ inc/My/Module/Test.pm
 lib/App/Sam.pm
 lib/App/Sam/Syntax.pm
 lib/App/Sam/Syntax/_cc_like.pm
+lib/App/Sam/Syntax/Batch.pm
 lib/App/Sam/Syntax/Cc.pm
 lib/App/Sam/Syntax/Cpp.pm
 lib/App/Sam/Syntax/Data.pm
@@ -32,6 +33,7 @@ README
 script/sam
 share/default_samrc
 t/basic.t
+t/data/batch_file.bat
 t/data/bright.txt
 t/data/cc_file.c
 t/data/cpp_file.cpp
@@ -49,6 +51,7 @@ t/data/vim_file.vim
 t/data/yaml_file.yml
 t/match.t
 t/replace.t
+t/syntax_batch.t
 t/syntax_cc.t
 t/syntax_cpp.t
 t/syntax_data.t

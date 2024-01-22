@@ -505,11 +505,12 @@
 
 ### Syntax types defined
 
+--syntax-add=Batch:type:batch
 --syntax-add=Cc:type:cc
 --syntax-add=Cpp:type:cpp
+--syntax-add=Data:type:json
 --syntax-add=Fortran:type:fortran
 --syntax-add=Java:ext:java
---syntax-add=Data:type:json
 --syntax-add=Make:type:make,tcl
 --syntax-add=Perl:type:perl,perltest,pod
 --syntax-add=Python:type:python

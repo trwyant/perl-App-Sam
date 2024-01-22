@@ -33,6 +33,7 @@ our %EXPORT_TAGS = (
 our @CARP_NOT = qw{
     App::Sam
     App::Sam::Syntax
+    App::Sam::Syntax::Batch
     App::Sam::Syntax::Cc
     App::Sam::Syntax::Cpp
     App::Sam::Syntax::Data

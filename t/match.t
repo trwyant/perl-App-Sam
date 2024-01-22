@@ -69,6 +69,7 @@ EOD
     };
 
     is $stdout, <<'EOD', '-f listed everything in t/data';
+t/data/batch_file.bat
 t/data/bright.txt
 t/data/cc_file.c
 t/data/cpp_file.cpp
@@ -98,6 +99,7 @@ EOD
     };
 
     is $stdout, <<'EOD', '-fk listed only known types in t/data';
+t/data/batch_file.bat
 t/data/cc_file.c
 t/data/cpp_file.cpp
 t/data/fortran_file.for
