@@ -497,6 +497,9 @@ sub __file_type_del {
 	filter_files_from	=> {
 	    type	=> '!',
 	},
+	heading		=> {
+	    type	=> '!',
+	},
 	ignore_case	=> {
 	    alias	=> [ qw{ i } ],
 	    type	=> '!',
@@ -987,19 +990,23 @@ sub process {
 		    $self->{_process}{header} = 1;
 		    $self->{break}
 			and say '';
-		    $self->__say(
-			join ' => ',
-			$self->__color( filename => $file ),
-			@show_types,
-		    );
+		    $self->{heading}
+			and $self->__say(
+			    join ' => ',
+			    $self->__color( filename => $file ),
+			    @show_types,
+			);
 		}
 
-		my @syntax;
+		my @line;
+		$self->{heading}
+		    or push @line, ( $self->{_process}{filename} //=
+		    $self->__color( filename => $file ) );
+		push @line, $self->__color( lineno => $. );
 		$self->{show_syntax}
-		    and push @syntax,
+		    and push @line,
 			substr $self->{_process}{syntax} // '', 0, 4;
-		$self->__print( join ':', $self->__color( lineno => $. ),
-		    @syntax, $_ );
+		$self->__print( join ':', @line, $_ );
 	    }
 
 	    push @mod, $_;
@@ -1407,6 +1414,10 @@ not definitive in the presence of Access Control Lists.
 
 See L<--filter-files-from|sam/--filter-files-from> in the L<sam|sam>
 documentation.
+
+=item C<heading>
+
+See L<--heading|sam/--heading> in the L<sam|sam> documentation.
 
 =item C<help_syntax>
 

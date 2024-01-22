@@ -62,6 +62,7 @@ is $sam, {
     encoding		=> 'utf-8',
     env			=> 0,
     ignore_sam_defaults	=> undef,
+    heading		=> 1,
     _ignore_directory	=> hash { etc },
     _ignore_file	=> hash { etc },
     match		=> 'foo',
