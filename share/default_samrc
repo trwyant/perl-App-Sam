@@ -516,6 +516,7 @@
 --syntax-add=Properties:ext:properties
 --syntax-add=Raku:type:raku,rakutest
 --syntax-add=Shell:type:shell
+--syntax-add=SQL:type:sql
 --syntax-add=Vim:type:vim
 --syntax-add=YAML:type:yaml
 

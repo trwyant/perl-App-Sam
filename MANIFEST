@@ -18,6 +18,7 @@ lib/App/Sam/Syntax/Properties.pm
 lib/App/Sam/Syntax/Python.pm
 lib/App/Sam/Syntax/Raku.pm
 lib/App/Sam/Syntax/Shell.pm
+lib/App/Sam/Syntax/SQL.pm
 lib/App/Sam/Syntax/Vim.pm
 lib/App/Sam/Syntax/YAML.pm
 lib/App/Sam/Util.pm
@@ -43,6 +44,7 @@ t/data/properties_file.properties
 t/data/python_file.py
 t/data/raku_file.raku
 t/data/shell_file.sh
+t/data/sql_file.sql
 t/data/vim_file.vim
 t/data/yaml_file.yml
 t/match.t
@@ -58,6 +60,7 @@ t/syntax_properties.t
 t/syntax_python.t
 t/syntax_raku.t
 t/syntax_shell.t
+t/syntax_sql.t
 t/syntax_vim.t
 t/syntax_yaml.t
 xt/author/carp_not.t

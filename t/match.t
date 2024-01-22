@@ -81,6 +81,7 @@ t/data/properties_file.properties
 t/data/python_file.py
 t/data/raku_file.raku
 t/data/shell_file.sh
+t/data/sql_file.sql
 t/data/vim_file.vim
 t/data/yaml_file.yml
 EOD
@@ -108,6 +109,7 @@ t/data/properties_file.properties
 t/data/python_file.py
 t/data/raku_file.raku
 t/data/shell_file.sh
+t/data/sql_file.sql
 t/data/vim_file.vim
 t/data/yaml_file.yml
 EOD
