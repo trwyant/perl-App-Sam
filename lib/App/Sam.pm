@@ -277,10 +277,12 @@ sub __color {
     my ( $self, $kind, $text ) = @_;
     $self->{color}
 	or return $text;
-    $text eq ''
+    state $uncolored = { map { $_ => 1 } '', "\n" };
+    $uncolored->{$text}
 	and return $text;
     defined( my $color = $self->{"color_$kind"} )
 	or $self->__confess( "Invalid color kind '$kind'" );
+    $self->{_process}{colored} = 1;
     return Term::ANSIColor::colored( $text, $color );
 }
 
@@ -825,8 +827,6 @@ sub __make_munger {
 	$code = eval "sub { $inv$str }"	## no critic (ProhibitStringyEval)
 	    or $self->__croak( "Invalid replace '$repl': $@" );
     } elsif ( $self->{color} ) {
-	my ( $did_match, $did_not_match ) =
-	    $self->{invert_match} ? ( 0, 1 ) : ( 1, 0 );
 	$str = join '', 's ', $DELIM, "($match)", $MID,
 	    ' $_[0]->__color( match => $1 ) ',
 	    $DELIM, $modifier, 'e';
@@ -904,6 +904,16 @@ sub __preprocess_logical_negation {
     return 1;
 }
 
+sub __print {	## no critic (RequireArgUnpacking)
+    my ( $self ) = @_;
+    my $line = join '', @_[ 1 .. $#_ ];
+    # NOTE that ack uses "\e[0m\e[K" here. But "\e[K" suffices for me.
+    $self->{_process}{colored}
+	and $line =~ s/ (?= \n ) / CLR_EOL /smxge;
+    print $line;
+    return;
+}
+
 sub process {
     my ( $self, $file ) = @_;
 
@@ -959,19 +969,17 @@ sub process {
 	local $_ = undef;	# while (<>) does not localize $_
 	while ( <$fh> ) {
 
+	    delete $self->{_process}{colored};
+
 	    $self->{_process}{syntax_obj}
 		and $self->{_process}{syntax} =
 		    $self->{_process}{syntax_obj}->__classify();
 
 	    if ( $self->_process_match_p() ) {
-		if ( $self->{_process}{matched} = $munger->( $self ) ) {
-		    $lines_matched++;
-		    # NOTE that ack uses "\e[0m\e[K" here. But "\e[K"
-		    # suffices for me.
-		    $self->{color}
-			and s/ (?= \n ) / CLR_EOL /smxge;
-		}
+		$self->{_process}{matched} = $munger->( $self )
+		    and $lines_matched++;
 	    } else {
+		# FIXME? Should this be $self->{invert_match}?
 		$self->{_process}{matched} = 0;
 	    }
 
@@ -983,15 +991,19 @@ sub process {
 		    # TODO append CLR_EOL if $self->{color} is true.
 		    # Should I centralize this just to be on the safe
 		    # side?
-		    say join ' => ',
-			$self->__color( filename => $file ), @show_types;
+		    $self->__say(
+			join ' => ',
+			$self->__color( filename => $file ),
+			@show_types,
+		    );
 		}
 
 		my @syntax;
 		$self->{show_syntax}
 		    and push @syntax,
 			substr $self->{_process}{syntax} // '', 0, 4;
-		print join ':', $self->__color( lineno => $. ), @syntax, $_;
+		$self->__print( join ':', $self->__color( lineno => $. ),
+		    @syntax, $_ );
 	    }
 
 	    push @mod, $_;
@@ -1068,6 +1080,11 @@ sub __get_file_iterator {
 		! $self->__ignore( directory => $File::Next::dir, $_ ) },
 	    sort_files	=> 1,
 	}, $file );
+}
+
+sub __say {
+    push @_, "\n";
+    goto &__print;
 }
 
 sub __validate_color {
