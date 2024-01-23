@@ -273,8 +273,13 @@ sub files_from {
 	foreach my $file ( @file_list ) {
 	    my $encoding = $self->__get_encoding( $file, 'utf-8' );
 	    local $_ = undef;	# while (<>) does not localize $_
-	    open my $fh, "<$encoding", $file	## no critic (RequireBriefOpen)
-		or $self->__croak( "Failed to open $file: $!" );
+	    my $fh;
+	    if ( $file eq '-' ) {
+		$fh = \*STDIN;
+	    } else {
+		open $fh, "<$encoding", $file	## no critic (RequireBriefOpen)
+		    or $self->__croak( "Failed to open $file: $!" );
+	    }
 	    while ( <$fh> ) {
 		m/ \S /smx
 		    or next;
@@ -284,7 +289,8 @@ sub files_from {
 		    and next;
 		push @rslt, $_;
 	    }
-	    close $fh;
+	    # NOTE no explicit close here, because $fh might alias
+	    # STDIN.
 	}
 	return @rslt;
     } elsif ( $self->{_files_from} && @{ $self->{_files_from} } ) {
@@ -585,6 +591,12 @@ sub __file_type_del {
 	    type	=> '!',
 	    alias	=> [ qw/ w / ],
 	},
+	x		=> {
+	    type	=> '',
+	    back_end	=> 'files_from',
+	    validate	=> '__preprocess_logical_negation',
+	    arg		=> { 1 => '-' },
+	},
 	help_types	=> {
 	    type	=> '',
 	    validate	=> 'help_types',
@@ -868,14 +880,15 @@ sub __preprocess_logical_negation_x {
 
 sub __preprocess_logical_negation {
     my ( $self, $attr_spec, $attr_name, $attr_val ) = @_;
+    $DB::single = 1;
     my $back_end = $attr_spec->{back_end}
 	or $self->__confess(
 	"Attribute '$attr_name' has no back_end specified" );
+    my $arg = $attr_spec->{arg} || { 0 => 1 };
+    my $val = $attr_val ? 1 : 0;
     if ( my $code = $self->__get_validator( $back_end ) ) {
-	return $code->( $back_end, ! $attr_val );
+	return $code->( $back_end, $arg->{$val} );
     } else {
-	my $arg = $attr_spec->{arg} || { 0 => 1 };
-	my $val = $attr_val ? 1 : 0;
 	if ( exists $arg->{$val} ) {
 	    $self->{$back_end} = $arg->{$val};
 	} else {
@@ -1188,9 +1201,9 @@ sub __validate_files_from {
     not ref $attr_val
 	or REF_ARRAY eq ref $attr_val
 	or return 0;
-    my @valz = ref $attr_val ? @{ $attr_val } : $attr_val;
-    foreach ( @valz ) {
-	-r
+    foreach ( ref $attr_val ? @{ $attr_val } : $attr_val ) {
+	$_ eq '-'
+	    or -r
 	    or return 0;
 	push @{ $self->{"_$attr_name"} }, $_;
     }

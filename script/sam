@@ -175,6 +175,8 @@ files to search. It can be specified more than once.
 These files are B<not> filtered unless
 L<--filter-files-from|/--filter-files-from> is asserted.
 
+As a special case, F<-> specifies F<STDIN>. No prompting will be done.
+
 =head2 --filter-files-from
 
 This Boolean option specifies whether files obtained by calling
@@ -440,6 +442,10 @@ C<(foo)> will remain C<(foo)>.
 =head2 -w
 
 This Boolean option is a synonym for L<--word-regexp|/--word-regexp>.
+
+=head2 -x
+
+This option is equivalent to L<--files-from=-|/--files-from>.
 
 =head1 DETAILS
 
