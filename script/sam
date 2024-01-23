@@ -187,6 +187,12 @@ This Boolean option specifies whether files obtained by calling
 L<files_from()|App::Sam/files_from> should be filtered. The default is
 C<--no-filter-files-from>, which is consistent with L<ack|ack>.
 
+=head2 --follow
+
+If this Boolean option is asserted, symbolic links are followed while
+searching for files. If it is negated, they are not. The default is
+C<--no-follow>.
+
 =head2 --group
 
 This convenience Boolean option asserts or negates both

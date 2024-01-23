@@ -489,6 +489,9 @@ sub __file_type_del {
 	filter_files_from	=> {
 	    type	=> '!',
 	},
+	follow		=> {
+	    type	=> '!',
+	},
 	heading		=> {
 	    type	=> '!',
 	},
@@ -1050,6 +1053,7 @@ sub __get_file_iterator {
     return File::Next::files( {
 	    file_filter	=> sub {
 		! $self->__ignore( file => $File::Next::name, $_ ) },
+	    follow_symlinks	=> $self->{follow},
 	    descend_filter	=> sub {
 		! $self->__ignore( directory => $File::Next::dir, $_ ) },
 	    sort_files	=> 1,
@@ -1425,6 +1429,10 @@ not definitive in the presence of Access Control Lists.
 
 See L<--filter-files-from|sam/--filter-files-from> in the L<sam|sam>
 documentation.
+
+=item C<follow>
+
+See L<--follow|sam/--follow> in the L<sam|sam> documentation.
 
 =item C<heading>
 
