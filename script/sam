@@ -99,6 +99,10 @@ This Boolean option specifies whether a break is printed between
 output from different files. The default is C<--break> if output is to a
 terminal, and C<--no-break> otherwise.
 
+=head2 -c
+
+This Boolean option is a synonym for L<--count|/--count>.
+
 =head2 --color
 
 This Boolean option specifies whether output should be colored. The

@@ -454,6 +454,7 @@ sub __file_type_del {
 	},
 	count	=> {
 	    type	=> '!',
+	    alias	=> [ 'c' ],
 	},
 	create_samrc	=> {
 	    type	=> '',
