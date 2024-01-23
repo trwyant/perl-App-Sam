@@ -35,15 +35,13 @@ foreach my $syntax ( qw{ Batch Cc Cpp Data Fortran Java Make Perl
 load_module_ok 'App::Sam';
 
 my $mock = mock 'App::Sam' => (
-    after	=> [
-	__get_attr_from_rc	=> sub {
-	    if ( $_[1] eq $_[0]->__get_attr_default_file_name() ) {
-		$_[0]->{env}	= 0,
-		$_[0]->{match}	= 'foo',
-	    }
-	    return;
+    around	=> [
+	new	=> sub {
+	    my ( $orig, $self, @arg ) = @_;
+	    splice @arg, 0, 0, env => 0, match => 'foo';
+	    return $self->$orig( @arg );
 	},
-    ],
+    ]
 );
 
 my $sam;
@@ -58,10 +56,10 @@ is $sam, {
     color_filename	=> 'bold green',
     color_lineno	=> 'bold yellow',
     color_match		=> 'black on_yellow',
-    die			=> undef,
+    die			=> 0,
     encoding		=> 'utf-8',
     env			=> 0,
-    ignore_sam_defaults	=> undef,
+    ignore_sam_defaults	=> 0,
     heading		=> 1,
     _ignore_directory	=> hash { etc },
     _ignore_file	=> hash { etc },

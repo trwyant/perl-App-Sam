@@ -63,9 +63,9 @@ sub new {
     my $argv = $priority_arg{argv};
 
     my $self = bless {
-	ignore_sam_defaults	=> $priority_arg{ignore_sam_defaults},
-	env			=> $priority_arg{env},
-	die			=> $priority_arg{die},
+	ignore_sam_defaults	=> $priority_arg{ignore_sam_defaults} // 0,
+	die		=> $priority_arg{die} // 0,
+	env		=> $priority_arg{env} // 1,
     }, $class;
 
     if ( REF_ARRAY eq ref $argv ) {
@@ -621,7 +621,7 @@ sub __file_type_del {
 		    FLAG_PROCESS_NORMAL | FLAG_PROCESS_LATE ) ) {
 		$val->{flags} |= FLAG_IS_ATTR;
 	    }
-	} else {
+	} elsif ( ! defined $val->{flags} ) {
 	    $val->{flags} = FLAG_IS_ATTR | FLAG_IS_OPT | FLAG_PROCESS_NORMAL;
 	}
     }
@@ -633,7 +633,6 @@ sub __get_opt_specs {
     my ( $self, $flags ) = @_;
     my @opt_spec;
     foreach ( values %ATTR_SPEC ) {
-	$DB::single = 1 if $_->{name} eq 'I';
 	next unless $_->{flags} & FLAG_IS_OPT;
 	$flags
 	    and not $_->{flags} & $flags
@@ -679,7 +678,7 @@ sub __get_attr_default_file_name {
 		close $fh;
 		$rc_cache{$file} = [ @{ $arg } ];
 	    } elsif ( $! == ENOENT && ! $required ) {
-		$rc_cache{$file} = {};
+		$rc_cache{$file} = [];
 		return;
 	    } else {
 		$self->__croak( $rc_cache{$file} =
