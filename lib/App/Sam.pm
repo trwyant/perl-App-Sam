@@ -466,6 +466,12 @@ sub __file_type_del {
 	dry_run	=> {
 	    type	=> '!',
 	},
+	group		=> {
+	    type	=> '!',
+	    flags	=> FLAG_IS_OPT,
+	    validate	=> '__validate_gang_set',
+	    arg		=> [ qw{ break heading } ],
+	},
 	encoding	=> {
 	    type	=> '=s',
 	},
@@ -1203,6 +1209,17 @@ sub __validate_files_from {
 	    or -r
 	    or return 0;
 	push @{ $self->{"_$attr_name"} }, $_;
+    }
+    return 1;
+}
+
+sub __validate_gang_set {
+    my ( $self, $attr_spec, undef, $attr_val ) = @_;	# $attr name unused
+    REF_ARRAY eq ref $attr_spec->{arg}
+	or $self->__confess( 'arg must be an array ref' );
+    foreach my $attr_name ( @{ $attr_spec->{arg} } ) {
+	$self->__set_attr( $attr_name, $attr_val )
+	    or return 0;
     }
     return 1;
 }

@@ -187,6 +187,11 @@ This Boolean option specifies whether files obtained by calling
 L<files_from()|App::Sam/files_from> should be filtered. The default is
 C<--no-filter-files-from>, which is consistent with L<ack|ack>.
 
+=head2 --group
+
+This convenience Boolean option asserts or negates both
+L<--break|/--break> and L<--heading|/--heading>.
+
 =head2 --heading
 
 This Boolean option specifies whether the file name is to be printed
