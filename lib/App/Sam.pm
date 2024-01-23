@@ -29,10 +29,9 @@ use constant IS_WINDOWS	=> {
 
 use constant REF_ARRAY	=> ref [];
 
-use enum qw{ BITMASK:SPECIAL_ EARLY LATE NON_OPT NOT };
-# NOTE The following deliberately excludes SPECIAL_NON_OPT
-use constant SPECIAL_ANY_OPT	=>
-    SPECIAL_EARLY | SPECIAL_LATE | SPECIAL_NOT;
+use enum qw{ BITMASK:FLAG_ IS_ATTR IS_OPT PROCESS_EARLY
+    PROCESS_NORMAL PROCESS_LATE };
+use constant FLAG_PROCESS_SPECIAL => FLAG_PROCESS_EARLY | FLAG_PROCESS_LATE;
 
 # To be filled in (and made read-only) later.
 our %ATTR_SPEC;
@@ -50,9 +49,11 @@ sub new {
     my %priority_arg;
     while ( @raw_arg ) {
 	my ( $arg_name, $arg_val ) = splice @raw_arg, 0, 2;
-	if ( ! $ATTR_SPEC{$arg_name} || $ATTR_SPEC{$arg_name}{back_end} ) {
+	if ( ! $ATTR_SPEC{$arg_name} ||
+	    ! ( $ATTR_SPEC{$arg_name}{flags} & FLAG_IS_ATTR )
+	) {
 	    push @bad_arg, $arg_name;
-	} elsif ( $ATTR_SPEC{$arg_name}{special} & ~ SPECIAL_NOT ) {
+	} elsif ( $ATTR_SPEC{$arg_name}{flags} & FLAG_PROCESS_SPECIAL ) {
 	    $priority_arg{$arg_name} = $arg_val;
 	} else {
 	    push @cooked_arg, [ $arg_name, $arg_val ];
@@ -69,7 +70,7 @@ sub new {
 
     if ( REF_ARRAY eq ref $argv ) {
 	$self->__get_option_parser( 1 )->getoptionsfromarray( $argv,
-	    $self, $self->__get_opt_specs( SPECIAL_EARLY ) );
+	    $self, $self->__get_opt_specs( FLAG_PROCESS_EARLY ) );
     } elsif ( defined $argv ) {
 	$self->__croak( 'Argument argv must be an ARRAY reference' );
     }
@@ -405,33 +406,31 @@ sub __file_type_del {
     # {validate} - The name of the method used to validate the
     #         attribute. Optional.
     # {arg} - Available for use by the {validate} code.
-    # {back_end} - The name of an attribute that corresponds to this
-    #         option. If the {validate} key is present it represents the
-    #         name of a method to transform the value before it is
-    #         processed as the {back_end} attribute. It is the
-    #         responsibility of this method to set the back-end
-    #         attribute if it has no {validate} method. If this key is
-    #         true this is an option but not an argument. Optional.
-    #  {special} - This is a bit mask specifying special processing. The
-    #         value must be (at the moment) exactly one of:
-    #         SPECIAL_EARLY - Process before the typical attribute
-    #         SPECIAL_LATE -- Process after the typical attribute
-    #         SPECIAL_NON_OPT - Argument only, not option
-    #         SPECIAL_NOT --- A typical attribute, and the default
-    #         SPECIAL_ANY_OPT --- Do not use in an attribute definition.
+    # {flags} - This is a bit mask specifying special processing. The
+    #         value must be the bitwise OR of the following values:
+    #         FLAG_IS_ATTR - The entry is an attribute
+    #         FLAG_IS_OPT -- The entry is an option
+    #         FLAG_PROCESS_EARLY -- Process the attribute early.
+    #         FLAG_PROCESS_NORMAL - Process the attribute normally.
+    #         FLAG_PROCESS_LATE --- Process the attribute late.
+    #         NOTE that the FLAG_PROCESS_* items only apply to
+    #         attributes, and therefore imply FLAG_IS_ATTR. Optional. If
+    #         not provided, the default is FLAG_IS_ATTR | FLAG_IS_OPT |
+    #         FLAG_PROCESS_NORMAL.
     my %attr_spec_hash = (
 	argv	=> {
 	    type	=> '=s@',
-	    special	=> SPECIAL_LATE | SPECIAL_NON_OPT,
+	    flags	=> FLAG_PROCESS_LATE
 	},
 	backup	=> {
 	    type	=> '=s',
 	},
 	no_backup	=> {
 	    type	=> '',
+	    flags	=> FLAG_IS_OPT,
 	    alias	=> [ 'nobackup' ],
-	    back_end	=> 'backup',
-	    validate	=> '__preprocess_logical_negation',
+	    validate	=> '__validate_fixed_value',
+	    arg		=> [ 'backup' ],
 	},
 	break	=> {
 	    type	=> '!',
@@ -462,7 +461,7 @@ sub __file_type_del {
 	},
 	die	=> {
 	    type	=> '!',
-	    special	=> SPECIAL_NON_OPT,
+	    flags	=> FLAG_IS_ATTR,
 	},
 	dry_run	=> {
 	    type	=> '!',
@@ -472,7 +471,7 @@ sub __file_type_del {
 	},
 	env	=> {
 	    type	=> '!',
-	    special	=> SPECIAL_EARLY,
+	    flags	=> FLAG_IS_OPT | FLAG_PROCESS_EARLY,
 	},
 	f	=> {
 	    type	=> '!',
@@ -493,8 +492,9 @@ sub __file_type_del {
 	},
 	I	=> {
 	    type	=> '|',
-	    back_end	=> 'ignore_case',
-	    validate	=> '__preprocess_logical_negation',
+	    flags	=> FLAG_IS_OPT,
+	    validate	=> '__validate_inverted_value',
+	    arg		=> 'ignore_case',
 	},
 	ignore_directory	=> {
 	    type	=> '=s@',
@@ -506,7 +506,7 @@ sub __file_type_del {
 	},
 	ignore_sam_defaults	=> {
 	    type	=> '!',
-	    special	=> SPECIAL_EARLY,
+	    flags	=> FLAG_IS_OPT | FLAG_PROCESS_EARLY,
 	},
 	invert_match	=> {
 	    type	=> '!',
@@ -560,19 +560,20 @@ sub __file_type_del {
 	},
 	remove		=> {
 	    type	=> '',
-	    back_end	=> 'replace',
-	    validate	=> '__preprocess_logical_negation',
-	    arg		=> { 1 => '' },
+	    flags	=> FLAG_IS_OPT,
+	    validate	=> '__validate_fixed_value',
+	    arg		=> [ replace	=> '' ],
 	},
 	no_replace	=> {
 	    type	=> '',
+	    flags	=> FLAG_IS_OPT,
 	    alias	=> [ qw{ noreplace no_remove no-remove noremove } ],
-	    back_end	=> 'replace',
-	    validate	=> '__preprocess_logical_negation',
+	    validate	=> '__validate_fixed_value',
+	    arg		=> [ 'replace' ],
 	},
 	samrc	=> {
 	    type	=> '=s',
-	    special	=> SPECIAL_LATE,
+	    flags	=> FLAG_IS_OPT | FLAG_PROCESS_LATE,
 	},
 	show_syntax	=> {
 	    type	=> '!',
@@ -594,9 +595,9 @@ sub __file_type_del {
 	},
 	x		=> {
 	    type	=> '',
-	    back_end	=> 'files_from',
-	    validate	=> '__preprocess_logical_negation',
-	    arg		=> { 1 => '-' },
+	    flags	=> FLAG_IS_OPT,
+	    validate	=> '__validate_fixed_value',
+	    arg		=> [ files_from	=> '-' ],
 	},
 	help_types	=> {
 	    type	=> '',
@@ -611,10 +612,17 @@ sub __file_type_del {
     foreach my $key ( keys %attr_spec_hash ) {
 	my $val = $attr_spec_hash{$key};
 	$val->{name} = $key;
-	$val->{special} //= SPECIAL_NOT;
 	if ( $key =~ m/ _ /smx ) {
 	    ( my $alias = $key ) =~ s/ _ /-/smxg;
 	    push @{ $val->{alias} }, $alias;
+	}
+	if ( $val->{flags} ) {
+	    if ( $val->{flags} & ( FLAG_PROCESS_EARLY |
+		    FLAG_PROCESS_NORMAL | FLAG_PROCESS_LATE ) ) {
+		$val->{flags} |= FLAG_IS_ATTR;
+	    }
+	} else {
+	    $val->{flags} = FLAG_IS_ATTR | FLAG_IS_OPT | FLAG_PROCESS_NORMAL;
 	}
     }
 
@@ -622,13 +630,14 @@ sub __file_type_del {
 }
 
 sub __get_opt_specs {
-    my ( $self, $special ) = @_;
-    $special ||= SPECIAL_ANY_OPT;
-    $special &= SPECIAL_ANY_OPT;
+    my ( $self, $flags ) = @_;
     my @opt_spec;
     foreach ( values %ATTR_SPEC ) {
-	next if $_->{special} & SPECIAL_NON_OPT;
-	next unless $special & $_->{special};
+	$DB::single = 1 if $_->{name} eq 'I';
+	next unless $_->{flags} & FLAG_IS_OPT;
+	$flags
+	    and not $_->{flags} & $flags
+	    and next;
 	push @opt_spec, join( '|', $_->{name}, @{ $_->{alias} || []
 	    } ) . $_->{type}, $self->__get_validator( $_, 1 );
     }
@@ -681,8 +690,7 @@ sub __get_attr_default_file_name {
 	    my @warning;
 	    local $SIG{__WARN__} = sub { push @warning, @_ };
 	    $self->__get_option_parser()->getoptionsfromarray(
-		$arg, $self, $self->__get_opt_specs( SPECIAL_ANY_OPT & ~
-		    SPECIAL_EARLY ) )
+		$arg, $self, $self->__get_opt_specs( ~ FLAG_PROCESS_EARLY ) )
 		or do {
 		    chomp @warning;
 		    my $msg = join '; ', @warning;
@@ -862,41 +870,6 @@ sub __ignore {
 	return ! defined $want_type;
     }
     return 0;
-}
-
-sub __preprocess_logical_negation_x {
-    my ( $self, $attr_spec, $attr_name, $attr_val ) = @_;
-    my $back_end = $attr_spec->{back_end}
-	or $self->__confess(
-	"Attribute '$attr_name' has no back_end specified" );
-    if ( my $code = $self->__get_validator( $back_end ) ) {
-	return $code->( $back_end, ! $attr_val );
-    } elsif ( $attr_val ) {
-	delete $self->{$back_end}
-    } else {
-	$self->{$back_end} = 1;
-    }
-    return 1;
-}
-
-sub __preprocess_logical_negation {
-    my ( $self, $attr_spec, $attr_name, $attr_val ) = @_;
-    $DB::single = 1;
-    my $back_end = $attr_spec->{back_end}
-	or $self->__confess(
-	"Attribute '$attr_name' has no back_end specified" );
-    my $arg = $attr_spec->{arg} || { 0 => 1 };
-    my $val = $attr_val ? 1 : 0;
-    if ( my $code = $self->__get_validator( $back_end ) ) {
-	return $code->( $back_end, $arg->{$val} );
-    } else {
-	if ( exists $arg->{$val} ) {
-	    $self->{$back_end} = $arg->{$val};
-	} else {
-	    delete $self->{$back_end};
-	}
-    }
-    return 1;
 }
 
 sub __print {	## no critic (RequireArgUnpacking)
@@ -1083,6 +1056,30 @@ sub __say {
     goto &__print;
 }
 
+sub __set_attr {
+    my ( $self, $attr_name, @attr_val ) = @_;
+    defined $attr_name
+	or $self->__confess( 'Undefined attribute name' );
+    my $attr_spec = $ATTR_SPEC{$attr_name}
+	or $self->__confess( "Unknown attribute name '$attr_name'" );
+    if ( my $method = $attr_spec->{validate} ) {
+	return $self->$method( $attr_spec, $attr_name, @attr_val );
+    } elsif ( @attr_val ) {
+	# FIXME handle array attributes.
+	$self->{$attr_name} = $attr_val[0];
+    } else {
+	delete $self->{$attr_name};
+    }
+    return 1;
+}
+
+sub __validate_fixed_value {
+    my ( $self, $attr_spec ) = @_;	# $attr_name, $attr_val unused
+    REF_ARRAY eq ref $attr_spec->{arg}
+	or $self->__confess( "$attr_spec->{name} arg must be an array ref" );
+    return $self->__set_attr( @{ $attr_spec->{arg} } );
+}
+
 sub __validate_color {
     my ( $self, undef, $attr_name, $attr_val ) = @_;	# $attr_spec unused
     Term::ANSIColor::colorvalid( $attr_val )
@@ -1209,6 +1206,11 @@ sub __validate_files_from {
 	push @{ $self->{"_$attr_name"} }, $_;
     }
     return 1;
+}
+
+sub __validate_inverted_value {
+    my ( $self, $attr_spec, undef, $attr_val ) = @_;	# $attr name unused
+    return $self->__set_attr( $attr_spec->{arg}, ! $attr_val );
 }
 
 sub __validate_ignore {
