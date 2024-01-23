@@ -36,16 +36,9 @@ if ( $dump ) {
 
     require YAML;
     {
-	# Suppress warnings from YAML and trying to print "\N{U+FFFE}".
-	no warnings qw{ once utf8 };	## no critic (ProhibitNoWarnings)
+	no warnings qw{ once };	## no critic (ProhibitNoWarnings)
 	local $YAML::UseCode = 1;
 	print YAML::Dump( $sam );
-	# Flush any "\N{U+FFFE}" remaining in the buffer. Otherwise they
-	# seem to cause utf8 warnings when the next print is done, and
-	# outside the scope of the above 'no warnings qw{ utf8 };'. For
-	# whatever reason, this is not a problem if there is no next
-	# print.
-	STDOUT->flush();
     }
 
     my %mod;

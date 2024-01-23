@@ -37,26 +37,6 @@ use constant SPECIAL_ANY_OPT	=>
 # To be filled in (and made read-only) later.
 our %ATTR_SPEC;
 
-# NOTE that the status of weird characters as delimiters is extremely
-# murky. The only documentation I am aware of is in perl5290delta and
-# the associated perldeprecation, which say that that release drops
-# support for combining characters and unassigned characters.
-# Noncharacters and out-of-range characters are explicitly allowed. But
-# Perl 5.12.5 and earlier seem to have a problem with "\N{U+FFFF}",
-# resulting in various errors depending on the version. And there
-# appears to have been a change in semantics at Perl 5.20. Before that
-# version, noncharacters were treated as paired delimiters (paired with
-# themselves), so the replacement string of a substitution needed its
-# own start delimiter. At or after that version, it is a normal
-# delimiter, so in a substitution the end delimiter of the regular
-# expression is also the start delimiter of the replacement.
-Readonly::Scalar our $DELIM => do {
-    # no warnings qw{ utf8 }; needed before 5.14.
-    no warnings qw{ utf8 };	## no critic (ProhibitNoWarnings)
-    "\N{U+FFFE}";	# Noncharacter.
-};
-Readonly::Scalar our $MID => "$]" < 5.020 ? "$DELIM $DELIM" : $DELIM;
-
 sub new {
     my ( $class, @raw_arg ) = @_;
 
@@ -818,20 +798,19 @@ sub __make_munger {
 	$match =~ s/ \A (?= \w ) /\\b/smx;
 	$match =~ s/ (?<= \w ) \z /\\b/smx;
     }
-    my $str = join '', 'm ', $DELIM, $match, $DELIM, $modifier;
+    my $str;
+    $str = "m($match)$modifier";
     my $code = eval "sub { $str }"	## no critic (ProhibitStringyEval)
 	or $self->__croak( "Invalid match '$match': $@" );
     if ( defined( my $repl = $self->{replace} ) ) {
 	$self->{literal}
 	    and $repl = quotemeta $repl;
-	$str = join '', 's ', $DELIM, $match, $MID, $repl, $DELIM,
-	    $modifier;
+	$repl =~ s/ (?= [()] ) /\\/smxg;
+	$str = "s($match)($repl)$modifier";
 	$code = eval "sub { $str }"	## no critic (ProhibitStringyEval)
 	    or $self->__croak( "Invalid replace '$repl': $@" );
     } elsif ( $self->{color} ) {
-	$str = join '', 's ', $DELIM, "($match)", $MID,
-	    ' $_[0]->__color( match => $1 ) ',
-	    $DELIM, $modifier, 'e';
+	$str = "s(($match))( \$_[0]->__color( match => \$1 ) )e$modifier";
 	$code = eval "sub { $str }"	## no critic (ProhibitStringyEval)
 	    or $self->__confess( "Generated bad coloring code: $@" );
     }
@@ -1257,12 +1236,12 @@ sub __validate_not {
     my ( $self, undef, undef, $attr_val ) = @_;	# $attr_spec, $attr_name not used.
     foreach ( ref $attr_val ? @{ $attr_val } : $attr_val ) {
 	local $@ = undef;
-	eval "qr $DELIM$_$DELIM"	## no critic (ProhibitStringyEval)
+	eval "qr($_)"		## no critic (ProhibitStringyEval)
 	    or return 0;
 	# NOTE functionally the expressions could be stored directly in
 	# {_not}, but the {match} means I can process this with the same
 	# code that processes ignore_directory and ignore_file.
-	push @{ $self->{_not}{match} }, "$DELIM$_$DELIM";
+	push @{ $self->{_not}{match} }, "($_)";
     }
     return 1;
 }
