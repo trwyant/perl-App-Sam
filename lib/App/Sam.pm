@@ -100,7 +100,7 @@ sub new {
 	and $self->__get_attr_from_rc( $argv );
 
     $self->__incompat_arg( qw{ f match } );
-    $self->__incompat_arg( qw{ f replace } );
+    $self->__incompat_arg( qw{ f g replace } );
     $self->__incompat_arg( qw{ count passthru } );
 
     unless ( $self->{f} || defined $self->{match} ) {
@@ -127,7 +127,8 @@ sub new {
 
     foreach my $name ( qw{ ignore_file ignore_directory not } ) {
 	my $alias = "_$name";
-	$self->{$alias}{match}
+	$self->{$alias}	# Prevent autovivification
+	    and $self->{$alias}{match}
 	    or next;
 	my $str = join ' || ', map { "m $_" }
 	    List::Util::uniqstr( @{ $self->{$alias}{match} } );
@@ -482,6 +483,9 @@ sub __file_type_del {
 	},
 	f	=> {
 	    type	=> '!',
+	},
+	g	=> {
+	    type	=> '!',	# The expression comes from --match.
 	},
 	files_from	=> {
 	    type	=> '=s@',
@@ -936,12 +940,18 @@ sub process {
 	    }
 	}
 
-	if ( $self->{f} ) {
+	my $munger = $self->{_munger};
+
+	if ( $self->{f} || $self->{g} ) {
+	    if ( $self->{g} ) {
+		local $_ = $file;
+		$munger->( $self ) xor $self->{invert_match}
+		    or return;
+	    }
 	    say join ' => ', $file, @show_types;
 	    return;
 	}
 
-	my $munger = $self->{_munger};
 	my @mod;
 	my $encoding = $self->__get_encoding( $file );
 	open my $fh, "<$encoding", $file	## no critic (RequireBriefOpen)
@@ -1274,7 +1284,7 @@ sub __validate_ignore {
 }
 
 sub __validate_not {
-    my ( $self, undef, undef, $attr_val ) = @_;	# $attr_spec, $attr_name not used.
+    my ( $self, undef, $attr_name, $attr_val ) = @_;	# $attr_spec, unused.
     foreach ( ref $attr_val ? @{ $attr_val } : $attr_val ) {
 	local $@ = undef;
 	eval "qr($_)"		## no critic (ProhibitStringyEval)
@@ -1282,7 +1292,7 @@ sub __validate_not {
 	# NOTE functionally the expressions could be stored directly in
 	# {_not}, but the {match} means I can process this with the same
 	# code that processes ignore_directory and ignore_file.
-	push @{ $self->{_not}{match} }, "($_)";
+	push @{ $self->{"_$attr_name"}{match} }, "($_)";
     }
     return 1;
 }
@@ -1438,6 +1448,12 @@ documentation.
 =item C<follow>
 
 See L<--follow|sam/--follow> in the L<sam|sam> documentation.
+
+=item C<g>
+
+See L<-g|sam/-g> in the L<sam|sam> documentation. B<Note> that as an
+argument to C<new()>, C<g> is a Boolean flag. The match string is
+specified in argument L<C<match>|/match>
 
 =item C<heading>
 

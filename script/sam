@@ -205,6 +205,13 @@ If this Boolean option is asserted, symbolic links are followed while
 searching for files. If it is negated, they are not. The default is
 C<--no-follow>.
 
+=head2 -g
+
+ -g '\.PL\z'
+
+If this option is used, files are not searched. Instead all files that
+would be searched B<and> that match the given pattern are printed.
+
 =head2 --group
 
 This convenience Boolean option asserts or negates both

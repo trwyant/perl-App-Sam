@@ -117,6 +117,21 @@ t/data/yaml_file.yml
 EOD
 }
 
+{
+    my $sam = CLASS->new(
+	g	=> 1,
+	match	=> '\.PL\z',
+    );
+
+    my $stdout = capture_stdout {
+	$sam->process( 't/data' );
+    };
+
+    is $stdout, <<'EOD', '-fk listed only known types in t/data';
+t/data/perl_file.PL
+EOD
+}
+
 
 done_testing;
 
