@@ -66,6 +66,7 @@ sub new {
 	ignore_sam_defaults	=> $priority_arg{ignore_sam_defaults} // 0,
 	die		=> $priority_arg{die} // 0,
 	env		=> $priority_arg{env} // 1,
+	recurse		=> 1,
 	sort_files	=> 1,
     }, $class;
 
@@ -534,6 +535,11 @@ sub __file_type_del {
 	    type	=> '!',
 	    alias	=> [ 'Q' ],
 	},
+	n		=> {
+	    type	=> '!',
+	    validate	=> '__validate_inverted_value',
+	    arg		=> 'recurse',
+	},
 	not		=> {
 	    type	=> '=s@',
 	    validate	=> '__validate_not'
@@ -541,6 +547,10 @@ sub __file_type_del {
 	passthru	=> {
 	    type	=> '!',
 	    alias	=> [ 'passthrough' ],
+	},
+	recurse		=> {
+	    type	=> '!',
+	    alias	=> [ qw{ r R } ],
 	},
 	type_add	=> {
 	    type	=> '=s@',
@@ -1065,12 +1075,15 @@ sub _process_match_p {
 
 sub __get_file_iterator {
     my ( $self, $file ) = @_;
+    my $descend_filter = $self->{recurse} ? sub {
+	$DB::single = 1;
+	! $self->__ignore( directory => $File::Next::dir, $_ );
+    } : sub { 0 };
     return File::Next::files( {
 	    file_filter	=> sub {
 		! $self->__ignore( file => $File::Next::name, $_ ) },
 	    follow_symlinks	=> $self->{follow},
-	    descend_filter	=> sub {
-		! $self->__ignore( directory => $File::Next::dir, $_ ) },
+	    descend_filter	=> $descend_filter,
 	    sort_files	=> $self->{sort_files},
 	}, $file );
 }
@@ -1513,6 +1526,10 @@ reference to an array.
 =item C<passthru>
 
 See L<--passthru|sam/--passthru> in the L<sam|sam> documentation.
+
+=item C<recurse>
+
+See L<--recurse|sam/--recurse> in the L<sam|sam> documentation.
 
 =item C<replace>
 

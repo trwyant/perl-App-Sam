@@ -303,6 +303,10 @@ specify this in the presence of non-matching options such as C<-f|/-f>.
 If this option is legal but not specified, the first non-option
 command-line argument will be used as the match expression.
 
+=head2 -n
+
+This Boolean option is a synonym for L<--no-recurse|/--recurse>.
+
 =head2 --not
 
 This option specifies a regular expression which, if it matches,
@@ -338,6 +342,20 @@ This Boolean option is a synonym for L<--passthru|/--passthru>.
 =head2 -Q
 
 This Boolean option is a synonym for L<--ignore-case|/--ignore-case>.
+
+=head2 -r
+
+This Boolean option is a synonym for L<--recurse|/--recurse>.
+
+=head2 -R
+
+This Boolean option is a synonym for L<--recurse|/--recurse>.
+
+=head2 --recurse
+
+This Boolean option tells the directory traversal logic whether it
+should recurse into subdirectories. The default is C<--recurse>, but you
+can turn it off with C<--no-recurse>.
 
 =head2 --replace
 
