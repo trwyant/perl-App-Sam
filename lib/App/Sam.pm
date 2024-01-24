@@ -600,6 +600,7 @@ sub __file_type_del {
 	},
 	type	=> {
 	    type	=> '=s@',
+	    alias	=> [ 't' ],
 	    validate	=> '__validate_type',
 	},
 	word_regexp	=> {

@@ -414,6 +414,10 @@ it was previously associated.
 This convenience option is a synonym for C<--syntax-del> followed by
 C<--syntax-add>.
 
+=head2 -t
+
+This Boolean option is a synonym for L<--type|/--type>.
+
 =head2 --type
 
 This option specifies a file type to select. It can be specified more
