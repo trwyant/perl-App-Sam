@@ -80,3 +80,4 @@ xt/author/pod_links.t
 xt/author/pod_spelling.t
 xt/author/prereq.t
 xt/author/syntax_to_type.t
+xt/author/undocumented_options.t

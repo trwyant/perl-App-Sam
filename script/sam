@@ -16,48 +16,60 @@ use constant IS_TTY	=> -t STDOUT;
 
 use open qw{ :std :encoding(utf-8) };
 
-my %opt;
+# NOTE that this script is a moduline. The only reason for this is that
+# I subverted Pod::Coverage to make xt/author/undocumented_options.t
+# work, and Pod::Coverage wants to require() the module it is testing.
+sub run {
 
-GetOptions( \%opt,
-    qw{ dump! },
-    help => sub { pod2usage( { -verbose => 2 } ) },
-) or pod2usage( { -verbose => 0 } );
+    my %opt;
 
-my $dump = delete $opt{dump};
+    GetOptions( \%opt,
+	qw{ dump! },
+	help => sub { pod2usage( { -verbose => 2 } ) },
+    ) or pod2usage( { -verbose => 0 } );
 
-my $sam = App::Sam->new(
-    break	=> IS_TTY,
-    color	=> IS_TTY,
-    die		=> 1,
-    argv	=> \@ARGV,
-);
+    my $dump = delete $opt{dump};
 
-if ( $dump ) {
+    my $sam = App::Sam->new(
+	break	=> IS_TTY,
+	color	=> IS_TTY,
+	die		=> 1,
+	argv	=> \@ARGV,
+    );
 
-    require YAML;
-    {
-	no warnings qw{ once };	## no critic (ProhibitNoWarnings)
-	local $YAML::UseCode = 1;
-	print YAML::Dump( $sam );
+    if ( $dump ) {
+
+	require YAML;
+	{
+	    no warnings qw{ once };	## no critic (ProhibitNoWarnings)
+	    local $YAML::UseCode = 1;
+	    print YAML::Dump( $sam );
+	}
+
+	my %mod;
+	foreach ( sort keys %INC ) {
+	    index( $_, 'App/Sam' ) == 0
+		or next;
+	    $mod{$_} = $INC{$_};
+	}
+	print YAML::Dump( \%mod );
+
+    } else {
+
+	push @ARGV, $sam->files_from();
+
+	@ARGV
+	    or push @ARGV, File::Spec->curdir();
+
+	$sam->process( $_ ) for @ARGV;
     }
 
-    my %mod;
-    foreach ( sort keys %INC ) {
-	index( $_, 'App/Sam' ) == 0
-	    or next;
-	$mod{$_} = $INC{$_};
-    }
-    print YAML::Dump( \%mod );
-
-} else {
-
-    push @ARGV, $sam->files_from();
-
-    @ARGV
-	or push @ARGV, File::Spec->curdir();
-
-    $sam->process( $_ ) for @ARGV;
+    return;
 }
+
+run() unless caller;
+
+1;
 
 __END__
 
