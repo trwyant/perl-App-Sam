@@ -348,6 +348,16 @@ type does not have syntax defined on it.
 If this Boolean option is asserted, file types are appended to the file
 name when displayed.
 
+=head2 --sort-files
+
+If this Boolean option is asserted, files obtained by traversing
+directories are sorted lexicographically. Otherwise they appear in the
+order found. Files specified explicitly always appear in the order
+specified.
+
+The default is C<--sort-files> but you can turn off sorting by
+specifying C<--no-sort-files>.
+
 =head2 --syntax
 
 This option specifies the syntax types to search. It can be specified

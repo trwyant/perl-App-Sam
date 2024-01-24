@@ -17,6 +17,7 @@ ack
 del
 env
 Fortran
+lexicographically
 lineno
 merchantability
 nobackup

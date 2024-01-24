@@ -66,6 +66,7 @@ sub new {
 	ignore_sam_defaults	=> $priority_arg{ignore_sam_defaults} // 0,
 	die		=> $priority_arg{die} // 0,
 	env		=> $priority_arg{env} // 1,
+	sort_files	=> 1,
     }, $class;
 
     if ( REF_ARRAY eq ref $argv ) {
@@ -590,6 +591,9 @@ sub __file_type_del {
 	show_types	=> {
 	    type	=> '!',
 	},
+	sort_files	=> {
+	    type	=> '!',
+	},
 	syntax	=> {
 	    type	=> '=s@',
 	    validate	=> '__validate_syntax',
@@ -1056,7 +1060,7 @@ sub __get_file_iterator {
 	    follow_symlinks	=> $self->{follow},
 	    descend_filter	=> sub {
 		! $self->__ignore( directory => $File::Next::dir, $_ ) },
-	    sort_files	=> 1,
+	    sort_files	=> $self->{sort_files},
 	}, $file );
 }
 
@@ -1508,6 +1512,10 @@ See L<--show-syntax|sam/--show-syntax> in the L<sam|sam> documentation.
 =item C<show_types>
 
 See L<--show-types|sam/--show-types> in the L<sam|sam> documentation.
+
+=item C<sort_files>
+
+See L<--sort-files|sam/--sort-files> in the L<sam|sam> documentation.
 
 =item C<syntax>
 

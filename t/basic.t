@@ -56,17 +56,18 @@ is $sam, {
     color_filename	=> 'bold green',
     color_lineno	=> 'bold yellow',
     color_match		=> 'black on_yellow',
-    die			=> 0,
+    die			=> F,
     encoding		=> 'utf-8',
-    env			=> 0,
-    ignore_sam_defaults	=> 0,
-    heading		=> 1,
+    env			=> F,
+    ignore_sam_defaults	=> F,
+    heading		=> T,
     _ignore_directory	=> hash { etc },
     _ignore_file	=> hash { etc },
     match		=> 'foo',
     munger		=> D,
     _munger		=> validator( sub { REF_CODE eq ref } ),
     _not		=> {},
+    sort_files		=> T,
     _syntax_add		=> hash {	# Ensure Perl's syntax is defined.
 	field type	=> hash {
 	    field	perl		=> 'Perl';
@@ -102,8 +103,8 @@ is $sam, {
 	    };
 #	    FIXME why isn't the below equivalent to the above?
 #	    item array {
-#		validator sub { REF_CODE eq ref } );
 #		string 'perl';
+#		validator sub { REF_CODE eq ref } );
 #		end;
 #	    };
 	    etc;
