@@ -33,6 +33,8 @@ use enum qw{ BITMASK:FLAG_ IS_ATTR IS_OPT PROCESS_EARLY
     PROCESS_NORMAL PROCESS_LATE };
 use constant FLAG_PROCESS_SPECIAL => FLAG_PROCESS_EARLY | FLAG_PROCESS_LATE;
 
+use enum qw{ BITMASK:FACILITY_ CALLBACK SYNTAX TYPE };
+
 # To be filled in (and made read-only) later.
 our %ATTR_SPEC;
 
@@ -65,6 +67,7 @@ sub new {
     my $self = bless {
 	ignore_sam_defaults	=> $priority_arg{ignore_sam_defaults} // 0,
 	die		=> $priority_arg{die} // 0,
+	_facility	=> 0,
 	env		=> $priority_arg{env} // 1,
 	recurse		=> 1,
 	sort_files	=> 1,
@@ -406,6 +409,13 @@ sub __file_type_del {
     #         variants with dashes rather than underscores need not be
     #         specified here as they will be generated. Does not apply
     #         to attribute processing. Optional.
+    # {facility} - This is a bit mask specifying facilities required by
+    #         the option, if asserted. The following values are
+    #         supported:
+    #         FACILITY_CALLBACK - The munger subroutine must call
+    #             _process_callback() for each match.
+    #         FACILITY_SYNTAX - A symtax module must be instantiated
+    #         FACILITY_TYPE - The file type needs to be computed
     # {validate} - The name of the method used to validate the
     #         attribute. Optional.
     # {arg} - Available for use by the {validate} code.
@@ -530,6 +540,7 @@ sub __file_type_del {
 	known_types	=> {
 	    type	=> '!',
 	    alias	=> [ 'k' ],
+	    facility	=> FACILITY_TYPE,
 	},
 	literal	=> {
 	    type	=> '!',
@@ -601,9 +612,11 @@ sub __file_type_del {
 	},
 	show_syntax	=> {
 	    type	=> '!',
+	    facility	=> FACILITY_SYNTAX,
 	},
 	show_types	=> {
 	    type	=> '!',
+	    facility	=> FACILITY_TYPE,
 	},
 	sort_files	=> {
 	    type	=> '!',
@@ -611,11 +624,13 @@ sub __file_type_del {
 	syntax	=> {
 	    type	=> '=s@',
 	    validate	=> '__validate_syntax',
+	    facility	=> FACILITY_SYNTAX,
 	},
 	type	=> {
 	    type	=> '=s@',
 	    alias	=> [ 't' ],
 	    validate	=> '__validate_type',
+	    facility	=> FACILITY_TYPE,
 	},
 	word_regexp	=> {
 	    type	=> '!',
@@ -651,6 +666,12 @@ sub __file_type_del {
 	    }
 	} elsif ( ! defined $val->{flags} ) {
 	    $val->{flags} = FLAG_IS_ATTR | FLAG_IS_OPT | FLAG_PROCESS_NORMAL;
+	}
+	if ( $val->{facility} ) {
+	    ( $val->{facility} & FACILITY_SYNTAX )
+		and $val->{facility} |= FACILITY_TYPE;
+	    $val->{validate} //= $val->{type} =~ m/ \A \# \z /smx ?
+		'__validate_accept_array' : '__validate_accept_scalar';
 	}
     }
 
@@ -742,18 +763,34 @@ sub __get_validator {
     ref $attr_spec
 	or $attr_spec = $ATTR_SPEC{$attr_spec}
 	or $self->__confess( "Undefined attribute '$_[1]'" );
-    my $method;
-    defined( $method = $attr_spec->{validate} )
-	or return;
-    $die
-	and return sub {
-	$self->$method( $attr_spec, @_ )
-	    or die "Invalid value --$_[0]=$_[1]\n";
-	return 1;
-    };
-    return sub {
-	return $self->$method( $attr_spec, @_ );
-    };
+    if ( my $method = $attr_spec->{validate} ) {
+	if ( my $facility = $attr_spec->{facility} ) {
+	    # NOTE we count on the attribute spec setup code to have
+	    # provided a validator if the facility was specified
+	    $die
+		and return sub {
+		$self->$method( $attr_spec, @_ )
+		    or die "Invalid value --$_[0]=$_[1]\n";
+		$self->{_facility} |= $facility;
+		return 1;
+	    };
+	    return sub {
+		return $self->$method( $attr_spec, @_ ) &&
+		( $self->{_facility} |= $facility );
+	    };
+	} else {
+	    $die
+		and return sub {
+		$self->$method( $attr_spec, @_ )
+		    or die "Invalid value --$_[0]=$_[1]\n";
+		return 1;
+	    };
+	    return sub {
+		return $self->$method( $attr_spec, @_ );
+	    };
+	}
+    }
+    return;
 }
 
 # Validate an attribute given its name and value
@@ -920,8 +957,7 @@ sub process {
 	    or return;
 
 	$self->{_process}{type} = [ $self->__file_type( $file ) ]
-	    if $self->{show_types} || $self->{known_types} ||
-		$self->{_syntax} || $self->{show_syntax};
+	    if $self->{_facility} & FACILITY_TYPE;
 
 	$self->{known_types}
 	    and not @{ $self->{_process}{type} }
@@ -931,7 +967,7 @@ sub process {
 	$self->{show_types}
 	    and push @show_types, join ',', @{ $self->{_process}{type} };
 
-	if ( $self->{_syntax} || $self->{show_syntax} ) {
+	if ( $self->{_facility} & FACILITY_SYNTAX ) {
 	    if ( my ( $class ) = $self->__file_syntax( $file ) ) {
 		$self->{_process}{syntax_obj} =
 		    $self->{_syntax_obj}{$class} ||=
@@ -1101,6 +1137,26 @@ sub __set_attr {
     } else {
 	delete $self->{$attr_name};
     }
+    return 1;
+}
+
+sub __set_facility {
+    my ( $self, $attr_spec ) = @_;
+    $attr_spec->{facility}
+	and $self->{_facility} |= $attr_spec->{facility};
+    return 1;
+}
+
+sub __validate_accept_scalar {
+    my ( $self, undef, $attr_name, $attr_val ) = @_;
+    $self->{$attr_name} = $attr_val;
+    return 1;
+}
+
+sub __validate_accept_array {
+    my ( $self, undef, $attr_name, $attr_val ) = @_;
+    push @{ $self->{$attr_name} }, REF_ARRAY eq ref $attr_val ?
+	@{ $attr_val } : $attr_val;
     return 1;
 }
 

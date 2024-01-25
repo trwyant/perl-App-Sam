@@ -59,6 +59,7 @@ is $sam, {
     die			=> F,
     encoding		=> 'utf-8',
     env			=> F,
+    _facility		=> 0,
     ignore_sam_defaults	=> F,
     heading		=> T,
     _ignore_directory	=> hash { etc },
