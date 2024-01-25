@@ -976,13 +976,8 @@ sub process {
 		and $self->{_process}{syntax} =
 		    $self->{_process}{syntax_obj}->__classify();
 
-	    if ( $self->_process_match_p() ) {
-		$self->{_process}{matched} = ( $munger->( $self ) xor
-		    $self->{invert_match} )
-		    and $lines_matched++;
-	    } else {
-		$self->{_process}{matched} = $self->{invert_match};
-	    }
+	    $self->{_process}{matched} = $self->_process_match()
+		and $lines_matched++;
 
 	    if ( $self->_process_display_p() ) {
 		if ( ! $self->{_process}{header} ) {
@@ -1061,22 +1056,21 @@ sub _process_display_p {
 # NOTE: Call this ONLY from inside process(). This is broken out because
 # I expect it to get complicated if I implement ranges, syntax, etc.
 # NOTE ALSO: the current line is in $_.
-sub _process_match_p {
+sub _process_match {
     my ( $self ) = @_;
     $self->{_not}{match}
 	and $self->{_not}{match}->()
-	and return 0;
+	and return $self->{invert_match};
     if ( $self->{_syntax} && defined $self->{_process}{syntax} ) {
 	$self->{_syntax}{$self->{_process}{syntax}}
-	    or return 0;
+	    or return $self->{invert_match};
     }
-    return 1;
+    return( $self->{_munger}->( $self ) xor $self->{invert_match} );
 }
 
 sub __get_file_iterator {
     my ( $self, $file ) = @_;
     my $descend_filter = $self->{recurse} ? sub {
-	$DB::single = 1;
 	! $self->__ignore( directory => $File::Next::dir, $_ );
     } : sub { 0 };
     return File::Next::files( {
