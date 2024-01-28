@@ -49,6 +49,7 @@ t/data/shell_file.sh
 t/data/sql_file.sql
 t/data/vim_file.vim
 t/data/yaml_file.yml
+t/elementary.t
 t/match.t
 t/replace.t
 t/syntax_batch.t

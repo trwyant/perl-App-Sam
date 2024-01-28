@@ -127,7 +127,7 @@ EOD
 	$sam->process( 't/data' );
     };
 
-    is $stdout, <<'EOD', '-fk listed only known types in t/data';
+    is $stdout, <<'EOD', q(-g '\.PL\z' listed only .PL files in t/data);
 t/data/perl_file.PL
 EOD
 }

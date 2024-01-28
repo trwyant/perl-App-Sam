@@ -84,6 +84,7 @@ is $sam, {
 	};
 	etc;
     },
+    _tplt_leader	=> '$.:',
     _type_add		=> hash {
 	field ext	=> hash {	# Ensure Perl is defined.
 	    field PL	=> [ 'perl' ];

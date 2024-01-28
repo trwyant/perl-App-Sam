@@ -33,7 +33,7 @@ use enum qw{ BITMASK:FLAG_ IS_ATTR IS_OPT PROCESS_EARLY
     PROCESS_NORMAL PROCESS_LATE };
 use constant FLAG_PROCESS_SPECIAL => FLAG_PROCESS_EARLY | FLAG_PROCESS_LATE;
 
-use enum qw{ BITMASK:FACILITY_ CALLBACK SYNTAX TYPE };
+use enum qw{ BITMASK:FACILITY_ SYNTAX TYPE };
 
 # To be filled in (and made read-only) later.
 our %ATTR_SPEC;
@@ -121,9 +121,6 @@ sub new {
 	$Carp::Verbose
 	    and delete $self->{die};
     }
-
-    defined $self->{replace}
-	and delete $self->{color};
 
     defined $self->{backup}
 	and $self->{backup} eq ''
@@ -412,8 +409,6 @@ sub __file_type_del {
     # {facility} - This is a bit mask specifying facilities required by
     #         the option, if asserted. The following values are
     #         supported:
-    #         FACILITY_CALLBACK - The munger subroutine must call
-    #             _process_callback() for each match.
     #         FACILITY_SYNTAX - A symtax module must be instantiated
     #         FACILITY_TYPE - The file type needs to be computed
     # {validate} - The name of the method used to validate the
@@ -887,17 +882,24 @@ sub __make_munger {
     $str = "m($match)$modifier";
     my $code = eval "sub { $str }"	## no critic (ProhibitStringyEval)
 	or $self->__croak( "Invalid match '$match': $@" );
-    if ( defined( my $repl = $self->{replace} ) ) {
-	$self->{literal}
-	    and $repl = quotemeta $repl;
-	$repl =~ s/ (?= [()] ) /\\/smxg;
-	$str = "s($match)($repl)$modifier";
+    if ( $self->{g} ) {
+	# Do nothing -- we're a straight match.
+    } else {
+	my @leader;
+	$self->{heading}
+	    or push @leader, '$f';
+	push @leader, '$.';
+	$self->{column}
+	    and push @leader, '$c';
+	$self->{syntax}
+	    and push @leader, '$s';
+	{
+	    local $" = ':';
+	    $self->{_tplt_leader} = "@leader:";
+	}
+	$str = '$_[0]->_process_callback() while ' . $str;
 	$code = eval "sub { $str }"	## no critic (ProhibitStringyEval)
-	    or $self->__croak( "Invalid replace '$repl': $@" );
-    } elsif ( $self->{color} ) {
-	$str = "s(($match))( \$_[0]->__color( match => \$1 ) )e$modifier";
-	$code = eval "sub { $str }"	## no critic (ProhibitStringyEval)
-	    or $self->__confess( "Generated bad coloring code: $@" );
+	    or $self->__confess( "Invalid match '$str': $@" );
     }
     $self->{munger} = $str;
     $self->{_munger} = $code;
@@ -949,7 +951,9 @@ sub __print {	## no critic (RequireArgUnpacking)
 sub process {
     my ( $self, $file ) = @_;
 
-    local $self->{_process} = {};
+    local $self->{_process} = {
+	filename	=> $self->__color( filename => $file ),
+    };
 
     if ( ref( $file ) || ! -d $file ) {
 
@@ -986,12 +990,10 @@ sub process {
 	    }
 	}
 
-	my $munger = $self->{_munger};
-
 	if ( $self->{f} || $self->{g} ) {
 	    if ( $self->{g} ) {
 		local $_ = $file;
-		$munger->( $self ) xor $self->{invert_match}
+		$self->{_munger}->( $self ) xor $self->{invert_match}
 		    or return;
 	    }
 	    say join ' => ', $file, @show_types;
@@ -1015,7 +1017,11 @@ sub process {
 	    $self->{_process}{matched} = $self->_process_match()
 		and $lines_matched++;
 
+	    defined $self->{replace}
+		and push @mod, $self->{_tplt}{replace};
+
 	    if ( $self->_process_display_p() ) {
+
 		if ( ! $self->{_process}{header} ) {
 		    $self->{_process}{header} = 1;
 		    $self->{break}
@@ -1023,29 +1029,20 @@ sub process {
 		    $self->{heading}
 			and $self->__say(
 			    join ' => ',
-			    $self->__color( filename => $file ),
+			    $self->{_process}{filename},
 			    @show_types,
 			);
 		}
 
-		my @line;
-		$self->{heading}
-		    or push @line, ( $self->{_process}{filename} //=
-		    $self->__color( filename => $file ) );
-		push @line, $self->__color( lineno => $. );
-		$self->{show_syntax}
-		    and push @line,
-			substr $self->{_process}{syntax} // '', 0, 4;
-		$self->__print( join ':', @line, $_ );
-	    }
+		$self->__print( $self->{_tplt}{line} );
 
-	    push @mod, $_;
+	    }
 	}
 	close $fh;
 
 	$self->{count}
 	    and say join ' => ',
-		sprintf( '%s:%d', $self->__color( filename => $file ),
+		sprintf( '%s:%d', $self->{_process}{filename},
 		    $lines_matched ), @show_types;
 
 	if ( defined( $self->{replace} ) && ! $self->{dry_run} &&
@@ -1101,7 +1098,109 @@ sub _process_match {
 	$self->{_syntax}{$self->{_process}{syntax}}
 	    or return $self->{invert_match};
     }
-    return( $self->{_munger}->( $self ) xor $self->{invert_match} );
+    pos( $_ ) = 0;
+    $self->{_tplt} = {
+	pos	=> 0,
+    };
+    $self->{_munger}->( $self );
+    my $rslt = $self->{_tplt}{line};	# All we want here is truthiness
+    $self->_process_callback();		# Flush buffer.
+    return( $rslt xor $self->{invert_match} );
+}
+
+sub _process_callback {
+    my ( $self ) = @_;
+    $self->{_tplt}{line} //= $self->__process_template(
+	$self->{_tplt_leader} );
+    $DB::single = 1 unless defined( $self->{_tplt}{pos} ) && defined $-[0];
+    if ( defined pos ) {	# We're being called from a successful match
+	my @chunks = (
+	    substr( $_, $self->{_tplt}{pos}, $-[0] ),
+	    substr( $_, $-[0], pos( $_ ) - $-[0] ),
+	);
+	$self->{_tplt}{pos} = pos( $_ );
+	if ( defined $self->{replace} ) {
+	    local $_ = $chunks[1];
+	    local $self->{_tplt}{pos} = 0;
+	    $chunks[1] = $self->__process_template( $self->{replace} );
+	    $self->{_tplt}{replace} .= $chunks[0] . $chunks[1];
+	}
+	$self->{_tplt}{line} .=
+	    $chunks[0] . $self->__color( match => $chunks[1] );
+    } else {	# We're being called to flush tne buffer
+	my $chunk = substr $_, $self->{_tplt}{pos};
+	$self->{_tplt}{line} .= $chunk;
+	defined $self->{replace}
+	    and $self->{_tplt}{replace} .= $chunk;
+    }
+    return;
+}
+
+# NOTE: Call this ONLY from inside process(). This is broken out because
+# I expect it to get complicated if I implement ranges, syntax, etc.
+# NOTE ALSO: the current line is in $_.
+# FIXME? This code expects to be called in a while() statement iterating
+# over an m/.../g, and then once more to process the rest of the buffer.
+# If pos() is undefined it means the match failed and therefore we're
+# flushing the buffer. This can be scuppered by m/.../gc. The
+# alternative is an argument to indicate we're flushing.
+sub __process_template {
+    my ( $self, $tplt ) = @_;
+    $self->{_tplt}{m} = [ defined pos ? @- : ( length ) ];
+    $self->{_tplt}{p} = [ defined pos ? @+ : ( length ) ];
+    {	# Hope: match vars localized to block
+	$tplt =~ s( ( [\\\$] ) ( . ) )
+	    ( $self->_process_template_item( $1, $2 ) )smxge;
+    }
+    return $tplt;
+}
+
+sub _process_template_item {
+    my ( $self, $kind, $item ) = @_;
+    state $capt = sub { substr $_,
+	$_[0]->{_tplt}{m}[$_[1]],
+	$_[0]->{_tplt}{p}[$_[1]] - $_[0]->{_tplt}{m}[$_[1]]
+    };
+    state $hdlr = {
+	'\\'	=> {
+	    t	=> sub { "\t" },
+	    n	=> sub { "\n" },
+	    r	=> sub { "\r" },
+	    f	=> sub { "\f" },
+	    b	=> sub { "\b" },
+	    a	=> sub { "\a" },
+	    e	=> sub { "\e" },
+	    0	=> sub { "\0" },
+	},
+	'$'	=> {
+	    1	=> sub { $capt->( $_[0], 1 ) },
+	    2	=> sub { $capt->( $_[0], 2 ) },
+	    3	=> sub { $capt->( $_[0], 3 ) },
+	    4	=> sub { $capt->( $_[0], 4 ) },
+	    5	=> sub { $capt->( $_[0], 5 ) },
+	    6	=> sub { $capt->( $_[0], 6 ) },
+	    7	=> sub { $capt->( $_[0], 7 ) },
+	    8	=> sub { $capt->( $_[0], 8 ) },
+	    9	=> sub { $capt->( $_[0], 9 ) },
+	    _	=> sub { "$_" },
+	    '.'	=> sub { $_[0]->__color( lineno => $. ) },
+	    '`'	=> sub { substr $_, 0, $_[0]->{_tplt}{m}[0] },
+	    '&'	=> sub { $_[0]->__color( match => $capt->( $_[0], 0 ) ) },
+	    "'"	=> sub { substr $_, $_[0]->{_tplt}{p}[0] },
+	    f	=> sub { $_[0]->{_process}{filename} },
+	    c	=> sub { $_[0]{_tplt}{m}[0] + 1 },
+	    s	=> sub { substr $_[0]{_process}{syntax} // '', 0, 4 },
+	    u	=> sub {
+		my $rslt = substr $_, $_[0]{_tplt}{pos},
+		$_[0]{_tplt}{m}[0] - $_[0]{_tplt}{pos};
+		$_[0]{_tplt}{pos} = $_[0]{_tplt}{p}[0];
+		return $rslt;
+	    },
+	},
+    };
+    my $code = $hdlr->{$kind}{$item}
+	or return $item;
+    return $code->( $self );
 }
 
 sub __get_file_iterator {
