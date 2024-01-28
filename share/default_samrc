@@ -523,16 +523,8 @@
 
 
 ### Backup file name extension (empty disables)
-
+--no-backup
 # --backup=
-
-
-### Coloring
-
---color-colno=bold yellow
---color-filename=bold green
---color-lineno=bold yellow
---color-match=black on_yellow
 
 
 ### Encoding

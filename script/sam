@@ -529,10 +529,10 @@ This option is equivalent to L<--files-from=-|/--files-from>.
 =head1 DETAILS
 
 This Perl script was inspired by both L<ack|ack>, and one of my earliest
-Perl scripts called F<sam>, for Search and Destroy. It implements a
-fair-sided subset of L<ack|ack>' file search capabilities, in a way
-more-or-less compatible with L<ack|ack>. It adds functionality that I
-thought useful:
+Perl scripts called F<sad>, for Search and Destroy. It implements a
+fair-sized subset of L<ack|ack>' file search capabilities, in a way
+more-or-less compatible with L<ack|ack>. It also adds functionality that
+I thought useful:
 
 =over
 
@@ -551,7 +551,7 @@ Replacement strings may make use of capture variables defined in the
 L<--match|/--match> option's argument.
 
 This is actually the functionality that gave rise to the script's name:
-Search And Modify. It would have been called C<sam> like its
+Search And Modify. It would have been called C<sad> like its
 predecessor, but that name was taken by the
 L<Games-Scott-Adams|https://metacpan.org/dist/Games-ScottAdams> package,
 as was C<sac>.
@@ -573,13 +573,13 @@ specified.
 =item * The global configuration file
 
 This is F</etc/samrc> on Unix systems. It is ignored if
-L<--no-env|/--env> was specified.
+L<--no-env|/--env> was specified. This file need not exist.
 
 =item * The user's configuration file
 
 This is the file pointed to by environment variable C<SAMRC> if that
 exists. Otherwise it is F<~/.samrc> on Unix systems. It is ignored if
-L<--no-env|/--env> was specified.
+L<--no-env|/--env> was specified. This file need not exist.
 
 =item * The file specified by the L<--samrc|/--samrc> option.
 
@@ -644,6 +644,44 @@ line of the file to be selected. For example, C<perl:firstlinematch:/^#!.*\bperl
 This selector may not be used to select a directory.
 
 =back
+
+=head1 ENVIRONMENT VARIABLES
+
+These are only processed if the L<--env|/--env> option is asserted,
+which it is by default. They are:
+
+=head2 SAMRC
+
+This provides an alternate path to the user's configuration file. The
+file need not exist.
+
+=head2 SAM_COLOR_COLNO
+
+This environment variable specifies the default
+L<Term::ANSIColor|Term::ANSIColor> coloring of column numbers. It can be
+overridden by the L<--color-colno|/--color-colno> option, and will be
+ignored with a warning if its contents are invalid.
+
+=head2 SAM_COLOR_FILENAME
+
+This environment variable specifies the default
+L<Term::ANSIColor|Term::ANSIColor> coloring of file names. It can be
+overridden by the L<--color-colno|/--color-colno> option, and will be
+ignored with a warning if its contents are invalid.
+
+=head2 SAM_COLOR_LINENO
+
+This environment variable specifies the default
+L<Term::ANSIColor|Term::ANSIColor> coloring of line numbers. It can be
+overridden by the L<--color-lineno|/--color-lineno> option, and will be
+ignored with a warning if its contents are invalid.
+
+=head2 SAM_COLOR_MATCH
+
+This environment variable specifies the default
+L<Term::ANSIColor|Term::ANSIColor> coloring of matched strings. It can
+be overridden by the L<--color-colno|/--color-colno> option, and will be
+ignored with a warning if its contents are invalid.
 
 =head1 AUTHOR
 

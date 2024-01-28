@@ -67,6 +67,10 @@ sub new {
     my $self = bless {
 	ignore_sam_defaults	=> $priority_arg{ignore_sam_defaults} // 0,
 	die		=> $priority_arg{die} // 0,
+	color_colno	=> 'bold yellow',
+	color_filename	=> 'bold green',
+	color_lineno	=> 'bold yellow',
+	color_match	=> 'black on_yellow',
 	_facility	=> 0,
 	env		=> $priority_arg{env} // 1,
 	recurse		=> 1,
@@ -82,6 +86,21 @@ sub new {
 
     @bad_arg
 	and $self->__croak( "Unknown new() arguments @bad_arg" );
+
+    if ( $self->{env} ) {
+	foreach my $ele ( qw{ colno filename lineno match } ) {
+	    my $env_var_name = "SAM_COLOR_\U$ele";
+	    defined( my $attr_val = $ENV{$env_var_name} )
+		or next;
+	    my $attr_name = "color_$ele";
+	    if ( $self->__validate_color( undef, $attr_name, $attr_val ) ) {
+		$self->{$attr_name} = $attr_val;
+	    } else {
+		$self->__carp( "Environment variable $env_var_name ",
+		    "contains an imvalid value. Ignored." );
+	    }
+	}
+    }
 
     foreach my $file ( $self->__get_rc_file_names() ) {
 	$self->__get_attr_from_rc( $file );
@@ -1119,7 +1138,6 @@ sub _process_callback {
     my ( $self ) = @_;
     $self->{_tplt}{line} //= $self->__process_template(
 	$self->{_tplt_leader} );
-    $DB::single = 1 unless defined( $self->{_tplt}{pos} ) && defined $-[0];
     if ( defined pos ) {	# We're being called from a successful match
 	my @chunks = (
 	    substr( $_, $self->{_tplt}{pos}, $-[0] ),
