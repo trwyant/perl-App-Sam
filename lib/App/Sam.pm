@@ -447,6 +447,10 @@ sub __file_type_del {
 	    type	=> '!',
 	    alias	=> [ qw{ colour } ],
 	},
+	color_colno	=> {
+	    type	=> '=s',
+	    validate	=> '__validate_color',
+	},
 	color_filename	=> {
 	    type	=> '=s',
 	    validate	=> '__validate_color',
@@ -458,6 +462,9 @@ sub __file_type_del {
 	color_match	=> {
 	    type	=> '=s',
 	    validate	=> '__validate_color',
+	},
+	column	=> {
+	    type	=> '!',
 	},
 	count	=> {
 	    type	=> '!',
@@ -1188,7 +1195,7 @@ sub _process_template_item {
 	    '&'	=> sub { $_[0]->__color( match => $capt->( $_[0], 0 ) ) },
 	    "'"	=> sub { substr $_, $_[0]->{_tplt}{p}[0] },
 	    f	=> sub { $_[0]->{_process}{filename} },
-	    c	=> sub { $_[0]{_tplt}{m}[0] + 1 },
+	    c	=> sub { $_[0]->__color( colno => $_[0]{_tplt}{m}[0] + 1 ) },
 	    s	=> sub { substr $_[0]{_process}{syntax} // '', 0, 4 },
 	    u	=> sub {
 		my $rslt = substr $_, $_[0]{_tplt}{pos},
@@ -1549,6 +1556,10 @@ is false.
 See L<--color|sam/--color> in the L<sam|sam> documentation. The default
 is false.
 
+=item C<color_colno>
+
+See L<--color-colno|sam/--color-colno> in the L<sam|sam> documentation.
+
 =item C<color_filename>
 
 See L<--color-filename|sam/--color-filename> in the L<sam|sam> documentation.
@@ -1560,6 +1571,10 @@ See L<--color-lineno|sam/--color-lineno> in the L<sam|sam> documentation.
 =item C<color_match>
 
 See L<--color-match|sam/--color-match> in the L<sam|sam> documentation.
+
+=item C<column>
+
+See L<--column|sam/--column> in the L<sam|sam> documentation.
 
 =item C<count>
 

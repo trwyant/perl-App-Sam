@@ -52,11 +52,15 @@ use Term::ANSIColor;
 
 	{
 	    local $sam->{color} = 1;
+	    local $sam->{color_colno} = 'bold yellow';
 	    local $sam->{color_lineno} = 'bold yellow';
 	    local $sam->{color_match} = 'black on_yellow';
 	    is $sam->__process_template( '$.' ),
 		colored( 42, 'bold yellow' ),
 		q/Template '$.', coloried/;
+	    is $sam->__process_template( '$c' ),
+		colored( 7, 'bold yellow' ),
+		q/Template '$c', coloried/;
 	    is $sam->__process_template( '$&' ),
 		colored( 'was', 'black on_yellow' ),
 		q/Template '$&', coloried/;

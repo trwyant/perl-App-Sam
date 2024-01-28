@@ -126,6 +126,13 @@ specified.
 
 This Boolean option is an alternative spelling to L<--color|/--color>.
 
+=head2 --color-colno
+
+This option specifies the L<Term::ANSIColor|Term::ANSIColor> coloring to
+be applied to the line number. The default is
+
+ --color-colno='bold yellow'
+
 =head2 --color-filename
 
 This option specifies the L<Term::ANSIColor|Term::ANSIColor> coloring to
@@ -146,6 +153,12 @@ This option specifies the L<Term::ANSIColor|Term::ANSIColor> coloring
 to be applied to the match. The default is
 
  --color-match='black on_yellow'
+
+=head2 --column
+
+If this Boolean option is asserted, the column number of the first match
+on the line is displayed after the line number. The default is
+C<--no-column>.
 
 =head2 --count
 

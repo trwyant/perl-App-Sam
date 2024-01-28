@@ -529,6 +529,7 @@
 
 ### Coloring
 
+--color-colno=bold yellow
 --color-filename=bold green
 --color-lineno=bold yellow
 --color-match=black on_yellow
