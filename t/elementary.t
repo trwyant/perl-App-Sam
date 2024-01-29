@@ -68,20 +68,23 @@ use Term::ANSIColor;
 	    # because it is not colorized by the templating engine.
 	}
 
-	$_ = 'A foo fu fool';
-	delete $sam->{_process}{colno};
-	my @want = ( 'A <foo>', ' <fu>' );
-	# Normally _process_match() does this, but we're farther down in the
-	# weeds than that.
-	$sam->{_tplt}{pos} = pos( $_ ) // 0;
-	while ( m/ \b f [ou]+ \b /smxg ) {
-	    my $w = shift @want;
-	    is $sam->__process_template( '$u<$&>' ), $w, q/Template '$u<$&>'/;
-	}
-	is $sam->__process_template( '$u<$&>' ),
-	    ' fool<>', q/Template '$u<$&>'/;
-
     }
+
+    $_ = 'A foo fu fool';
+    delete $sam->{_process}{colno};
+    my @want = ( 'A <foo>', ' <fu>' );
+    # NOTE that normally _process_match() does this, but we're
+    # farther down in the weeds than that.
+    $sam->{_tplt}{pos} = 0;
+    while ( m/ \b f [ou]+ \b /smxg ) {
+	my $w = shift @want;
+	is $sam->__process_template( '$p<$&>' ), $w, q/Template '$p<$&>'/;
+	# NOTE that normally _process_match() does this, but we're
+	# farther down in the weeds than that.
+	$sam->{_tplt}{pos} = pos( $_ );
+    }
+    is $sam->__process_template( '$p<$&>' ),
+	' fool<>', q/Template '$p<$&>'/;
 }
 
 done_testing;

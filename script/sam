@@ -329,6 +329,99 @@ from being done.
 This option can be specified more than once. If this is done, the
 C<--match> (etc.) is not done if any of the C<--not> expressions match.
 
+=head2 -o
+
+This option is equivalent to C<--output=$&>. See L<--output|/--output>,
+below.
+
+=head2 --output
+
+This option takes a string as a template to be executed once for each
+match. An implicit return is appended to the string. The templating
+system is a superset to that of L<ack|ack>, with the following special
+strings recognized:
+
+=over
+
+=item C<\0>
+
+The null character (NUL).
+
+=item C<\a>
+
+The alert/bell control character (BEL).
+
+=item C<\b>
+
+The back space control character (BS).
+
+=item C<\e>
+
+The escape character (ESC).
+
+=item C<\f>
+
+The form feed character (FF).
+
+=item C<\n>
+
+The new line character (NL).
+
+=item C<\r>
+
+The return character (CR).
+
+=item C<\t>
+
+The horizontal tab character (HT, TAB).
+
+=item C<$1> through C<$9>
+
+The corresponding capture groups.
+
+=item C<$_>
+
+The entire line being matched.
+
+=item C<$.>
+
+The line number of the current line in the input file.
+
+=item C<$`>
+
+Everything on the line before the beginning of the current match.
+
+=item C<$&>
+
+The current match.
+
+=item C<$'>
+
+Everything on the line after the end of the current match.
+
+=item C<$c>
+
+The column number of the beginning of the current match.
+
+=item C<$f>
+
+The name of the input file.
+
+=item C<$p>
+
+Everything after the end of the last match and before the beginning of
+the next match. On the first match this is everything from the beginning
+of the line.
+
+=item C<$s>
+
+The syntax type of the current line, abbreviated to four characters. If
+L<--syntax|/--syntax> or C<--show-syntax|/--show-syntax> were not
+specified, or if the current file has no syntax classifier, this will be
+the empty string.
+
+=back
+
 =head2 --no-replace
 
 This option specifies that replacement is not to be done. This is the

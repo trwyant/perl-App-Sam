@@ -576,6 +576,14 @@ sub __file_type_del {
 	    type	=> '=s@',
 	    validate	=> '__validate_not'
 	},
+	o		=> {
+	    type	=> '',
+	    validate	=> '__validate_fixed_value',
+	    arg		=> [ output	=> '$&' ],
+	},
+	output		=> {
+	    type	=> '=s',
+	},
 	passthru	=> {
 	    type	=> '!',
 	    alias	=> [ 'passthrough' ],
@@ -910,6 +918,12 @@ sub __make_munger {
 	or $self->__croak( "Invalid match '$match': $@" );
     if ( $self->{g} ) {
 	# Do nothing -- we're a straight match.
+    } elsif ( defined $self->{output} ) {
+	$self->{_tplt_leader} = $self->{_tplt_trailer} = '';
+	$self->{output} =~ s/ (?<! \n ) \z /\n/smx;
+	$str = '$_[0]->_process_callback() while ' . $str;
+	$code = eval "sub { $str }"	## no critic (ProhibitStringyEval)
+	    or $self->__confess( "Invalid match '$str': $@" );
     } else {
 	my @leader;
 	$self->{heading}
@@ -923,6 +937,8 @@ sub __make_munger {
 	    local $" = ':';
 	    $self->{_tplt_leader} = "@leader:";
 	}
+	$self->{_tplt_trailer} = '$p';
+	$self->{output} = '$p$&';
 	$str = '$_[0]->_process_callback() while ' . $str;
 	$code = eval "sub { $str }"	## no critic (ProhibitStringyEval)
 	    or $self->__confess( "Invalid match '$str': $@" );
@@ -1128,6 +1144,7 @@ sub _process_match {
     $self->{_tplt} = {
 	pos	=> 0,
     };
+
     $self->{_munger}->( $self );
     my $rslt = $self->{_tplt}{line};	# All we want here is truthiness
     $self->_process_callback();		# Flush buffer.
@@ -1136,28 +1153,44 @@ sub _process_match {
 
 sub _process_callback {
     my ( $self ) = @_;
+    $self->{_tplt}{capt} = [];
     $self->{_tplt}{line} //= $self->__process_template(
 	$self->{_tplt_leader} );
+
     if ( defined pos ) {	# We're being called from a successful match
-	my @chunks = (
-	    substr( $_, $self->{_tplt}{pos}, $-[0] ),
-	    substr( $_, $-[0], pos( $_ ) - $-[0] ),
-	);
-	$self->{_tplt}{pos} = pos( $_ );
+
 	if ( defined $self->{replace} ) {
-	    local $_ = $chunks[1];
-	    local $self->{_tplt}{pos} = 0;
-	    $chunks[1] = $self->__process_template( $self->{replace} );
-	    $self->{_tplt}{replace} .= $chunks[0] . $chunks[1];
+	    local $self->{color} = 0;
+	    $self->{_tplt}{capt}[0] = $self->__process_template(
+		$self->{replace} );
+	    $self->{_tplt}{replace} .= $self->__process_template( '$p$&' );
 	}
-	$self->{_tplt}{line} .=
-	    $chunks[0] . $self->__color( match => $chunks[1] );
+	$self->{_tplt}{line} .= $self->__process_template(
+	    $self->{output} );
+
+	$self->{_tplt}{pos} = pos $_;
+
     } else {	# We're being called to flush tne buffer
-	my $chunk = substr $_, $self->{_tplt}{pos};
-	$self->{_tplt}{line} .= $chunk;
+
+=begin comment
+
+	# FIXME this should not append to {_tplt}{line} if --output was
+	# specified.
+	my $pre_match = substr $_, $self->{_tplt}{pos};
 	defined $self->{replace}
-	    and $self->{_tplt}{replace} .= $chunk;
+	    and $self->{_tplt}{replace} .= $pre_match;
+	$self->{_tplt}{line} .= $pre_match;
+
+=end comment
+
+=cut
+
+	defined $self->{replace}
+	    and $self->{_tplt}{replace} .= $self->__process_template( '$p' );
+	$self->{_tplt}{line} .= $self->__process_template(
+	    $self->{_tplt_trailer} );
     }
+
     return;
 }
 
@@ -1182,20 +1215,21 @@ sub __process_template {
 
 sub _process_template_item {
     my ( $self, $kind, $item ) = @_;
-    state $capt = sub { substr $_,
+    state $capt = sub {
+	$_[0]->{_tplt}{capt}[$_[1]] // substr $_,
 	$_[0]->{_tplt}{m}[$_[1]],
 	$_[0]->{_tplt}{p}[$_[1]] - $_[0]->{_tplt}{m}[$_[1]]
     };
     state $hdlr = {
 	'\\'	=> {
-	    t	=> sub { "\t" },
+	    0	=> sub { "\0" },
+	    a	=> sub { "\a" },
+	    b	=> sub { "\b" },
+	    e	=> sub { "\e" },
+	    f	=> sub { "\f" },
 	    n	=> sub { "\n" },
 	    r	=> sub { "\r" },
-	    f	=> sub { "\f" },
-	    b	=> sub { "\b" },
-	    a	=> sub { "\a" },
-	    e	=> sub { "\e" },
-	    0	=> sub { "\0" },
+	    t	=> sub { "\t" },
 	},
 	'$'	=> {
 	    1	=> sub { $capt->( $_[0], 1 ) },
@@ -1212,15 +1246,13 @@ sub _process_template_item {
 	    '`'	=> sub { substr $_, 0, $_[0]->{_tplt}{m}[0] },
 	    '&'	=> sub { $_[0]->__color( match => $capt->( $_[0], 0 ) ) },
 	    "'"	=> sub { substr $_, $_[0]->{_tplt}{p}[0] },
-	    f	=> sub { $_[0]->{_process}{filename} },
 	    c	=> sub { $_[0]->__color( colno => $_[0]{_tplt}{m}[0] + 1 ) },
-	    s	=> sub { substr $_[0]{_process}{syntax} // '', 0, 4 },
-	    u	=> sub {
-		my $rslt = substr $_, $_[0]{_tplt}{pos},
-		$_[0]{_tplt}{m}[0] - $_[0]{_tplt}{pos};
-		$_[0]{_tplt}{pos} = $_[0]{_tplt}{p}[0];
-		return $rslt;
+	    f	=> sub { $_[0]->{_process}{filename} },
+	    p	=> sub {
+		return substr $_, $_[0]{_tplt}{pos},
+		    $_[0]{_tplt}{m}[0] - $_[0]{_tplt}{pos};
 	    },
+	    s	=> sub { substr $_[0]{_process}{syntax} // '', 0, 4 },
 	},
     };
     my $code = $hdlr->{$kind}{$item}
@@ -1704,6 +1736,11 @@ not specified, the first non-option argument in C<argv> will be used.
 
 See L<--not|sam/--not> in the L<sam|sam> documentation. The value is a
 reference to an array.
+
+=item C<output>
+
+See L<--output|sam/--output> in the L<sam|sam> documentation. The value
+is a template as described in that documentation.
 
 =item C<passthru>
 

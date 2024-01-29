@@ -132,6 +132,24 @@ t/data/perl_file.PL
 EOD
 }
 
+{
+    my $sam = CLASS->new(
+	match	=> '(?:Thomas|Wyant)',
+	output	=> '$f:$.:$c:$&',
+	heading	=> 0,
+    );
+
+    my $stdout = capture_stdout {
+	$sam->process( 't/data/sql_file.sql' );
+    };
+    is $stdout, <<'EOD', q(--output);
+t/data/sql_file.sql:6:12:Thomas
+t/data/sql_file.sql:6:22:Wyant
+t/data/sql_file.sql:8:31:Thomas
+t/data/sql_file.sql:8:41:Wyant
+EOD
+}
+
 
 done_testing;
 

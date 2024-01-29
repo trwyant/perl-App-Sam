@@ -69,6 +69,7 @@ load_module_ok 'App::Sam';
 	match		=> 'foo',
 	munger		=> D,
 	_munger		=> validator( sub { REF_CODE eq ref } ),
+	output		=> '$p$&',
 	recurse		=> T,
 	sort_files		=> T,
 	_syntax_add		=> hash {	# Ensure Perl's syntax is defined.
@@ -87,6 +88,7 @@ load_module_ok 'App::Sam';
 	    etc;
 	},
 	_tplt_leader	=> '$.:',
+	_tplt_trailer	=> q/$p/,
 	_type_add		=> hash {
 	    field ext	=> hash {	# Ensure Perl is defined.
 		field PL	=> [ 'perl' ];
