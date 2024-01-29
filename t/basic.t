@@ -55,18 +55,18 @@ load_module_ok 'App::Sam';
 
     is $sam, {
 	color_colno		=> 'bold yellow',
-	color_filename	=> 'bold green',
-	color_lineno	=> 'bold yellow',
+	color_filename		=> 'bold green',
+	color_lineno		=> 'bold yellow',
 	color_match		=> 'black on_yellow',
 	die			=> F,
 	encoding		=> 'utf-8',
 	env			=> F,
-	_facility		=> 0,
+	_flags			=> 0,
 	ignore_sam_defaults	=> F,
-	heading		=> T,
+	heading			=> T,
 	_ignore_directory	=> hash { etc },
-	_ignore_file	=> hash { etc },
-	match		=> 'foo',
+	_ignore_file		=> hash { etc },
+	match			=> 'foo',
 	munger		=> D,
 	_munger		=> validator( sub { REF_CODE eq ref } ),
 	output		=> '$p$&',
@@ -95,7 +95,7 @@ load_module_ok 'App::Sam';
 		field pl	=> [ 'perl' ];
 		field pod	=> [ 'perl', 'pod' ];
 		field psgi	=> [ 'perl' ];
-		field t	=> [ 'perl', 'perltest' ];
+		field t		=> [ 'perl', 'perltest' ];
 		etc;
 	    };
 	    # NOTE firstlinematch is an unordered array, which I believe

@@ -32,11 +32,45 @@ use constant IS_WINDOWS	=> {
 use constant REF_ARRAY	=> ref [];
 use constant REF_SCALAR	=> ref \0;
 
-use enum qw{ BITMASK:FLAG_ IS_ATTR IS_OPT PROCESS_EARLY
-    PROCESS_NORMAL PROCESS_LATE };
-use constant FLAG_PROCESS_SPECIAL => FLAG_PROCESS_EARLY | FLAG_PROCESS_LATE;
+use enum qw{ BITMASK:FLAG_
+    FAC_NO_MATCH_PROC FAC_SYNTAX FAC_TYPE
+    IS_ATTR IS_OPT
+    PROCESS_EARLY PROCESS_NORMAL PROCESS_LATE
+};
 
-use enum qw{ BITMASK:FACILITY_ NO_MATCH_PROC SYNTAX TYPE };
+=begin comment
+
+BEGIN {
+    my @flags;
+    foreach my $sym ( sort keys %App::Sam:: ) {
+	$sym =~ m/ \A FLAG_ /smx
+	    or next;
+	my $code = __PACKAGE__->can( $sym )
+	    or next;
+	push @flags, [ $sym, $code->() ];
+    }
+
+    sub __flags_to_names {
+	my $mask = $_[-1];
+	my @rslt;
+	foreach my $item ( @flags ) {
+	    $item->[1] & $mask
+		or next;
+	    push @rslt, $item->[0];
+	}
+	return @rslt;
+    }
+}
+
+=end comment
+
+=cut
+
+use constant FLAG_DEFAULT	=> FLAG_IS_ATTR | FLAG_IS_OPT |
+    FLAG_PROCESS_NORMAL;
+use constant FLAG_FACILITY	=> FLAG_FAC_NO_MATCH_PROC |
+    FLAG_FAC_SYNTAX | FLAG_FAC_TYPE;
+use constant FLAG_PROCESS_SPECIAL => FLAG_PROCESS_EARLY | FLAG_PROCESS_LATE;
 
 # To be filled in (and made read-only) later.
 our %ATTR_SPEC;
@@ -74,7 +108,7 @@ sub new {
 	color_filename	=> 'bold green',
 	color_lineno	=> 'bold yellow',
 	color_match	=> 'black on_yellow',
-	_facility	=> 0,
+	_flags		=> 0,
 	env		=> $priority_arg{env} // 1,
 	recurse		=> 1,
 	sort_files	=> 1,
@@ -429,12 +463,6 @@ sub __file_type_del {
     #         variants with dashes rather than underscores need not be
     #         specified here as they will be generated. Does not apply
     #         to attribute processing. Optional.
-    # {facility} - This is a bit mask specifying facilities required by
-    #         the option, if asserted. The following values are
-    #         supported:
-    #         FACILITY_NO_MATCH_PROC - No match processing
-    #         FACILITY_SYNTAX - A symtax module must be instantiated
-    #         FACILITY_TYPE - The file type needs to be computed
     # {validate} - The name of the method used to validate the
     #         attribute. Optional.
     # {arg} - Available for use by the {validate} code.
@@ -445,6 +473,9 @@ sub __file_type_del {
     #         FLAG_PROCESS_EARLY -- Process the attribute early.
     #         FLAG_PROCESS_NORMAL - Process the attribute normally.
     #         FLAG_PROCESS_LATE --- Process the attribute late.
+    #         FLAG_FAC_NO_MATCH_PROC - No match processing
+    #         FLAG_FAC_SYNTAX - A symtax module must be instantiated
+    #         FLAG_FAC_TYPE - The file type needs to be computed
     #         NOTE that the FLAG_PROCESS_* items only apply to
     #         attributes, and therefore imply FLAG_IS_ATTR. Optional. If
     #         not provided, the default is FLAG_IS_ATTR | FLAG_IS_OPT |
@@ -520,11 +551,11 @@ sub __file_type_del {
 	},
 	f	=> {
 	    type	=> '!',
-	    facility	=> FACILITY_NO_MATCH_PROC,
+	    flags	=> FLAG_FAC_NO_MATCH_PROC,
 	},
 	g	=> {
 	    type	=> '!',	# The expression comes from --match.
-	    facility	=> FACILITY_NO_MATCH_PROC,
+	    flags	=> FLAG_FAC_NO_MATCH_PROC,
 	},
 	files_from	=> {
 	    type	=> '=s@',
@@ -535,14 +566,14 @@ sub __file_type_del {
 	    alias	=> [ 'l' ],
 	    validate	=> '__validate_radio',
 	    arg		=> [ 'files_without_matches' ],
-	    facility	=> FACILITY_NO_MATCH_PROC,
+	    flags	=> FLAG_FAC_NO_MATCH_PROC,
 	},
 	files_without_matches	=> {
 	    type	=> '!',
 	    alias	=> [ 'L' ],
 	    validate	=> '__validate_radio',
 	    arg		=> [ 'files_with_matches' ],
-	    facility	=> FACILITY_NO_MATCH_PROC,
+	    flags	=> FLAG_FAC_NO_MATCH_PROC,
 	},
 	filter_files_from	=> {
 	    type	=> '!',
@@ -582,7 +613,7 @@ sub __file_type_del {
 	known_types	=> {
 	    type	=> '!',
 	    alias	=> [ 'k' ],
-	    facility	=> FACILITY_TYPE,
+	    flags	=> FLAG_FAC_TYPE,
 	},
 	literal	=> {
 	    type	=> '!',
@@ -662,11 +693,11 @@ sub __file_type_del {
 	},
 	show_syntax	=> {
 	    type	=> '!',
-	    facility	=> FACILITY_SYNTAX,
+	    flags	=> FLAG_FAC_SYNTAX,
 	},
 	show_types	=> {
 	    type	=> '!',
-	    facility	=> FACILITY_TYPE,
+	    flags	=> FLAG_FAC_TYPE,
 	},
 	sort_files	=> {
 	    type	=> '!',
@@ -674,13 +705,13 @@ sub __file_type_del {
 	syntax	=> {
 	    type	=> '=s@',
 	    validate	=> '__validate_syntax',
-	    facility	=> FACILITY_SYNTAX,
+	    flags	=> FLAG_FAC_SYNTAX,
 	},
 	type	=> {
 	    type	=> '=s@',
 	    alias	=> [ 't' ],
 	    validate	=> '__validate_type',
-	    facility	=> FACILITY_TYPE,
+	    flags	=> FLAG_FAC_TYPE,
 	},
 	word_regexp	=> {
 	    type	=> '!',
@@ -709,18 +740,23 @@ sub __file_type_del {
 	    ( my $alias = $key ) =~ s/ _ /-/smxg;
 	    push @{ $val->{alias} }, $alias;
 	}
-	if ( $val->{flags} ) {
+
+	defined $val->{flags}
+	    or $val->{flags} = FLAG_DEFAULT;
+
+	if ( $val->{flags} & ~ FLAG_FACILITY ) {
 	    if ( $val->{flags} & ( FLAG_PROCESS_EARLY |
 		    FLAG_PROCESS_NORMAL | FLAG_PROCESS_LATE ) ) {
 		$val->{flags} |= FLAG_IS_ATTR;
 	    }
-	} elsif ( ! defined $val->{flags} ) {
-	    $val->{flags} = FLAG_IS_ATTR | FLAG_IS_OPT | FLAG_PROCESS_NORMAL;
+	} else {
+	    $val->{flags} |= FLAG_DEFAULT;
 	}
-	if ( $val->{facility} ) {
-	    ( $val->{facility} & FACILITY_SYNTAX )
-		and $val->{facility} |= FACILITY_TYPE;
-	    $val->{validate} //= $val->{type} =~ m/ \A \# \z /smx ?
+
+	if ( $val->{flags} & FLAG_FACILITY ) {
+	    ( $val->{flags} & FLAG_FAC_SYNTAX )
+		and $val->{flags} |= FLAG_FAC_TYPE;
+	    $val->{validate} //= $val->{type} =~ m/ \A \@ \z /smx ?
 		'__validate_accept_array' : '__validate_accept_scalar';
 	}
     }
@@ -814,19 +850,19 @@ sub __get_validator {
 	or $attr_spec = $ATTR_SPEC{$attr_spec}
 	or $self->__confess( "Undefined attribute '$_[1]'" );
     if ( my $method = $attr_spec->{validate} ) {
-	if ( my $facility = $attr_spec->{facility} ) {
+	if ( my $facility = $attr_spec->{flags} & FLAG_FACILITY ) {
 	    # NOTE we count on the attribute spec setup code to have
 	    # provided a validator if the facility was specified
 	    $die
 		and return sub {
 		$self->$method( $attr_spec, @_ )
 		    or die "Invalid value --$_[0]=$_[1]\n";
-		$self->{_facility} |= $facility;
+		$self->{_flags} |= $facility;
 		return 1;
 	    };
 	    return sub {
 		return $self->$method( $attr_spec, @_ ) &&
-		( $self->{_facility} |= $facility );
+		( $self->{_flags} |= $facility );
 	    };
 	} else {
 	    $die
@@ -937,7 +973,7 @@ sub __make_munger {
     $str = "m($match)$modifier";
     my $code = eval "sub { $str }"	## no critic (ProhibitStringyEval)
 	or $self->__croak( "Invalid match '$match': $@" );
-    if ( $self->{_facility} & FACILITY_NO_MATCH_PROC ) {
+    if ( $self->{_flags} & FLAG_FAC_NO_MATCH_PROC ) {
 	# Do nothing -- we just want to know if we have a match.
     } elsif ( defined $self->{output} ) {
 	$self->{_tplt_leader} = $self->{_tplt_trailer} = '';
@@ -1024,7 +1060,7 @@ sub process {
 	    or return;
 
 	$self->{_process}{type} = [ $self->__file_type( $file ) ]
-	    if $self->{_facility} & FACILITY_TYPE;
+	    if $self->{_flags} & FLAG_FAC_TYPE;
 
 	$self->{known_types}
 	    and not @{ $self->{_process}{type} }
@@ -1034,7 +1070,7 @@ sub process {
 	$self->{show_types}
 	    and push @show_types, join ',', @{ $self->{_process}{type} };
 
-	if ( $self->{_facility} & FACILITY_SYNTAX ) {
+	if ( $self->{_flags} & FLAG_FAC_SYNTAX ) {
 	    if ( my ( $class ) = $self->__file_syntax( $file ) ) {
 		$self->{_process}{syntax_obj} =
 		    $self->{_syntax_obj}{$class} ||=
@@ -1183,7 +1219,7 @@ sub _process_display_p {
 sub _process_match {
     my ( $self ) = @_;
 
-    $self->{_facility} & FACILITY_NO_MATCH_PROC
+    $self->{_flags} & FLAG_FAC_NO_MATCH_PROC
 	and return $self->{_munger}->( $self );
 
     $self->{_not}{match}
@@ -1335,13 +1371,6 @@ sub __set_attr {
     } else {
 	delete $self->{$attr_name};
     }
-    return 1;
-}
-
-sub __set_facility {
-    my ( $self, $attr_spec ) = @_;
-    $attr_spec->{facility}
-	and $self->{_facility} |= $attr_spec->{facility};
     return 1;
 }
 
