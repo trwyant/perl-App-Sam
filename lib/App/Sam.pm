@@ -36,7 +36,7 @@ use enum qw{ BITMASK:FLAG_ IS_ATTR IS_OPT PROCESS_EARLY
     PROCESS_NORMAL PROCESS_LATE };
 use constant FLAG_PROCESS_SPECIAL => FLAG_PROCESS_EARLY | FLAG_PROCESS_LATE;
 
-use enum qw{ BITMASK:FACILITY_ SYNTAX TYPE };
+use enum qw{ BITMASK:FACILITY_ NO_MATCH_PROC SYNTAX TYPE };
 
 # To be filled in (and made read-only) later.
 our %ATTR_SPEC;
@@ -432,6 +432,7 @@ sub __file_type_del {
     # {facility} - This is a bit mask specifying facilities required by
     #         the option, if asserted. The following values are
     #         supported:
+    #         FACILITY_NO_MATCH_PROC - No match processing
     #         FACILITY_SYNTAX - A symtax module must be instantiated
     #         FACILITY_TYPE - The file type needs to be computed
     # {validate} - The name of the method used to validate the
@@ -519,9 +520,11 @@ sub __file_type_del {
 	},
 	f	=> {
 	    type	=> '!',
+	    facility	=> FACILITY_NO_MATCH_PROC,
 	},
 	g	=> {
 	    type	=> '!',	# The expression comes from --match.
+	    facility	=> FACILITY_NO_MATCH_PROC,
 	},
 	files_from	=> {
 	    type	=> '=s@',
@@ -532,12 +535,14 @@ sub __file_type_del {
 	    alias	=> [ 'l' ],
 	    validate	=> '__validate_radio',
 	    arg		=> [ 'files_without_matches' ],
+	    facility	=> FACILITY_NO_MATCH_PROC,
 	},
 	files_without_matches	=> {
 	    type	=> '!',
 	    alias	=> [ 'L' ],
 	    validate	=> '__validate_radio',
 	    arg		=> [ 'files_with_matches' ],
+	    facility	=> FACILITY_NO_MATCH_PROC,
 	},
 	filter_files_from	=> {
 	    type	=> '!',
@@ -918,7 +923,7 @@ sub __incompat_arg {
 
 sub __make_munger {
     my ( $self ) = @_;
-    my $modifier = 'g';
+    my $modifier = '';
     $self->{ignore_case}
 	and $modifier .= 'i';
     my $match = $self->{match};
@@ -932,12 +937,12 @@ sub __make_munger {
     $str = "m($match)$modifier";
     my $code = eval "sub { $str }"	## no critic (ProhibitStringyEval)
 	or $self->__croak( "Invalid match '$match': $@" );
-    if ( $self->{g} ) {
-	# Do nothing -- we're a straight match.
+    if ( $self->{_facility} & FACILITY_NO_MATCH_PROC ) {
+	# Do nothing -- we just want to know if we have a match.
     } elsif ( defined $self->{output} ) {
 	$self->{_tplt_leader} = $self->{_tplt_trailer} = '';
 	$self->{output} =~ s/ (?<! \n ) \z /\n/smx;
-	$str = '$_[0]->_process_callback() while ' . $str;
+	$str = '$_[0]->_process_callback() while ' . $str . 'g';
 	$code = eval "sub { $str }"	## no critic (ProhibitStringyEval)
 	    or $self->__confess( "Invalid match '$str': $@" );
     } else {
@@ -955,7 +960,7 @@ sub __make_munger {
 	}
 	$self->{_tplt_trailer} = '$p';
 	$self->{output} = '$p$&';
-	$str = '$_[0]->_process_callback() while ' . $str;
+	$str = '$_[0]->_process_callback() while ' . $str . 'g';
 	$code = eval "sub { $str }"	## no critic (ProhibitStringyEval)
 	    or $self->__confess( "Invalid match '$str': $@" );
     }
@@ -1177,6 +1182,10 @@ sub _process_display_p {
 # NOTE ALSO: the current line is in $_.
 sub _process_match {
     my ( $self ) = @_;
+
+    $self->{_facility} & FACILITY_NO_MATCH_PROC
+	and return $self->{_munger}->( $self );
+
     $self->{_not}{match}
 	and $self->{_not}{match}->()
 	and return $self->{invert_match};
@@ -1188,11 +1197,9 @@ sub _process_match {
     $self->{_tplt} = {
 	pos	=> 0,
     };
-
     $self->{_munger}->( $self );
-    my $rslt = $self->{_tplt}{line};	# All we want here is truthiness
     $self->_process_callback();		# Flush buffer.
-    return( $rslt xor $self->{invert_match} );
+    return( $self->{_tplt}{num_matches} xor $self->{invert_match} );
 }
 
 sub _process_callback {
@@ -1211,6 +1218,8 @@ sub _process_callback {
 	}
 	$self->{_tplt}{line} .= $self->__process_template(
 	    $self->{output} );
+
+	$self->{_tplt}{num_matches}++;
 
 	$self->{_tplt}{pos} = pos $_;
 
@@ -1235,6 +1244,8 @@ sub _process_callback {
 # alternative is an argument to indicate we're flushing.
 sub __process_template {
     my ( $self, $tplt ) = @_;
+    defined $tplt
+	or $self->__confess( 'Undefined template' );
     $self->{_tplt}{m} = [ defined pos ? @- : ( length ) ];
     $self->{_tplt}{p} = [ defined pos ? @+ : ( length ) ];
     {	# Hope: match vars localized to block
