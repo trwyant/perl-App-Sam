@@ -150,6 +150,48 @@ t/data/sql_file.sql:8:41:Wyant
 EOD
 }
 
+{
+    my $sam = CLASS->new(
+	match	=> 'Wyant',
+	files_with_matches	=> 1,
+    );
+
+    my $stdout = capture_stdout {
+	$sam->process( 't/data/' );
+    };
+    is $stdout, <<'EOD', q(--files-with-matches);
+t/data/cc_file.c
+t/data/cpp_file.cpp
+t/data/fortran_file.for
+t/data/java_file.java
+t/data/shell_file.sh
+t/data/sql_file.sql
+EOD
+}
+
+{
+    my $sam = CLASS->new(
+	match	=> 'Wyant',
+	files_without_matches	=> 1,
+    );
+
+    my $stdout = capture_stdout {
+	$sam->process( 't/data/' );
+    };
+    is $stdout, <<'EOD', q(--files-without-matches);
+t/data/batch_file.bat
+t/data/bright.txt
+t/data/json_file.json
+t/data/make_file.mak
+t/data/perl_file.PL
+t/data/properties_file.properties
+t/data/python_file.py
+t/data/raku_file.raku
+t/data/vim_file.vim
+t/data/yaml_file.yml
+EOD
+}
+
 
 done_testing;
 

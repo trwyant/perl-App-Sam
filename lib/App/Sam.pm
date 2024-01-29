@@ -126,7 +126,8 @@ sub new {
 	and $self->__get_attr_from_rc( $argv );
 
     $self->__incompat_arg( qw{ f match } );
-    $self->__incompat_arg( qw{ f g replace } );
+    $self->__incompat_arg( qw{ f g files_with_matches
+	files_without_matches replace } );
     $self->__incompat_arg( qw{ count passthru } );
 
     unless ( $self->{f} || defined $self->{match} ) {
@@ -525,6 +526,18 @@ sub __file_type_del {
 	files_from	=> {
 	    type	=> '=s@',
 	    validate	=> '__validate_files_from',
+	},
+	files_with_matches	=> {
+	    type	=> '!',
+	    alias	=> [ 'l' ],
+	    validate	=> '__validate_radio',
+	    arg		=> [ 'files_without_matches' ],
+	},
+	files_without_matches	=> {
+	    type	=> '!',
+	    alias	=> [ 'L' ],
+	    validate	=> '__validate_radio',
+	    arg		=> [ 'files_with_matches' ],
 	},
 	filter_files_from	=> {
 	    type	=> '!',
@@ -1073,8 +1086,13 @@ sub process {
 		and $self->{_process}{syntax} =
 		    $self->{_process}{syntax_obj}->__classify();
 
-	    $self->{_process}{matched} = $self->_process_match()
-		and $lines_matched++;
+	    if ( $self->{_process}{matched} = $self->_process_match() ) {
+		if ( $self->{files_with_matches} ) {
+		    say join ' => ', $file, @show_types;
+		    return;
+		}
+		$lines_matched++;
+	    }
 
 	    $mod_fh
 		and print { $mod_fh } $self->{_tplt}{replace};
@@ -1099,6 +1117,11 @@ sub process {
 	    }
 	}
 	close $fh;
+
+	if ( $self->{files_without_matches} && ! $lines_matched ) {
+	    say join ' => ', $file, @show_types;
+	    return;
+	}
 
 	$self->{count}
 	    and say join ' => ',
@@ -1138,6 +1161,9 @@ sub _process_display_p {
     my ( $self ) = @_;
 
     $self->{count}
+	and return 0;
+
+    $self->{files_without_matches}
 	and return 0;
 
     $self->{passthru}
@@ -1521,6 +1547,18 @@ sub __validate_not {
     return 1;
 }
 
+# This creates a group of Boolean options at most one of which can be
+# set. The {arg} contains the names of options to be reset if the main
+# one is set.
+sub __validate_radio {
+    my ( $self, $attr_spec, $attr_name, $attr_val ) = @_;
+    if ( $attr_val ) {
+	delete $self->{$_} for @{ $attr_spec->{arg} };
+    }
+    $self->{$attr_name} = $attr_val;
+    return 1;
+}
+
 sub __validate_syntax {
     my ( $self, undef, undef, $attr_val ) = @_;	# $attr_spec, $attr_name unused
     foreach ( ref $attr_val ? @{ $attr_val } : $attr_val ) {
@@ -1671,6 +1709,16 @@ B<Note> that the files are not actually read until
 L<files_from()|/files_from> is called. The only validation before that
 is that the C<-r> operator must report them as readable, though this is
 not definitive in the presence of Access Control Lists.
+
+=item C<files_with_matches>
+
+See L<--files-with-matches|sam/--files-with-matches> in the L<sam|sam>
+documentation.
+
+=item C<files_without_matches>
+
+See L<--files-without-matches|sam/--files-without-matches> in the
+L<sam|sam> documentation.
 
 =item C<filter_files_from>
 

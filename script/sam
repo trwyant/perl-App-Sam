@@ -206,6 +206,22 @@ L<--filter-files-from|/--filter-files-from> is asserted.
 
 As a special case, F<-> specifies F<STDIN>. No prompting will be done.
 
+=head2 --files-with-matches
+
+If this Boolean option is asserted, the names of files which contain
+matches are listed.
+
+If this option is asserted,
+L<--files-without-matches|/--files-without-matches> will be negated.
+
+=head2 --files-without-matches
+
+If this Boolean option is asserted, the names of files which do not
+contain matches are listed.
+
+If this option is asserted,
+L<--files-with-matches|/--files-with-matches> will be negated.
+
 =head2 --filter-files-from
 
 This Boolean option specifies whether files obtained by calling
@@ -292,6 +308,16 @@ and counted rather than matching lines. This does not affect
 highlighting should the line be displayed, nor does it affect
 replacement if L<--replace|/--replace> was specified. The default is
 C<--no-invert-match>.
+
+=head2 -l
+
+This Boolean option is a synonym for
+L<--files-with-matches|/--files-with-matches>.
+
+=head2 -L
+
+This Boolean option is a synonym for
+L<--files-without-matches|/--files-without-matches>.
 
 =head2 --literal
 
