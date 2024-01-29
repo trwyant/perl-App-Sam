@@ -24,15 +24,17 @@ my $mock = mock 'App::Sam' => (
 );
 
 {
+    my $got;
     my $sam = CLASS->new(
-	dry_run		=> 1,	# Don't write the original back
+	dry_run		=> \$got,
 	match		=> '\bbright\b',
 	ignore_case	=> 1,
 	replace		=> 'Wright',
     );
 
     my $stdout = capture_stdout {
-	is $sam->process( 't/data/bright.txt' ), <<'EOD',
+	$sam->process( 't/data/bright.txt' );
+	is $got, <<'EOD',
 There was a young lady named Wright
 Who could travel much faster than light.
     She set out one day
@@ -49,15 +51,17 @@ EOD
 }
 
 {
+    my $got;
     my $sam = CLASS->new(
-	dry_run		=> 1,	# Don't write the original back
+	dry_run		=> \$got,
 	match		=> '\s*bright\b',
 	ignore_case	=> 1,
 	argv		=> [ qw{ --remove } ],
     );
 
     my $stdout = capture_stdout {
-	is $sam->process( 't/data/bright.txt' ), <<'EOD',
+	$sam->process( 't/data/bright.txt' );
+	is $got, <<'EOD',
 There was a young lady named
 Who could travel much faster than light.
     She set out one day

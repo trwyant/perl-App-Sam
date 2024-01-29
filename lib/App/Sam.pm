@@ -9,9 +9,11 @@ use utf8;
 
 use App::Sam::Util qw{ :carp __syntax_types @CARP_NOT };
 use File::Next ();
+use File::Basename ();
 use File::Spec;
 use Errno qw{ :POSIX };
 use File::ShareDir;
+use File::Temp ();
 use Getopt::Long ();
 use List::Util ();
 use Module::Load ();
@@ -28,6 +30,7 @@ use constant IS_WINDOWS	=> {
 }->{$^O} || 0;
 
 use constant REF_ARRAY	=> ref [];
+use constant REF_SCALAR	=> ref \0;
 
 use enum qw{ BITMASK:FLAG_ IS_ATTR IS_OPT PROCESS_EARLY
     PROCESS_NORMAL PROCESS_LATE };
@@ -195,7 +198,7 @@ sub create_samrc {
     my $default_file = $self->__get_attr_default_file_name();
     local $_ = undef;	# while (<>) does not localize $_
     open my $fh, '<:encoding(utf-8)', $default_file
-	or $self->__croak( "Unable to open $default_file: $!" );
+	or $self->__croak( "Failed to open $default_file: $!" );
     while ( <$fh> ) {
 	$. == 1
 	    and s/==VERSION==/$VERSION/;
@@ -1042,10 +1045,24 @@ sub process {
 	    return;
 	}
 
-	my @mod;
 	my $encoding = $self->__get_encoding( $file );
 	open my $fh, "<$encoding", $file	## no critic (RequireBriefOpen)
 	    or $self->__croak( "Failed to open $file for input: $!" );
+
+	my $mod_fh;
+	if ( defined $self->{replace} ) {
+	    if ( REF_SCALAR eq ref $self->{dry_run} ) {
+		open $mod_fh, '>:raw', $self->{dry_run}	## no critic (RequireBriefOpen)
+		    or $self->__confess( "Failed to open scalar ref: $!" );
+	    } elsif ( $self->{dry_run} || ref $file ) {
+		# Do nothing
+	    } else {
+		$mod_fh = File::Temp->new(
+		    DIR	=> File::Basename::dirname( $file ),
+		);
+	    }
+	}
+
 	my $lines_matched = 0;
 	local $_ = undef;	# while (<>) does not localize $_
 	while ( <$fh> ) {
@@ -1059,8 +1076,8 @@ sub process {
 	    $self->{_process}{matched} = $self->_process_match()
 		and $lines_matched++;
 
-	    defined $self->{replace}
-		and push @mod, $self->{_tplt}{replace};
+	    $mod_fh
+		and print { $mod_fh } $self->{_tplt}{replace};
 
 	    if ( $self->_process_display_p() ) {
 
@@ -1094,22 +1111,22 @@ sub process {
 		my $backup = "$file$self->{backup}";
 		rename $file, $backup
 		    or $self->__croak(
-		    "Unable to rename $file to $backup: $!" );
+		    "Failed to rename $file to $backup: $!" );
 	    }
-	    open my $fh, ">$encoding", $file
-		or $self->__croak( "Failed to open $file for output: $!" );
-	    print { $fh } @mod;
-	    close $fh;
+
+	    $mod_fh->unlink_on_destroy( 0 );
+	    rename "$mod_fh", $file
+		or $self->__croak(
+		"Failed to rename $mod_fh to $file: $!" );
 	}
 
-	defined wantarray
-	    and return join '', @mod;
     } else {
 	my $iterator = $self->__get_file_iterator( $file );
 	while ( defined( my $fn = $iterator->() ) ) {
 	    $self->process( $fn );
 	}
     }
+
     return;
 }
 
@@ -1171,19 +1188,6 @@ sub _process_callback {
 	$self->{_tplt}{pos} = pos $_;
 
     } else {	# We're being called to flush tne buffer
-
-=begin comment
-
-	# FIXME this should not append to {_tplt}{line} if --output was
-	# specified.
-	my $pre_match = substr $_, $self->{_tplt}{pos};
-	defined $self->{replace}
-	    and $self->{_tplt}{replace} .= $pre_match;
-	$self->{_tplt}{line} .= $pre_match;
-
-=end comment
-
-=cut
 
 	defined $self->{replace}
 	    and $self->{_tplt}{replace} .= $self->__process_template( '$p' );
@@ -1860,7 +1864,7 @@ The output is similar but not identical to L<ack|ack> C<--help-types>.
 
 This method processes a single file or directory. Match output is
 written to F<STDOUT>. If any files are modified, the modified file is
-written.
+written unless L<dry_run|/dry_run> is true. Nothing is returned.
 
 The argument can be a scalar reference, but in this case modifications
 are not written.
@@ -1868,10 +1872,7 @@ are not written.
 Binary files are ignored.
 
 If the file is a directory, any files in the directory are processed
-provided they are not ignored. Nothing is returned.
-
-If the file is not a directory and is actually processed, its contents
-(possibly modified) will be returned. Otherwise nothing is returned.
+provided they are not ignored.
 
 =head1 SEE ALSO
 

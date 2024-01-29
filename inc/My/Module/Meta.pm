@@ -153,9 +153,11 @@ sub requires {
 	'Carp'		=> 0,
 	'Errno'		=> 0,
 	'Exporter'	=> 0,
+	'File::Basename'	=> 0,
 	'File::Next'	=> 0,
 	'File::ShareDir'	=> 1.00,
 	'File::Spec'	=> 0,
+	'File::Temp'	=> 0.22,	# Comes with Perl 5.10.1.
 	'Getopt::Long'	=> 0,
 	'List::Util'	=> 1.46,	# for uniqstr()
 	'Module::Load'	=> 0,
