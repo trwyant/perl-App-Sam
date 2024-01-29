@@ -1083,8 +1083,9 @@ sub process {
 
 		if ( ! $self->{_process}{header} ) {
 		    $self->{_process}{header} = 1;
-		    $self->{break}
+		    $self->{_break}
 			and say '';
+		    $self->{_break} = $self->{break};
 		    $self->{heading}
 			and $self->__say(
 			    join ' => ',
