@@ -59,6 +59,63 @@ EOD
 
 {
     my $sam = CLASS->new(
+	match		=> '\A',
+	show_syntax	=> 1,
+    );
+
+    my $stdout = capture_stdout {
+	$sam->process( 't/data/perl_file.PL' );
+    };
+
+    is $stdout, <<'EOD', 'Showed Perl syntax classifications';
+t/data/perl_file.PL
+1:meta:#!/usr/bin/env perl
+2:code:
+3:code:use strict;
+4:code:use warnings;
+5:code:
+6:comm:# This is a comment
+7:code:
+8:code:printf "Hello %s!\n", @ARGV ? $ARGV[0] : 'world';
+9:code:
+10:meta:__END__
+11:data:
+12:data:This is data, kinda sorta.
+13:data:
+14:docu:=head1 TEST
+15:docu:
+16:docu:This is documentation.
+17:docu:
+18:docu:=cut
+19:data:
+20:data:# ex: set textwidth=72 :
+EOD
+}
+
+{
+    my $sam = CLASS->new(
+	match		=> '\A',
+	syntax		=> [ 'code' ],
+    );
+
+    my $stdout = capture_stdout {
+	$sam->process( 't/data/perl_file.PL' );
+    };
+
+    is $stdout, <<'EOD', 'Showed Perl syntax classifications';
+t/data/perl_file.PL
+2:code:
+3:code:use strict;
+4:code:use warnings;
+5:code:
+7:code:
+8:code:printf "Hello %s!\n", @ARGV ? $ARGV[0] : 'world';
+9:code:
+EOD
+}
+
+{
+    my $sam = CLASS->new(
 	argv	=> [ 'ay$' ],
     );
 

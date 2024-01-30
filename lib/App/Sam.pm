@@ -1000,7 +1000,7 @@ sub __make_munger {
 	push @leader, '$.';
 	$self->{column}
 	    and push @leader, '$c';
-	$self->{syntax}
+	( $self->{_syntax} || $self->{show_syntax} )
 	    and push @leader, '$s';
 	{
 	    local $" = ':';
