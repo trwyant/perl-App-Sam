@@ -18,9 +18,11 @@ is dies {
 comm:# This is not a Makefile to make anything; it is just to test the \
 comm:    Makefile syntax filter.
 code:
+code:WHO=World
+code:
 code:greeting:
 code:	echo 'Hello ' \
-code:	    'world!'
+code:	    '$(WHO)!'
 EOD
 }, undef, 'Parse did not die';
 
