@@ -624,6 +624,17 @@ sub __file_type_del {
 	    validate	=> '__validate_inverted_value',
 	    arg		=> 'recurse',
 	},
+	no_filename	=> {
+	    type	=> '',
+	    alias	=> [ 'h' ],
+	    validate	=> '__validate_inverted_value',
+	    arg		=> 'with_filename',
+	    flags	=> FLAG_IS_OPT,
+	},
+	with_filename	=> {
+	    type	=> '',
+	    alias	=> [ 'H' ],
+	},
 	not		=> {
 	    type	=> '=s@',
 	    validate	=> '__validate_not'
@@ -983,8 +994,9 @@ sub __make_munger {
 	    or $self->__confess( "Invalid match '$str': $@" );
     } else {
 	my @leader;
-	$self->{heading}
-	    or push @leader, '$f';
+	$self->{with_filename}
+	    and not $self->{heading}
+	    and push @leader, '$f';
 	push @leader, '$.';
 	$self->{column}
 	    and push @leader, '$c';
@@ -1146,6 +1158,7 @@ sub process {
 			and say '';
 		    $self->{_break} = $self->{break};
 		    $self->{heading}
+			and $self->{with_filename}
 			and $self->__say(
 			    join ' => ',
 			    $self->{_process}{filename},
@@ -1900,6 +1913,11 @@ See L<--type-del|sam/--type-del> in the L<sam|sam> documentation.
 =item C<type_set>
 
 See L<--type-set|sam/--type-set> in the L<sam|sam> documentation.
+
+=item C<with_filename>
+
+See L<--with-filename|sam/--with-filename> in the L<sam|sam>
+documentation.
 
 =item C<word_regexp>
 

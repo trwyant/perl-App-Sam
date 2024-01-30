@@ -39,7 +39,22 @@ t/data/bright.txt
 3:    She set out one day
 4:    In a relative way
 EOD
+}
 
+{
+    my $sam = CLASS->new(
+	match		=> 'ay$',
+	with_filename	=> 0,
+    );
+
+    my $stdout = capture_stdout {
+	$sam->process( 't/data/bright.txt' );
+    };
+
+    is $stdout, <<'EOD', 'Matched lines 3 and 4 of limmerick';
+3:    She set out one day
+4:    In a relative way
+EOD
 }
 
 {
@@ -56,7 +71,6 @@ t/data/bright.txt
 3:    She set out one day
 4:    In a relative way
 EOD
-
 }
 
 {

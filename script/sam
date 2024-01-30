@@ -246,6 +246,14 @@ would be searched B<and> that match the given pattern are printed.
 This convenience Boolean option asserts or negates both
 L<--break|/--break> and L<--heading|/--heading>.
 
+=head2 -h
+
+This option is a synonym for L<--no-filename|/--no-filename>.
+
+=head2 -H
+
+This option is a synonym for L<--with-filename|/--with-filename>.
+
 =head2 --heading
 
 This Boolean option specifies whether the file name is to be printed
@@ -345,6 +353,14 @@ command-line argument will be used as the match expression.
 =head2 -n
 
 This Boolean option is a synonym for L<--no-recurse|/--recurse>.
+
+=head2 --no-filename
+
+This option is an antonym for L<--with-filename|/--with-filename>. That
+is, if it is present, file names of files with matches are not
+displayed.
+
+L<-h|/-h> is a synonym for this option.
 
 =head2 --not
 
@@ -629,6 +645,17 @@ This Boolean option is a synonym for L<--invert-match|/--invert-match>.
 =head2 --version
 
 This option displays the version of this script. The script then exits.
+
+=head2 --with-filename
+
+This option specifies that the names of files with matches are to be
+displayed. It is asserted by default.
+
+L<-H|/-H> is a synonym for this option.
+
+L<--no-filename|/--no-filename> and L<-h|/-h> are antonyms for this
+L<--break|/--break> and L<--heading|/--heading>.
+option.
 
 =head2 --word-regexp
 

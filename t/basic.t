@@ -124,6 +124,7 @@ load_module_ok 'App::Sam';
 	    };
 	    etc;
 	},
+	with_filename		=> T,
     }, 'Got expected object';
 
     is $sam->__me(), 'basic.t', '__me() returns base name of script';
