@@ -196,6 +196,13 @@ that would be searched are printed. You may not specify the
 L<--match|/--match> or L<--replace|/--replace> options if this option is
 asserted. The default is C<--no-f>.
 
+=head2 --file
+
+This option specifies a file from which match patterns are read. The
+semantics are those of F<grep> -- that is, each line is C<chomp()>-ed,
+and then used to construct a pattern using the branch reset operator
+(i.e. C<(?| ... | ... )>.
+
 =head2 --files-from
 
 This option specifies the name of a file which contains the names of

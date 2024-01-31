@@ -132,6 +132,22 @@ EOD
 
 {
     my $sam = CLASS->new(
+	file	=> 't/data/match_file',
+    );
+
+    my $stdout = capture_stdout {
+	$sam->process( 't/data/bright.txt' );
+    };
+
+    is $stdout, <<'EOD',
+t/data/bright.txt
+1:There was a young lady named Bright
+EOD
+	'Matched line 1 of limmerick per --match t/data/match_file';
+}
+
+{
+    my $sam = CLASS->new(
 	f	=> 1,
     );
 
@@ -148,6 +164,7 @@ t/data/fortran_file.for
 t/data/java_file.java
 t/data/json_file.json
 t/data/make_file.mak
+t/data/match_file
 t/data/perl_file.PL
 t/data/properties_file.properties
 t/data/python_file.py
@@ -254,6 +271,7 @@ t/data/batch_file.bat
 t/data/bright.txt
 t/data/json_file.json
 t/data/make_file.mak
+t/data/match_file
 t/data/perl_file.PL
 t/data/properties_file.properties
 t/data/python_file.py

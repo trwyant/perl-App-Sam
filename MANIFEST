@@ -41,6 +41,7 @@ t/data/fortran_file.for
 t/data/java_file.java
 t/data/json_file.json
 t/data/make_file.mak
+t/data/match_file
 t/data/perl_file.PL
 t/data/properties_file.properties
 t/data/python_file.py

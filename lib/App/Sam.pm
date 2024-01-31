@@ -162,10 +162,33 @@ sub new {
     $self->__incompat_arg( qw{ f match } );
     $self->__incompat_arg( qw{ f g files_with_matches
 	files_without_matches replace } );
+    $self->__incompat_arg( qw{ file match } );
     $self->__incompat_arg( qw{ count passthru } );
 
     unless ( $self->{f} || defined $self->{match} ) {
-	if ( $argv && @{ $argv } ) {
+	if ( $self->{_file} ) {
+	    my @pat;
+	    foreach my $file ( @{ $self->{_file} } ) {
+		open my $fh, '<:encoding(utf-8)', $file
+		    or $self->__croak( "Failed to open $file: $!" );
+		while ( <$fh> ) {
+		    chomp;
+		    m/ \A \( /smx
+			and m/ \) \z /smx
+			or $_ = "(?:$_)";
+		    push @pat, $_;
+		}
+		close $fh;
+	    }
+	    if ( @pat > 1 ) {
+		local $" = '|';
+		$self->{match} = "(?|@pat)";
+	    } elsif ( @pat == 1 ) {
+		$self->{match} = $pat[0];
+	    } else {
+		$self->__croak( 'No match string specified by --file' );
+	    }
+	} elsif ( $argv && @{ $argv } ) {
 	    $self->{match} = shift @{ $argv };
 	} else {
 	    $self->__croak( 'No match string specified' );
@@ -556,6 +579,10 @@ sub __file_type_del {
 	g	=> {
 	    type	=> '!',	# The expression comes from --match.
 	    flags	=> FLAG_FAC_NO_MATCH_PROC,
+	},
+	file		=> {
+	    type	=> '=s@',
+	    validate	=> '__validate_files_from',
 	},
 	files_from	=> {
 	    type	=> '=s@',
@@ -1753,6 +1780,10 @@ See L<--env|sam/--env> in the L<sam|sam> documentation.
 =item C<f>
 
 See L<-f|sam/-f> in the L<sam|sam> documentation.
+
+=item C<file>
+
+See L<--file|sam/--file> in the L<sam|sam> documentation.
 
 =item C<files_from>
 
