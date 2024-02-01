@@ -164,6 +164,7 @@ sub new {
 	files_without_matches replace } );
     $self->__incompat_arg( qw{ file match } );
     $self->__incompat_arg( qw{ count passthru } );
+    $self->__incompat_arg( qw{ underline output } );
 
     unless ( $self->{f} || defined $self->{match} ) {
 	if ( $self->{_file} ) {
@@ -751,6 +752,9 @@ sub __file_type_del {
 	    validate	=> '__validate_type',
 	    flags	=> FLAG_FAC_TYPE,
 	},
+	underline	=> {
+	    type	=> '!',
+	},
 	word_regexp	=> {
 	    type	=> '!',
 	    alias	=> [ qw/ w / ],
@@ -974,7 +978,15 @@ sub __get_rc_file_names {
 
 sub __incompat_arg {
     my ( $self, @opt ) = @_;
-    my @have = grep { exists $self->{$_} } @opt;
+    my @have;
+    foreach ( @opt ) {
+	exists $self->{$_}
+	    or next;
+	$ATTR_SPEC{$_}{type} eq '!'
+	    and not $self->{$_}
+	    and next;
+	push @have, $_;
+    }
     if ( @have > 1 ) {
 	my $name = 'Arguments';
 	if ( $self->{die} ) {
@@ -1194,6 +1206,14 @@ sub process {
 		}
 
 		$self->__print( $self->{_tplt}{line} );
+		if ( $self->{_tplt}{ul_spec} ) {
+		    my $line = '';
+		    foreach ( @{ $self->{_tplt}{ul_spec} } ) {
+			$line .= ' ' x $_->[0];
+			$line .= '^' x $_->[1];
+		    }
+		    $self->__say( $line );
+		}
 
 	    }
 	}
@@ -1235,6 +1255,7 @@ sub process {
     return;
 }
 
+# Return a true value if the current line is to be displayed.
 # NOTE: Call this ONLY from inside process(). This is broken out because
 # I expect it to get complicated if I implement match inversion,
 # context, etc.
@@ -1253,6 +1274,9 @@ sub _process_display_p {
     return $self->{_process}{matched} || 0;
 }
 
+# Perform a match if appropriate. By default, returns true if a match
+# was performed and succeeded, and false otherwise. But --invert-match
+# inverts this.
 # NOTE: Call this ONLY from inside process(). This is broken out because
 # I expect it to get complicated if I implement ranges, syntax, etc.
 # NOTE ALSO: the current line is in $_.
@@ -1278,11 +1302,20 @@ sub _process_match {
     return( $self->{_tplt}{num_matches} xor $self->{invert_match} );
 }
 
+# NOTE that this is to be called only to process a match, including
+# exactly once to process a failed match. In practice this means only in
+# the subroutine built by __make_munger(), or immediately after this is
+# called in _process_match().
 sub _process_callback {
     my ( $self ) = @_;
     $self->{_tplt}{capt} = [];
-    $self->{_tplt}{line} //= $self->__process_template(
-	$self->{_tplt_leader} );
+    unless ( defined $self->{_tplt}{line} ) {
+	$self->{_tplt}{line} = $self->__process_template(
+	    $self->{_tplt_leader} );
+	$self->{underline}
+	    and $self->{_tplt}{ul_pos} = -
+		$self->_process_underline_leader_len();
+    }
 
     if ( defined pos ) {	# We're being called from a successful match
 
@@ -1292,8 +1325,17 @@ sub _process_callback {
 		$self->{replace} );
 	    $self->{_tplt}{replace} .= $self->__process_template( '$p$&' );
 	}
+
 	$self->{_tplt}{line} .= $self->__process_template(
 	    $self->{output} );
+
+	if ( $self->{underline} ) {
+	    push @{ $self->{_tplt}{ul_spec} }, [
+		$-[0] - $self->{_tplt}{ul_pos},
+		$+[0] - $-[0],
+	    ];
+	    $self->{_tplt}{ul_pos} = $+[0];
+	}
 
 	$self->{_tplt}{num_matches}++;
 
@@ -1310,6 +1352,7 @@ sub _process_callback {
     return;
 }
 
+# Process a --output template, returning the result.
 # NOTE: Call this ONLY from inside process(). This is broken out because
 # I expect it to get complicated if I implement ranges, syntax, etc.
 # NOTE ALSO: the current line is in $_.
@@ -1331,6 +1374,9 @@ sub __process_template {
     return $tplt;
 }
 
+# Process an individual --output template item.
+# NOTE: Call this only from the substitution replacement in
+# __process_template().
 sub _process_template_item {
     my ( $self, $kind, $item ) = @_;
     state $capt = sub {
@@ -1376,6 +1422,17 @@ sub _process_template_item {
     my $code = $hdlr->{$kind}{$item}
 	or return $item;
     return $code->( $self );
+}
+
+# Determine the length of the leader of the current line, in characters.
+# In practice, this should probably only be called from
+# _process_callback().
+sub _process_underline_leader_len {
+    my ( $self ) = @_;
+    $self->{color}
+	or return length $self->{_tplt}{line};
+    local $self->{color} = 0;
+    return length $self->__process_template( $self->{_tplt_leader} );
 }
 
 sub __get_file_iterator {
@@ -1944,6 +2001,10 @@ See L<--type-del|sam/--type-del> in the L<sam|sam> documentation.
 =item C<type_set>
 
 See L<--type-set|sam/--type-set> in the L<sam|sam> documentation.
+
+=item C<underline>
+
+See L<--underline|sam/--underline> in the L<sam|sam> documentation.
 
 =item C<with_filename>
 

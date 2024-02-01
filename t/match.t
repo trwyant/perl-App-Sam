@@ -281,6 +281,23 @@ t/data/yaml_file.yml
 EOD
 }
 
+{
+    my $sam = CLASS->new(
+	match	=> 'Bright',
+	underline	=> 1,
+    );
+
+    my $stdout = capture_stdout {
+	$sam->process( 't/data/bright.txt' );
+    };
+
+    is $stdout, <<'EOD', '--underline';
+t/data/bright.txt
+1:There was a young lady named Bright
+                               ^^^^^^
+EOD
+}
+
 
 done_testing;
 
