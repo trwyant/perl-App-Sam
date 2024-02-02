@@ -79,6 +79,7 @@ sub __confess {
 	state $me = sprintf '%s: ', $self->__me();
 	unshift @arg, $me;
     }
+    local $! = 1;	# Force exit status.
     Carp::confess( _decorate_croak_args( $self, @arg ) );
 }
 
@@ -86,6 +87,7 @@ sub __croak {
     my ( $self, @arg ) = @_;
     @arg
 	or @arg = ( 'Died' );
+    local $! = 1;	# Force exit status.
     if ( $self->{die} ) {
 	die _decorate_die_args( $self, @arg );
     } else {
@@ -93,6 +95,9 @@ sub __croak {
     }
 }
 
+# NOTE that when this has been called, $! has already been set to 1 to
+# force that as an exit status. So it's value is useless, and it MUST
+# NOT be changed.
 sub _decorate_croak_args {
     my ( undef, @arg ) = @_;	# $self unused
     chomp $arg[-1];

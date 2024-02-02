@@ -37,6 +37,8 @@ sub run {
 	argv	=> \@ARGV,
     );
 
+    my $files_matched = 0;
+
     if ( $dump ) {
 
 	require YAML;
@@ -61,13 +63,15 @@ sub run {
 	@ARGV
 	    or push @ARGV, File::Spec->curdir();
 
-	$sam->process( $_ ) for @ARGV;
+	$files_matched += $sam->process( $_ ) for @ARGV;
     }
 
-    return;
+    return $files_matched;
 }
 
-run() unless caller;
+unless ( caller ) {
+    exit( run() ? 0 : 1 );
+}
 
 1;
 

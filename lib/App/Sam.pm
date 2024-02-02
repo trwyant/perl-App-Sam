@@ -1095,15 +1095,15 @@ sub __print {	## no critic (RequireArgUnpacking)
     my ( $self ) = @_;
     my $line = join '', @_[ 1 .. $#_ ];
     if ( $self->{print0} ) {
-	$line =~ s/ \n /\0/smxg;
-	# NOTE that ack uses "\e[0m\e[K" here. But "\e[K" suffices for me.
+	$line =~ s/ \n \z /\0/smx;
 	$self->{_process}{colored}
 	    and $line .= CLR_EOL;
-    } else {
-	# NOTE that ack uses "\e[0m\e[K" here. But "\e[K" suffices for me.
-	$self->{_process}{colored}
-	    and $line =~ s/ (?= \n ) / CLR_EOL /smxge;
     }
+    # We do this even with --print0, because the output may contain
+    # embedded new lines -- in fact, that is what --print0 is all about.
+    # NOTE that ack uses "\e[0m\e[K" here. But "\e[K" suffices for me.
+    $self->{_process}{colored}
+	and $line =~ s/ (?= \n ) / CLR_EOL /smxge;
     print $line;
     return;
 }
@@ -1117,15 +1117,15 @@ sub process {
 
     if ( ref( $file ) || ! -d $file ) {
 
-	-T $file
-	    or return;
+	-B $file
+	    and return 0;
 
 	$self->{_process}{type} = [ $self->__file_type( $file ) ]
 	    if $self->{_flags} & FLAG_FAC_TYPE;
 
 	$self->{known_types}
 	    and not @{ $self->{_process}{type} }
-	    and return;
+	    and return 0;
 
 	my @show_types;
 	$self->{show_types}
@@ -1143,10 +1143,10 @@ sub process {
 	    # the file.
 	    if ( $self->{_syntax} ) {
 		$self->{_process}{syntax_obj}
-		    or return;
+		    or return 0;
 		List::Util::first( sub { $self->{_syntax}{$_} },
 		    $self->{_process}{syntax_obj}->__classifications() )
-		    or return;
+		    or return 0;
 	    }
 	}
 
@@ -1154,10 +1154,10 @@ sub process {
 	    if ( $self->{g} ) {
 		local $_ = $file;
 		$self->{_munger}->( $self ) xor $self->{invert_match}
-		    or return;
+		    or return 0;
 	    }
 	    $self->__say( join ' => ', $file, @show_types );
-	    return;
+	    return 1;
 	}
 
 	my $encoding = $self->__get_encoding( $file );
@@ -1191,7 +1191,7 @@ sub process {
 	    if ( $self->{_process}{matched} = $self->_process_match() ) {
 		if ( $self->{files_with_matches} ) {
 		    $self->__say( join ' => ', $file, @show_types );
-		    return;
+		    return 1;
 		}
 		$lines_matched++;
 	    }
@@ -1231,7 +1231,7 @@ sub process {
 
 	if ( $self->{files_without_matches} && ! $lines_matched ) {
 	    $self->__say( join ' => ', $file, @show_types );
-	    return;
+	    return 1;
 	}
 
 	$self->{count}
@@ -1255,14 +1255,16 @@ sub process {
 		"Failed to rename $mod_fh to $file: $!" );
 	}
 
+	return $lines_matched ? 1 : 0;
+
     } else {
 	my $iterator = $self->__get_file_iterator( $file );
+	my $files_matched = 0;
 	while ( defined( my $fn = $iterator->() ) ) {
-	    $self->process( $fn );
+	    $files_matched += $self->process( $fn );
 	}
+	return $files_matched;
     }
-
-    return;
 }
 
 # Return a true value if the current line is to be displayed.
@@ -2086,6 +2088,8 @@ Binary files are ignored.
 
 If the file is a directory, any files in the directory are processed
 provided they are not ignored.
+
+The return is the number of files that contained matches.
 
 =head1 SEE ALSO
 

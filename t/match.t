@@ -31,7 +31,7 @@ my $mock = mock 'App::Sam' => (
     );
 
     my $stdout = capture_stdout {
-	$sam->process( 't/data/bright.txt' );
+	is $sam->process( 't/data/bright.txt' ), 1, 'Matches in 1 file';
     };
 
     is $stdout, <<'EOD', 'Matched lines 3 and 4 of limmerick';
@@ -136,7 +136,7 @@ EOD
     );
 
     my $stdout = capture_stdout {
-	$sam->process( 't/data/bright.txt' );
+	is $sam->process( 't/data/bright.txt' ), 1, 'Matches in 1 file';
     };
 
     is $stdout, <<'EOD',
@@ -152,7 +152,7 @@ EOD
     );
 
     my $stdout = capture_stdout {
-	$sam->process( 't/data' );
+	is $sam->process( 't/data' ), 17, '-f t/data found 17 files';
     };
 
     is $stdout, <<'EOD', '-f listed everything in t/data';
@@ -183,7 +183,7 @@ EOD
     );
 
     my $stdout = capture_stdout {
-	$sam->process( 't/data' );
+	is $sam->process( 't/data' ), 15, '-fk t/data found 15 files';
     };
 
     is $stdout, <<'EOD', '-fk listed only known types in t/data';
@@ -245,7 +245,7 @@ EOD
     );
 
     my $stdout = capture_stdout {
-	$sam->process( 't/data/' );
+	is $sam->process( 't/data/' ), 6, '--files-with-matches found 6';
     };
     is $stdout, <<'EOD', q(--files-with-matches);
 t/data/cc_file.c
@@ -265,7 +265,7 @@ EOD
     );
 
     my $stdout = capture_stdout {
-	$sam->process( 't/data/' );
+	is $sam->process( 't/data/' ), 6, '--files-without-matches found 6';
     };
     
     my $want = <<'EOD';
