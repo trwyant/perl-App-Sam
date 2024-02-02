@@ -494,6 +494,11 @@ not they match. This option is incompatible with L<--count|/--count>.
 
 This Boolean option is a synonym for L<--passthru|/--passthru>.
 
+=head2 --print0
+
+If this Boolean option is asserted, lines of search output are
+terminated with a null character (C<\0>) instead of a new line (C<\n>).
+
 =head2 -Q
 
 This Boolean option is a synonym for L<--ignore-case|/--ignore-case>.

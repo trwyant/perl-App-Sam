@@ -260,6 +260,30 @@ EOD
 {
     my $sam = CLASS->new(
 	match	=> 'Wyant',
+	files_with_matches	=> 1,
+	print0			=> 1,
+    );
+
+    my $stdout = capture_stdout {
+	$sam->process( 't/data/' );
+    };
+    
+    my $want = <<'EOD';
+t/data/cc_file.c
+t/data/cpp_file.cpp
+t/data/fortran_file.for
+t/data/java_file.java
+t/data/shell_file.sh
+t/data/sql_file.sql
+EOD
+    $want =~ s/ \n /\0/smxg;
+
+    is $stdout, $want, q(--files-with-matches);
+}
+
+{
+    my $sam = CLASS->new(
+	match	=> 'Wyant',
 	files_without_matches	=> 1,
     );
 

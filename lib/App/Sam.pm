@@ -679,6 +679,9 @@ sub __file_type_del {
 	    type	=> '!',
 	    alias	=> [ 'passthrough' ],
 	},
+	print0		=> {
+	    type	=> '!',
+	},
 	recurse		=> {
 	    type	=> '!',
 	    alias	=> [ qw{ r R } ],
@@ -1091,9 +1094,16 @@ sub __ignore {
 sub __print {	## no critic (RequireArgUnpacking)
     my ( $self ) = @_;
     my $line = join '', @_[ 1 .. $#_ ];
-    # NOTE that ack uses "\e[0m\e[K" here. But "\e[K" suffices for me.
-    $self->{_process}{colored}
-	and $line =~ s/ (?= \n ) / CLR_EOL /smxge;
+    if ( $self->{print0} ) {
+	$line =~ s/ \n /\0/smxg;
+	# NOTE that ack uses "\e[0m\e[K" here. But "\e[K" suffices for me.
+	$self->{_process}{colored}
+	    and $line .= CLR_EOL;
+    } else {
+	# NOTE that ack uses "\e[0m\e[K" here. But "\e[K" suffices for me.
+	$self->{_process}{colored}
+	    and $line =~ s/ (?= \n ) / CLR_EOL /smxge;
+    }
     print $line;
     return;
 }
@@ -1939,6 +1949,10 @@ is a template as described in that documentation.
 =item C<passthru>
 
 See L<--passthru|sam/--passthru> in the L<sam|sam> documentation.
+
+=item C<print0>
+
+See L<--print0|sam/--print0> in the L<sam|sam> documentation.
 
 =item C<recurse>
 
