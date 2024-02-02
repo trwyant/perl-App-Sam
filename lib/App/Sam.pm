@@ -1146,7 +1146,7 @@ sub process {
 		$self->{_munger}->( $self ) xor $self->{invert_match}
 		    or return;
 	    }
-	    say join ' => ', $file, @show_types;
+	    $self->__say( join ' => ', $file, @show_types );
 	    return;
 	}
 
@@ -1180,7 +1180,7 @@ sub process {
 
 	    if ( $self->{_process}{matched} = $self->_process_match() ) {
 		if ( $self->{files_with_matches} ) {
-		    say join ' => ', $file, @show_types;
+		    $self->__say( join ' => ', $file, @show_types );
 		    return;
 		}
 		$lines_matched++;
@@ -1194,7 +1194,7 @@ sub process {
 		if ( ! $self->{_process}{header} ) {
 		    $self->{_process}{header} = 1;
 		    $self->{_break}
-			and say '';
+			and $self->__say( '' );
 		    $self->{_break} = $self->{break};
 		    $self->{heading}
 			and $self->{with_filename}
@@ -1220,14 +1220,14 @@ sub process {
 	close $fh;
 
 	if ( $self->{files_without_matches} && ! $lines_matched ) {
-	    say join ' => ', $file, @show_types;
+	    $self->__say( join ' => ', $file, @show_types );
 	    return;
 	}
 
 	$self->{count}
-	    and say join ' => ',
+	    and $self->__say( join ' => ',
 		sprintf( '%s:%d', $self->{_process}{filename},
-		    $lines_matched ), @show_types;
+		    $lines_matched ), @show_types );
 
 	if ( defined( $self->{replace} ) && ! $self->{dry_run} &&
 	    $lines_matched && ! ref $file
