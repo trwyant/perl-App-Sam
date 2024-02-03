@@ -505,6 +505,10 @@ sub __file_type_del {
     #         not provided, the default is FLAG_IS_ATTR | FLAG_IS_OPT |
     #         FLAG_PROCESS_NORMAL.
     my %attr_spec_hash = (
+	after_context	=> {
+	    type	=> '=i',
+	    alias	=> [ 'A' ],
+	},
 	argv	=> {
 	    type	=> '=s@',
 	    flags	=> FLAG_PROCESS_LATE
@@ -1295,10 +1299,21 @@ sub _process_display_p {
     $self->{files_without_matches}
 	and return 0;
 
+    if ( $self->{_process}{matched} ) {
+	$self->{after_context}
+	    and $self->{_process}{after_context} =
+		$self->{after_context} + 1;
+	return 1;
+    }
+
+    $self->{_process}{after_context}
+	and --$self->{_process}{after_context}
+	and return 1;
+
     $self->{passthru}
 	and return 1;
 
-    return $self->{_process}{matched} || 0;
+    return 0;
 }
 
 # Perform a match if appropriate. By default, returns true if a match
@@ -1785,6 +1800,11 @@ This static method instantiates an application object. It takes the
 following named arguments:
 
 =over
+
+=item C<after_context>
+
+See L<--after-context|sam/--after-context> in the L<sam|sam>
+documentation.
 
 =item C<argv>
 

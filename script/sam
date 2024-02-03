@@ -90,6 +90,15 @@ sam - Search for strings in files, and possibly modify them
 
 =head1 OPTIONS
 
+=head2 -A
+
+This option is a synonym for L<--after-context|/--after-context>.
+
+=head2 --after-context
+
+This option specifies the number of lines of context to display after a
+match.
+
 =head2 --backup
 
  --backup=.bak
