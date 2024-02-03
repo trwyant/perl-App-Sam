@@ -153,7 +153,6 @@ sub new {
 	    or $self->__croak( "Invalid argument '$attr_name' to new()" );
 	$self->__validate_attr( $attr_name, $attr_val )
 	    or $self->__croak( "Invalid $attr_name value '$attr_val'" );
-	$self->{$attr_name} = $attr_val;
     }
 
     $argv
@@ -207,16 +206,15 @@ sub new {
 	and $self->{backup} eq ''
 	and delete $self->{backup};
 
-    foreach my $name ( qw{ ignore_file ignore_directory not } ) {
-	my $alias = "_$name";
-	$self->{$alias}	# Prevent autovivification
-	    and $self->{$alias}{match}
+    foreach my $attr_name ( qw{ ignore_file ignore_directory not } ) {
+	$self->{$attr_name}	# Prevent autovivification
+	    and $self->{$attr_name}{match}
 	    or next;
 	my $str = join ' || ', map { "m $_" }
-	    List::Util::uniqstr( @{ $self->{$alias}{match} } );
+	    List::Util::uniqstr( @{ $self->{$attr_name}{match} } );
 	my $code = eval "sub { $str }"	## no critic (ProhibitStringyEval)
-	    or $self->__confess( "Failed to compile $name match spec" );
-	$self->{$alias}{match} = $code;
+	    or $self->__confess( "Failed to compile $attr_name match spec" );
+	$self->{$attr_name}{match} = $code;
     }
 
     foreach my $prop ( qw{ syntax type } ) {
@@ -1006,12 +1004,17 @@ sub __get_validator {
 
 # Validate an attribute given its name and value
 sub __validate_attr {
-    my ( $self, $name, $value ) = @_;
-    my $attr_spec = $ATTR_SPEC{$name}
-	or $self->__confess( "Unknown attribute '$name'" );
+    my ( $self, $attr_name, $attr_val ) = @_;
+    my $attr_spec = $ATTR_SPEC{$attr_name}
+	or $self->__confess( "Unknown attribute '$attr_name'" );
     if ( my $code = $self->__get_validator( $attr_spec ) ) {
-	$code->( $name, $value )
+	$code->( $attr_name, $attr_val )
 	    or return 0;
+    } elsif ( $attr_spec->{type} =~ m/ \@ \z /smx ) {
+	push @{ $self->{$attr_name} },
+	    REF_ARRAY eq ref $attr_val ? @{ $attr_val } : $attr_val;
+    } else {
+	$self->{$attr_name} = $attr_val;
     }
     return 1;
 }
@@ -1155,7 +1158,7 @@ sub __me {
 
 sub __ignore {
     ( my ( $self, $kind, $path ), local $_ ) = @_;
-    my $prop_spec = $self->{"_ignore_$kind"}
+    my $prop_spec = $self->{"ignore_$kind"}
 	or $self->__confess( "Invalid ignore kind '$kind'" );
     $_ //= ( File::Spec->splitpath( $path ) )[2];
     $prop_spec->{is}{$_}
@@ -1418,8 +1421,8 @@ sub _process_match {
     $self->{flags} & FLAG_FAC_NO_MATCH_PROC
 	and return $self->{_munger}->( $self );
 
-    $self->{_not}{match}
-	and $self->{_not}{match}->()
+    $self->{not}{match}
+	and $self->{not}{match}->()
 	and return $self->{invert_match};
     if ( $self->{_syntax} && defined $self->{_process}{syntax} ) {
 	$self->{_syntax}{$self->{_process}{syntax}}
@@ -1777,12 +1780,12 @@ sub __validate_ignore {
 	    ext	=> sub {
 		my ( $self, $attr_name, $data ) = @_;
 		my @item = split /,/, $data;
-		@{ $self->{"_$attr_name"}{ext} }{ @item } = ( ( 1 ) x @item );
+		@{ $self->{$attr_name}{ext} }{ @item } = ( ( 1 ) x @item );
 		return 1;
 	    },
 	    is	=> sub {
 		my ( $self, $attr_name, $data ) = @_;
-		$self->{"_$attr_name"}{is}{$data} = 1;
+		$self->{$attr_name}{is}{$data} = 1;
 		return 1;
 	    },
 	    match	=> sub {
@@ -1790,7 +1793,7 @@ sub __validate_ignore {
 		local $@ = undef;
 		eval "qr $data"	## no critic (ProhibitStringyEval)
 		    or return 0;
-		push @{ $self->{"_$attr_name"}{match} }, $data;
+		push @{ $self->{$attr_name}{match} }, $data;
 		return 1;
 	    },
 	};
@@ -1809,9 +1812,9 @@ sub __validate_not {
 	eval "qr($_)"		## no critic (ProhibitStringyEval)
 	    or return 0;
 	# NOTE functionally the expressions could be stored directly in
-	# {_not}, but the {match} means I can process this with the same
+	# {not}, but the {match} means I can process this with the same
 	# code that processes ignore_directory and ignore_file.
-	push @{ $self->{"_$attr_name"}{match} }, "($_)";
+	push @{ $self->{$attr_name}{match} }, "($_)";
     }
     return 1;
 }
