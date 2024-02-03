@@ -108,8 +108,8 @@ sub new {
 	color_filename	=> 'bold green',
 	color_lineno	=> 'bold yellow',
 	color_match	=> 'black on_yellow',
-	_flags		=> 0,
 	env		=> $priority_arg{env} // 1,
+	flags		=> 0,
 	recurse		=> 1,
 	sort_files	=> 1,
     }, $class;
@@ -982,12 +982,12 @@ sub __get_validator {
 		and return sub {
 		$self->$method( $attr_spec, @_ )
 		    or die "Invalid value --$_[0]=$_[1]\n";
-		$self->{_flags} |= $facility;
+		$self->{flags} |= $facility;
 		return 1;
 	    };
 	    return sub {
 		return $self->$method( $attr_spec, @_ ) &&
-		( $self->{_flags} |= $facility );
+		( $self->{flags} |= $facility );
 	    };
 	} else {
 	    $die
@@ -1115,7 +1115,7 @@ sub __make_munger {
     $str = "m($match)$modifier";
     my $code = eval "sub { $str }"	## no critic (ProhibitStringyEval)
 	or $self->__croak( "Invalid match '$match': $@" );
-    if ( $self->{_flags} & FLAG_FAC_NO_MATCH_PROC ) {
+    if ( $self->{flags} & FLAG_FAC_NO_MATCH_PROC ) {
 	# Do nothing -- we just want to know if we have a match.
     } elsif ( defined $self->{output} ) {
 	$self->{_tplt_leader} = $self->{_tplt_trailer} = '';
@@ -1210,7 +1210,7 @@ sub process {
 	    and return 0;
 
 	$self->{_process}{type} = [ $self->__file_type( $file ) ]
-	    if $self->{_flags} & FLAG_FAC_TYPE;
+	    if $self->{flags} & FLAG_FAC_TYPE;
 
 	$self->{known_types}
 	    and not @{ $self->{_process}{type} }
@@ -1223,7 +1223,7 @@ sub process {
 	$self->{show_types}
 	    and push @show_types, join ',', @{ $self->{_process}{type} };
 
-	if ( $self->{_flags} & FLAG_FAC_SYNTAX ) {
+	if ( $self->{flags} & FLAG_FAC_SYNTAX ) {
 	    if ( my ( $class ) = $self->__file_syntax( $file ) ) {
 		$self->{_process}{syntax_obj} =
 		    $self->{_syntax_obj}{$class} ||=
@@ -1415,7 +1415,7 @@ sub _process_display_p {
 sub _process_match {
     my ( $self ) = @_;
 
-    $self->{_flags} & FLAG_FAC_NO_MATCH_PROC
+    $self->{flags} & FLAG_FAC_NO_MATCH_PROC
 	and return $self->{_munger}->( $self );
 
     $self->{_not}{match}
