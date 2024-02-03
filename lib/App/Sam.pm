@@ -662,6 +662,9 @@ sub __file_type_del {
 	filter_files_from	=> {
 	    type	=> '!',
 	},
+	flush		=> {
+	    type	=> '!',
+	},
 	follow		=> {
 	    type	=> '!',
 	},
@@ -1212,6 +1215,9 @@ sub process {
 	$self->{known_types}
 	    and not @{ $self->{_process}{type} }
 	    and return 0;
+
+	$self->{flush}
+	    and local $| = 1;
 
 	my @show_types;
 	$self->{show_types}
@@ -2008,6 +2014,10 @@ L<sam|sam> documentation.
 
 See L<--filter-files-from|sam/--filter-files-from> in the L<sam|sam>
 documentation.
+
+=item C<flush>
+
+See L<--flush|sam/--flush> in the L<sam|sam> documentation.
 
 =item C<follow>
 
