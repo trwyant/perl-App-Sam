@@ -733,6 +733,9 @@ sub __file_type_del {
 	    validate	=> '__validate_fixed_value',
 	    arg		=> [ 'replace' ],
 	},
+	s	=> {
+	    type	=> '!',
+	},
 	samrc	=> {
 	    type	=> '=s',
 	    flags	=> FLAG_IS_OPT | FLAG_PROCESS_LATE,
@@ -1166,7 +1169,11 @@ sub process {
 
 	my $encoding = $self->__get_encoding( $file );
 	open my $fh, "<$encoding", $file	## no critic (RequireBriefOpen)
-	    or $self->__croak( "Failed to open $file for input: $!" );
+	    or do {
+	    $self->{s}
+		or $self->__carp( "Failed to open $file for input: $!" );
+	    return 0;
+	};
 
 	my $mod_fh;
 	if ( defined $self->{replace} ) {
@@ -1975,6 +1982,10 @@ See L<--recurse|sam/--recurse> in the L<sam|sam> documentation.
 =item C<replace>
 
 See L<--replace|sam/--replace> in the L<sam|sam> documentation.
+
+=item C<s>
+
+See L<-s|sam/-s> in the L<sam|sam> documentation.
 
 =item C<samrc>
 

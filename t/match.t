@@ -337,6 +337,23 @@ t/data/bright.txt
 EOD
 }
 
+{
+    my $sam = CLASS->new(
+	match	=> 'Bright',
+	s	=> 1,
+    );
+
+    my $stdout = capture_stdout {
+	my $warnings = warnings {
+	    is $sam->process( 't/data/fubar.txt' ), 0,
+		'Found nothing in non-existent file';
+	};
+	is $warnings, [], '-s suppressed warning';
+    };
+
+    is $stdout, undef, '-s, searching non-existent file';
+}
+
 
 done_testing;
 

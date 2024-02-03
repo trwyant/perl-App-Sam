@@ -541,6 +541,11 @@ This option specifies an empty replacement string. It is needed because
 L<Getopt::Long|Getopt::Long> considers C<--replace=> to be missing an
 argument. If this option is specified, a match string is required.
 
+=head2 -s
+
+This Boolean option suppresses open error messages on files to be
+searched.
+
 =head2 --samrc
 
 This option specifies the name of a resource file to read. This is read
