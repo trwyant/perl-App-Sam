@@ -24,22 +24,25 @@ sub run {
     my %opt;
 
     GetOptions( \%opt,
-	qw{ dump! },
+	qw{ debug! },
 	help => sub { pod2usage( { -verbose => 2 } ) },
     ) or pod2usage( { -verbose => 0 } );
 
-    my $dump = delete $opt{dump};
+    my $debug = delete $opt{debug};
 
     my $sam = App::Sam->new(
 	break	=> IS_TTY,
 	color	=> IS_TTY,
-	die		=> 1,
+	die	=> 1,
 	argv	=> \@ARGV,
     );
 
+    $sam->dumped()
+	and return 1;
+
     my $files_matched = 0;
 
-    if ( $dump ) {
+    if ( $debug ) {
 
 	require YAML;
 	{
@@ -206,6 +209,11 @@ any resource files) to be written to F<STDOUT>. The script then exits.
 If this Boolean option is asserted, modified files are not rewritten,
 nor are the originals backed up. It has no effect unless
 L<--replace|/--replace> is specified. The default is C<--no-dry-run>.
+
+=head2 --dump
+
+If this Boolean option is asserted, all configured options will be
+dumped to F<STDOUT>, along with their source. No matches will be done.
 
 =head2 --encoding
 

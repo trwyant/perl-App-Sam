@@ -186,12 +186,12 @@ sub new {
 		$self->{match} = "(?|@pat)";
 	    } elsif ( @pat == 1 ) {
 		$self->{match} = $pat[0];
-	    } else {
+	    } elsif ( ! $self->{dump} ) {
 		$self->__croak( 'No match string specified by --file' );
 	    }
 	} elsif ( $argv && @{ $argv } ) {
 	    $self->{match} = shift @{ $argv };
-	} else {
+	} elsif ( ! $self->{dump} ) {
 	    $self->__croak( 'No match string specified' );
 	}
     }
@@ -245,8 +245,7 @@ sub new {
 	}
     }
 
-    defined $self->{match}
-	and $self->__make_munger();
+    $self->__make_munger();
 
     return $self;
 }
@@ -265,6 +264,39 @@ sub create_samrc {
     }
     close $fh;
     $exit and exit;
+    return;
+}
+
+sub _accum_opt_for_dump {
+    my ( $self, $line ) = @_;
+    chomp $line;
+    if ( delete $self->{_dump}{want_arg} ) {
+	$self->{_dump}{accum}[-1][0] .= " $line";
+    } else {
+	$line =~ s/ \A \s+ //smx;
+	$line =~ m/ \A --? ( [\w-]+ ) /smx
+	    or return;
+	( my $key = $1 ) =~ tr/-/_/;
+	push @{ $self->{_dump}{accum} }, [ $line, $key ];
+	$line =~ m/ = /smx
+	    and return;
+	my $attr_spec = $ATTR_SPEC{$key}
+	    or return;
+	$attr_spec->{type} =~ m/ \A = /smx
+	    or return;
+	$self->{_dump}{want_arg} = 1;
+    }
+    return;
+}
+
+sub _display_opt_for_dump {
+    my ( $self, $name ) = @_;
+    $self->{_dump}{accum}
+	or return;
+    say $name;
+    say '=' x length $name;
+    say "  $_->[0]" for
+	sort { $a->[1] cmp $b->[1] } @{ $self->{_dump}{accum} };
     return;
 }
 
@@ -349,6 +381,11 @@ sub __color {
 	or $self->__confess( "Invalid color kind '$kind'" );
     $self->{_process}{colored} = 1;
     return Term::ANSIColor::colored( $text, $color );
+}
+
+sub dumped {
+    my ( $self ) = @_;
+    return $self->{dump};
 }
 
 sub files_from {
@@ -574,6 +611,10 @@ sub __file_type_del {
 	},
 	dry_run	=> {
 	    type	=> '!',
+	},
+	dump	=> {
+	    type	=> '!',
+	    flags	=> FLAG_IS_OPT | FLAG_PROCESS_EARLY,
 	},
 	group		=> {
 	    type	=> '!',
@@ -860,7 +901,13 @@ sub __get_attr_default_file_name {
     sub __get_attr_from_rc {
 	my ( $self, $file, $required ) = @_;
 	my $arg = $file;
-	unless ( REF_ARRAY eq ref $file ) {
+	local $self->{_dump} = {};
+	if ( REF_ARRAY eq ref $file ) {
+	    if ( $self->{dump} ) {
+		$self->_accum_opt_for_dump( $_ ) for @{ $file };
+		$self->_display_opt_for_dump( 'ARGV' );
+	    }
+	} else {
 	    if ( not ref( $file ) and $arg = $rc_cache{$file} ) {
 		ref $arg
 		    or $self->__croak( $arg );
@@ -875,10 +922,18 @@ sub __get_attr_default_file_name {
 		    m/ \A \s* (?: \z | \# ) /smx
 			and next;
 		    chomp;
+		    s/ \A \s+ //smx;
 		    push @{ $arg }, $_;
+		    $self->{dump}
+			and $self->_accum_opt_for_dump( $_ );
 		}
 		close $fh;
 		$rc_cache{$file} = [ @{ $arg } ];
+		if ( $self->{dump} ) {
+		    state $dflt = $self->__get_attr_default_file_name();
+		    my $display = $file eq $dflt ? 'Default' : $file;
+		    $self->_display_opt_for_dump( $display );
+		}
 	    } elsif ( $! == ENOENT && ! $required ) {
 		$rc_cache{$file} = [];
 		return;
@@ -1037,7 +1092,16 @@ sub __make_munger {
     my $modifier = '';
     $self->{ignore_case}
 	and $modifier .= 'i';
-    my $match = $self->{match};
+
+    defined( my $match = $self->{match} )
+	or do {
+	$self->{munger} = 'No match string specified';
+	$self->{_munger} = sub {
+	    $self->__croak( $self->{munger} );
+	};
+	return;
+    };
+
     $self->{literal}
 	and $match = quotemeta $match;
     if ( $self->{word_regexp} ) {
@@ -1898,6 +1962,13 @@ is false. A true value will be ignored if C<$Carp::verbose> is true.
 
 See L<--dry-run|sam/--dry-run> in the L<sam|sam> documentation.
 
+=item C<dump>
+
+See L<--dump|sam/--dump> in the L<sam|sam> documentation. B<Note> that
+if this argument is true, L<match|/match> need not be specified. This
+does not necessarily mean you get a working object, though. It just
+means you get an exception when you call L<process()|/process>.
+
 =item C<encoding>
 
 See L<--encoding|sam/--encoding> in the L<sam|sam> documentation.
@@ -2108,6 +2179,10 @@ See L<--word-regexp|sam/--word-regexp> in the L<sam|sam> documentation.
 This method prints the default configuration to C<STDOUT>. If the
 argument is true, it exits. Otherwise it returns. The default for
 C<$exit> is true if called from the C<$sam> object.
+
+=head2 dumped
+
+This method returns the value of the L<dump|/dump> argument.
 
 =head2 files_from
 
