@@ -322,6 +322,25 @@ EOD
 
 {
     my $sam = CLASS->new(
+	match	=> 'day',
+	after_context	=> 1,
+	before_context	=> 1,
+    );
+
+    my $stdout = capture_stdout {
+	is $sam->process( 't/data/bright.txt' ), 1, 'Matched 1 line';
+    };
+
+    is $stdout, <<'EOD', '--context=1 displayed 3 lines';
+t/data/bright.txt
+2:Who could travel much faster than light.
+3:    She set out one day
+4:    In a relative way
+EOD
+}
+
+{
+    my $sam = CLASS->new(
 	match	=> 'Bright',
 	underline	=> 1,
     );

@@ -523,6 +523,10 @@ sub __file_type_del {
 	    validate	=> '__validate_fixed_value',
 	    arg		=> [ 'backup' ],
 	},
+	before_context	=> {
+	    type	=> '=i',
+	    alias	=> [ 'B' ],
+	},
 	break	=> {
 	    type	=> '!',
 	},
@@ -548,6 +552,13 @@ sub __file_type_del {
 	},
 	column	=> {
 	    type	=> '!',
+	},
+	context		=> {
+	    type	=> '=i',
+	    alias	=> [ 'C' ],
+	    flags	=> FLAG_IS_OPT,
+	    validate	=> '__validate_gang_set',
+	    arg		=> [ qw{ before_context after_context } ],
 	},
 	count	=> {
 	    type	=> '!',
@@ -1195,6 +1206,7 @@ sub process {
 
 	my $lines_matched = 0;
 	local $_ = undef;	# while (<>) does not localize $_
+	my @before_context;
 	while ( <$fh> ) {
 
 	    delete $self->{_process}{colored};
@@ -1230,6 +1242,8 @@ sub process {
 			);
 		}
 
+		$self->__print( $_ ) for @before_context;
+		@before_context = ();
 		$self->__print( $self->{_tplt}{line} );
 		if ( $self->{_tplt}{ul_spec} ) {
 		    my $line = '';
@@ -1240,6 +1254,12 @@ sub process {
 		    $self->__say( $line );
 		}
 
+	    } elsif ( $self->{before_context} ) {
+
+		push @before_context, $self->{_tplt}{line};
+		@before_context > $self->{before_context}
+		    and splice @before_context, 0, @before_context -
+			$self->{before_context};
 	    }
 
 	    $self->{max_count}
@@ -1822,6 +1842,11 @@ argument is processed, non-option arguments remain in the array.
 
 See L<--backup|sam/--backup> in the L<sam|sam> documentation. A value of
 C<undef> or C<''> specifies no backup.
+
+=item C<before_context>
+
+See L<--before-context|sam/--before-context> in the L<sam|sam>
+documentation.
 
 =item C<break>
 

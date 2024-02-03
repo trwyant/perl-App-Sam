@@ -118,6 +118,15 @@ need to undo a L<--backup|/--backup>.
 
 This option can also be specified as C<--nobackup>.
 
+=head2 -B
+
+This option is a synonym for L<--before-context|/--before-context>.
+
+=head2 --before-context
+
+This option specifies the number of lines of context to display before a
+match.
+
 =head2 --break
 
 This Boolean option specifies whether a break is printed between
@@ -127,6 +136,10 @@ terminal, and C<--no-break> otherwise.
 =head2 -c
 
 This Boolean option is a synonym for L<--count|/--count>.
+
+=head2 -C
+
+This option is a synonym for L<--context|/--context>.
 
 =head2 --color
 
@@ -172,6 +185,11 @@ to be applied to the match. The default is
 If this Boolean option is asserted, the column number of the first match
 on the line is displayed after the line number. The default is
 C<--no-column>.
+
+=head2 --context
+
+This option specifies the number of lines of context to display before
+and after a match.
 
 =head2 --count
 
