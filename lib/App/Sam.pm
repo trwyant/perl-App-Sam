@@ -161,7 +161,7 @@ sub new {
 
     $self->__incompat_arg( qw{ f match } );
     $self->__incompat_arg( qw{ f g files_with_matches
-	files_without_matches replace } );
+	files_without_matches replace max_count } );
     $self->__incompat_arg( qw{ file match } );
     $self->__incompat_arg( qw{ count passthru } );
     $self->__incompat_arg( qw{ underline output } );
@@ -646,6 +646,10 @@ sub __file_type_del {
 	literal	=> {
 	    type	=> '!',
 	    alias	=> [ 'Q' ],
+	},
+	max_count	=> {
+	    type	=> '=i',
+	    alias	=> [ 'm' ],
 	},
 	n		=> {
 	    type	=> '!',
@@ -1226,6 +1230,10 @@ sub process {
 		}
 
 	    }
+
+	    $self->{max_count}
+		and $lines_matched >= $self->{max_count}
+		and last;
 	}
 	close $fh;
 
@@ -1937,6 +1945,10 @@ See L<--literal|sam/--literal> in the L<sam|sam> documentation.
 
 See L<--match|sam/--match> in the L<sam|sam> documentation. If legal but
 not specified, the first non-option argument in C<argv> will be used.
+
+=item C<max_count>
+
+See L<--max-count|sam/--max-count> in the L<sam|sam> documentation.
 
 =item C<not>
 

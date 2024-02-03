@@ -240,6 +240,21 @@ EOD
 
 {
     my $sam = CLASS->new(
+	match		=> 'Wyant',
+	max_count	=> 1,
+    );
+
+    my $stdout = capture_stdout {
+	is $sam->process( 't/data/sql_file.sql' ), 1, '--max-count=1';
+    };
+    is $stdout, <<'EOD', q(--output);
+t/data/sql_file.sql
+6: * Author: Thomas R. Wyant, III F<wyant at cpan dot org>
+EOD
+}
+
+{
+    my $sam = CLASS->new(
 	match	=> 'Wyant',
 	files_with_matches	=> 1,
     );

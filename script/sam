@@ -354,12 +354,21 @@ file to be processed.
 
 This Boolean option is a synonym for L<--known-types|/--known-types>.
 
+=head2 -m
+
+This option is a synonym for L<--max-count|/--max-count>.
+
 =head2 --match
 
 This option specifies the regular expression to match. It is illegal to
 specify this in the presence of non-matching options such as C<-f|/-f>.
 If this option is legal but not specified, the first non-option
 command-line argument will be used as the match expression.
+
+=head2 --max-count
+
+This option specifies the maximum number of matches allowed in a file.
+When this number is reached the search is abandoned.
 
 =head2 -n
 
