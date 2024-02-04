@@ -1163,12 +1163,12 @@ sub __ignore {
     $prop_spec->{match}
 	and $prop_spec->{match}->()
 	and return 1;
-    if ( $kind eq 'file' && $self->{_type} ) {
+    if ( $kind eq 'file' && $self->{type} ) {
 
 	# Encoding: undef = unspecified, 0 = accept, 1 = skip
 	my $want_type;
 	foreach my $type ( $self->__file_type( $path, $_ ) ) {
-	    my $skip = $self->{_type}{$type}
+	    my $skip = $self->{type}{$type}
 		and return 1;
 	    $want_type //= $skip;
 	}
@@ -1841,10 +1841,10 @@ sub __validate_type {
     foreach ( ref $attr_val ? @{ $attr_val } : $attr_val ) {
 	my $neg;
 	if ( $self->{_type_def}{$_} ) { 
-	    $self->{_type}{$_} = 0;
+	    $self->{type}{$_} = 0;
 	} elsif ( ( $neg = $_ ) =~ s/ \A no-? //smxi && (
 		$self->{_type_def}{$neg} ) ) {
-	    $self->{_type}{$neg} = 1;
+	    $self->{type}{$neg} = 1;
 	} else {
 	    return 0;
 	}
