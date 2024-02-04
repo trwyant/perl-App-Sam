@@ -1129,7 +1129,7 @@ sub __make_munger {
 	push @leader, '$.';
 	$self->{column}
 	    and push @leader, '$c';
-	( $self->{_syntax} || $self->{show_syntax} )
+	( $self->{syntax} || $self->{show_syntax} )
 	    and push @leader, '$s';
 	{
 	    local $" = ':';
@@ -1230,10 +1230,10 @@ sub process {
 	    # If --syntax was specified and we did not find a syntax
 	    # object OR it does not produce the requested syntax, ignore
 	    # the file.
-	    if ( $self->{_syntax} ) {
+	    if ( $self->{syntax} ) {
 		$self->{_process}{syntax_obj}
 		    or return 0;
-		List::Util::first( sub { $self->{_syntax}{$_} },
+		List::Util::first( sub { $self->{syntax}{$_} },
 		    $self->{_process}{syntax_obj}->__classifications() )
 		    or return 0;
 	    }
@@ -1418,8 +1418,8 @@ sub _process_match {
     $self->{not}{match}
 	and $self->{not}{match}->()
 	and return $self->{invert_match};
-    if ( $self->{_syntax} && defined $self->{_process}{syntax} ) {
-	$self->{_syntax}{$self->{_process}{syntax}}
+    if ( $self->{syntax} && defined $self->{_process}{syntax} ) {
+	$self->{syntax}{$self->{_process}{syntax}}
 	    or return $self->{invert_match};
     }
     pos( $_ ) = 0;
@@ -1831,7 +1831,7 @@ sub __validate_syntax {
 	state $valid = Text::Abbrev::abbrev( __syntax_types() );
 	my $expansion = $valid->{$_}
 	    or return 0;
-	$self->{_syntax}{$expansion} = 1;
+	$self->{syntax}{$expansion} = 1;
     }
     return 1;
 }
