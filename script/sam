@@ -28,8 +28,6 @@ sub run {
 	help => sub { pod2usage( { -verbose => 2 } ) },
     ) or pod2usage( { -verbose => 0 } );
 
-    my $debug = delete $opt{debug};
-
     my $sam = App::Sam->new(
 	break	=> IS_TTY,
 	color	=> IS_TTY,
@@ -42,7 +40,7 @@ sub run {
 
     my $files_matched = 0;
 
-    if ( $debug ) {
+    if ( $opt{debug} ) {
 
 	require YAML;
 	{
