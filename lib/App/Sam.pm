@@ -1101,9 +1101,8 @@ sub __make_munger {
 
     defined( my $match = $self->{match} )
 	or do {
-	$self->{munger} = 'No match string specified';
 	$self->{_munger} = sub {
-	    $self->__croak( $self->{munger} );
+	    $_[0]->__croak( 'No match string specified' );
 	};
 	return;
     };
@@ -1146,7 +1145,6 @@ sub __make_munger {
 	$code = eval "sub { $str }"	## no critic (ProhibitStringyEval)
 	    or $self->__confess( "Invalid match '$str': $@" );
     }
-    $self->{munger} = $str;
     $self->{_munger} = $code;
     return;
 }

@@ -67,7 +67,6 @@ load_module_ok 'App::Sam';
 	ignore_directory	=> hash { etc },
 	ignore_file		=> hash { etc },
 	match			=> 'foo',
-	munger		=> D,
 	_munger		=> validator( sub { REF_CODE eq ref } ),
 	output		=> '$p$&',
 	recurse		=> T,
