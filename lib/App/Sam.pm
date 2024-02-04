@@ -1297,9 +1297,9 @@ sub process {
 
 		if ( ! $self->{_process}{header} ) {
 		    $self->{_process}{header} = 1;
-		    $self->{_break}
+		    $self->{_want_break}
 			and $self->__say( '' );
-		    $self->{_break} = $self->{break};
+		    $self->{_want_break} = $self->{break};
 		    $self->{heading}
 			and $self->{with_filename}
 			and $self->__say(
