@@ -373,6 +373,23 @@ EOD
     is $stdout, undef, '-s, searching non-existent file';
 }
 
+{
+    my $sam = CLASS->new(
+	1	=> 1,
+	match	=> 'Wyant',
+	argv	=> [ 't/data' ]
+    );
+
+    my $stdout = capture_stdout {
+	is $sam->process(), 1, '-1 quit after first match';
+    };
+
+    is $stdout, <<'EOD', '-1 found correct data';
+t/data/cc_file.c
+13: * Author: Thomas R. Wyant, III F<wyant at cpan dot org>
+EOD
+}
+
 
 done_testing;
 

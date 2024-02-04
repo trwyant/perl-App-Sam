@@ -18,6 +18,7 @@ use Getopt::Long ();
 use List::Util ();
 use Module::Load ();
 use Readonly;
+use Scalar::Util ();
 use Term::ANSIColor ();
 use Text::Abbrev ();
 
@@ -31,6 +32,8 @@ use constant IS_WINDOWS	=> {
 
 use constant REF_ARRAY	=> ref [];
 use constant REF_SCALAR	=> ref \0;
+
+use constant STOP	=> 'STOP';
 
 use enum qw{ BITMASK:FLAG_
     FAC_NO_MATCH_PROC FAC_SYNTAX FAC_TYPE
@@ -115,6 +118,7 @@ sub new {
     }, $class;
 
     if ( REF_ARRAY eq ref $argv ) {
+	$self->{argv} = $argv;
 	$self->__get_option_parser( 1 )->getoptionsfromarray( $argv,
 	    $self, $self->__get_opt_specs( FLAG_PROCESS_EARLY ) );
     } elsif ( defined $argv ) {
@@ -160,7 +164,7 @@ sub new {
 
     $self->__incompat_arg( qw{ f match } );
     $self->__incompat_arg( qw{ f g files_with_matches
-	files_without_matches replace max_count } );
+	files_without_matches replace max_count 1 } );
     $self->__incompat_arg( qw{ file match } );
     $self->__incompat_arg( qw{ count passthru } );
     $self->__incompat_arg( qw{ underline output } );
@@ -536,6 +540,9 @@ sub __file_type_del {
     #         not provided, the default is FLAG_IS_ATTR | FLAG_IS_OPT |
     #         FLAG_PROCESS_NORMAL.
     my %attr_spec_hash = (
+	1		=> {
+	    type	=> '',
+	},
 	after_context	=> {
 	    type	=> '=i',
 	    alias	=> [ 'A' ],
@@ -1195,182 +1202,215 @@ sub __print {	## no critic (RequireArgUnpacking)
 }
 
 sub process {
+    my ( $self, @files ) = @_;
+
+    @files
+	or @files = @{ $self->{argv} || [] };
+
+    my $files_matched;
+
+    foreach my $file ( @files ) {
+
+	my $rslt = ( ref( $file ) || ! -d $file ) ?
+	    $self->_process_file( $file ) :
+	    $self->_process_dir( $file );
+	$files_matched += $rslt;
+	$rslt eq STOP
+	    and last;
+    }
+
+    # We need to preserve the STOP information if we're being called
+    # recursively, but to ditch it otherwise.
+    return caller eq __PACKAGE__ ?
+	$self->_process_result( $files_matched ) :
+	$files_matched;
+}
+
+# NOTE: Call this ONLY from inside process().
+sub _process_dir {
+    my ( $self, $file ) = @_;
+    my $iterator = $self->__get_file_iterator( $file );
+    my $files_matched = 0;
+    while ( defined( my $fn = $iterator->() ) ) {
+	my $rslt = $self->process( $fn );
+	$files_matched += $rslt;
+	$rslt eq STOP
+	    and return $self->_process_result( $files_matched );
+    }
+    return $files_matched;
+}
+
+# NOTE: Call this ONLY from inside process().
+sub _process_file {
     my ( $self, $file ) = @_;
 
     local $self->{_process} = {
 	filename	=> $self->__color( filename => $file ),
     };
 
-    if ( ref( $file ) || ! -d $file ) {
+    -B $file
+	and return 0;
 
-	-B $file
-	    and return 0;
+    $self->{_process}{type} = [ $self->__file_type( $file ) ]
+	if $self->{flags} & FLAG_FAC_TYPE;
 
-	$self->{_process}{type} = [ $self->__file_type( $file ) ]
-	    if $self->{flags} & FLAG_FAC_TYPE;
+    $self->{known_types}
+	and not @{ $self->{_process}{type} }
+	and return 0;
 
-	$self->{known_types}
-	    and not @{ $self->{_process}{type} }
-	    and return 0;
+    $self->{flush}
+	and local $| = 1;
 
-	$self->{flush}
-	    and local $| = 1;
+    my @show_types;
+    $self->{show_types}
+	and push @show_types, join ',', @{ $self->{_process}{type} };
 
-	my @show_types;
-	$self->{show_types}
-	    and push @show_types, join ',', @{ $self->{_process}{type} };
-
-	if ( $self->{flags} & FLAG_FAC_SYNTAX ) {
-	    if ( my ( $class ) = $self->__file_syntax( $file ) ) {
-		$self->{_process}{syntax_obj} =
-		    $self->{_syntax_obj}{$class} ||=
-		    "App::Sam::Syntax::$class"->new( die => $self->{die} );
-	    }
-
-	    # If --syntax was specified and we did not find a syntax
-	    # object OR it does not produce the requested syntax, ignore
-	    # the file.
-	    if ( $self->{syntax} ) {
-		$self->{_process}{syntax_obj}
-		    or return 0;
-		List::Util::first( sub { $self->{syntax}{$_} },
-		    $self->{_process}{syntax_obj}->__classifications() )
-		    or return 0;
-	    }
+    if ( $self->{flags} & FLAG_FAC_SYNTAX ) {
+	if ( my ( $class ) = $self->__file_syntax( $file ) ) {
+	    $self->{_process}{syntax_obj} =
+		$self->{_syntax_obj}{$class} ||=
+		"App::Sam::Syntax::$class"->new( die => $self->{die} );
 	}
 
-	if ( $self->{f} || $self->{g} ) {
-	    if ( $self->{g} ) {
-		local $_ = $file;
-		$self->{_munger}->( $self ) xor $self->{invert_match}
-		    or return 0;
-	    }
-	    $self->__say( join ' => ', $file, @show_types );
-	    return 1;
-	}
-
-	my $encoding = $self->__get_encoding( $file );
-	open my $fh, "<$encoding", $file	## no critic (RequireBriefOpen)
-	    or do {
-	    $self->{s}
-		or $self->__carp( "Failed to open $file for input: $!" );
-	    return 0;
-	};
-
-	my $mod_fh;
-	if ( defined $self->{replace} ) {
-	    if ( REF_SCALAR eq ref $self->{dry_run} ) {
-		open $mod_fh, '>:raw', $self->{dry_run}	## no critic (RequireBriefOpen)
-		    or $self->__confess( "Failed to open scalar ref: $!" );
-	    } elsif ( $self->{dry_run} || ref $file ) {
-		# Do nothing
-	    } else {
-		$mod_fh = File::Temp->new(
-		    DIR	=> File::Basename::dirname( $file ),
-		);
-	    }
-	}
-
-	my $lines_matched = 0;
-	local $_ = undef;	# while (<>) does not localize $_
-	my @before_context;
-	while ( <$fh> ) {
-
-	    delete $self->{_process}{colored};
-
+	# If --syntax was specified and we did not find a syntax
+	# object OR it does not produce the requested syntax, ignore
+	# the file.
+	if ( $self->{syntax} ) {
 	    $self->{_process}{syntax_obj}
-		and $self->{_process}{syntax} =
-		    $self->{_process}{syntax_obj}->__classify();
-
-	    if ( $self->{_process}{matched} = $self->_process_match() ) {
-		if ( $self->{files_with_matches} ) {
-		    $self->__say( join ' => ', $file, @show_types );
-		    return 1;
-		}
-		$lines_matched++;
-	    }
-
-	    $mod_fh
-		and print { $mod_fh } $self->{_tplt}{replace};
-
-	    if ( $self->_process_display_p() ) {
-
-		if ( ! $self->{_process}{header} ) {
-		    $self->{_process}{header} = 1;
-		    $self->{_want_break}
-			and $self->__say( '' );
-		    $self->{_want_break} = $self->{break};
-		    $self->{heading}
-			and $self->{with_filename}
-			and $self->__say(
-			    join ' => ',
-			    $self->{_process}{filename},
-			    @show_types,
-			);
-		}
-
-		$self->__print( $_ ) for @before_context;
-		@before_context = ();
-		$self->__print( $self->{_tplt}{line} );
-		if ( $self->{_tplt}{ul_spec} ) {
-		    my $line = '';
-		    foreach ( @{ $self->{_tplt}{ul_spec} } ) {
-			$line .= ' ' x $_->[0];
-			$line .= '^' x $_->[1];
-		    }
-		    $self->__say( $line );
-		}
-
-	    } elsif ( $self->{before_context} ) {
-
-		push @before_context, $self->{_tplt}{line};
-		@before_context > $self->{before_context}
-		    and splice @before_context, 0, @before_context -
-			$self->{before_context};
-	    }
-
-	    $self->{max_count}
-		and $lines_matched >= $self->{max_count}
-		and last;
+		or return 0;
+	    List::Util::first( sub { $self->{syntax}{$_} },
+		$self->{_process}{syntax_obj}->__classifications() )
+		or return 0;
 	}
-	close $fh;
-
-	if ( $self->{files_without_matches} && ! $lines_matched ) {
-	    $self->__say( join ' => ', $file, @show_types );
-	    return 1;
-	}
-
-	$self->{count}
-	    and $self->__say( join ' => ',
-		sprintf( '%s:%d', $self->{_process}{filename},
-		    $lines_matched ), @show_types );
-
-	if ( defined( $self->{replace} ) && ! $self->{dry_run} &&
-	    $lines_matched && ! ref $file
-	) {
-	    if ( defined $self->{backup} ) {
-		my $backup = "$file$self->{backup}";
-		rename $file, $backup
-		    or $self->__croak(
-		    "Failed to rename $file to $backup: $!" );
-	    }
-
-	    $mod_fh->unlink_on_destroy( 0 );
-	    rename "$mod_fh", $file
-		or $self->__croak(
-		"Failed to rename $mod_fh to $file: $!" );
-	}
-
-	return $lines_matched ? 1 : 0;
-
-    } else {
-	my $iterator = $self->__get_file_iterator( $file );
-	my $files_matched = 0;
-	while ( defined( my $fn = $iterator->() ) ) {
-	    $files_matched += $self->process( $fn );
-	}
-	return $files_matched;
     }
+
+    if ( $self->{f} || $self->{g} ) {
+	if ( $self->{g} ) {
+	    local $_ = $file;
+	    $self->{_munger}->( $self ) xor $self->{invert_match}
+		or return 0;
+	}
+	$self->__say( join ' => ', $file, @show_types );
+	return $self->_process_result( 1 );
+    }
+
+    my $encoding = $self->__get_encoding( $file );
+    open my $fh, "<$encoding", $file	## no critic (RequireBriefOpen)
+	or do {
+	$self->{s}
+	    or $self->__carp( "Failed to open $file for input: $!" );
+	return 0;
+    };
+
+    my $mod_fh;
+    if ( defined $self->{replace} ) {
+	if ( REF_SCALAR eq ref $self->{dry_run} ) {
+	    open $mod_fh, '>:raw', $self->{dry_run}	## no critic (RequireBriefOpen)
+		or $self->__confess( "Failed to open scalar ref: $!" );
+	} elsif ( $self->{dry_run} || ref $file ) {
+	    # Do nothing
+	} else {
+	    $mod_fh = File::Temp->new(
+		DIR	=> File::Basename::dirname( $file ),
+	    );
+	}
+    }
+
+    my $lines_matched = 0;
+    local $_ = undef;	# while (<>) does not localize $_
+    my @before_context;
+    while ( <$fh> ) {
+
+	delete $self->{_process}{colored};
+
+	$self->{_process}{syntax_obj}
+	    and $self->{_process}{syntax} =
+		$self->{_process}{syntax_obj}->__classify();
+
+	if ( $self->{_process}{matched} = $self->_process_match() ) {
+	    if ( $self->{files_with_matches} ) {
+		$self->__say( join ' => ', $file, @show_types );
+		return $self->_process_result( 1 );
+	    }
+	    $lines_matched++;
+	}
+
+	$mod_fh
+	    and print { $mod_fh } $self->{_tplt}{replace};
+
+	if ( $self->_process_display_p() ) {
+
+	    if ( ! $self->{_process}{header} ) {
+		$self->{_process}{header} = 1;
+		$self->{_want_break}
+		    and $self->__say( '' );
+		$self->{_want_break} = $self->{break};
+		$self->{heading}
+		    and $self->{with_filename}
+		    and $self->__say(
+			join ' => ',
+			$self->{_process}{filename},
+			@show_types,
+		    );
+	    }
+
+	    $self->__print( $_ ) for @before_context;
+	    @before_context = ();
+	    $self->__print( $self->{_tplt}{line} );
+	    if ( $self->{_tplt}{ul_spec} ) {
+		my $line = '';
+		foreach ( @{ $self->{_tplt}{ul_spec} } ) {
+		    $line .= ' ' x $_->[0];
+		    $line .= '^' x $_->[1];
+		}
+		$self->__say( $line );
+	    }
+
+	} elsif ( $self->{before_context} ) {
+
+	    push @before_context, $self->{_tplt}{line};
+	    @before_context > $self->{before_context}
+		and splice @before_context, 0, @before_context -
+		    $self->{before_context};
+	}
+
+	$self->{max_count}
+	    and $lines_matched >= $self->{max_count}
+	    and last;
+
+	$self->{1}
+	    and $lines_matched
+	    and last;
+    }
+    close $fh;
+
+    if ( $self->{files_without_matches} && ! $lines_matched ) {
+	$self->__say( join ' => ', $file, @show_types );
+	return $self->_process_result( 1 );
+    }
+
+    $self->{count}
+	and $self->__say( join ' => ',
+	    sprintf( '%s:%d', $self->{_process}{filename},
+		$lines_matched ), @show_types );
+
+    if ( defined( $self->{replace} ) && ! $self->{dry_run} &&
+	$lines_matched && ! ref $file
+    ) {
+	if ( defined $self->{backup} ) {
+	    my $backup = "$file$self->{backup}";
+	    rename $file, $backup
+		or $self->__croak(
+		"Failed to rename $file to $backup: $!" );
+	}
+
+	$mod_fh->unlink_on_destroy( 0 );
+	rename "$mod_fh", $file
+	    or $self->__croak(
+	    "Failed to rename $mod_fh to $file: $!" );
+    }
+
+    return $self->_process_result( $lines_matched ? 1 : 0 );
 }
 
 # Return a true value if the current line is to be displayed.
@@ -1479,6 +1519,14 @@ sub _process_callback {
     }
 
     return;
+}
+
+sub _process_result {
+    my ( $self, $val ) = @_;
+    $self->{1}
+	and $val
+	and return Scalar::Util::dualvar( $val, STOP );
+    return $val;
 }
 
 # Process a --output template, returning the result.
@@ -1888,6 +1936,10 @@ following named arguments:
 
 =over
 
+=item C<1>
+
+See L<-1|sam/-1> in the L<sam|sam> documentation.
+
 =item C<after_context>
 
 See L<--after-context|sam/--after-context> in the L<sam|sam>
@@ -2228,21 +2280,23 @@ The output is similar but not identical to L<ack|ack> C<--help-types>.
 
 =head2 process
 
- $sam->process( $file )
+ $sam->process( @files )
 
-This method processes a single file or directory. Match output is
+This method processes one or more files or directories. Match output is
 written to F<STDOUT>. If any files are modified, the modified file is
-written unless L<dry_run|/dry_run> is true. Nothing is returned.
+written unless L<dry_run|/dry_run> is true. The number of files
+containing matches returned.
 
-The argument can be a scalar reference, but in this case modifications
+If no arguments are passed, the contents of the L<argv|/argv> argument
+to L<new()|/new> are used.
+
+An argument can be a scalar reference, but in this case modifications
 are not written.
 
 Binary files are ignored.
 
 If the file is a directory, any files in the directory are processed
 provided they are not ignored.
-
-The return is the number of files that contained matches.
 
 =head1 SEE ALSO
 

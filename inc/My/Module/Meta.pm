@@ -163,6 +163,7 @@ sub requires {
 	'Module::Load'	=> 0,
 	'Pod::Usage'	=> 0,
 	'Readonly'	=> 0,
+	'Scalar::Util'	=> 0,
 	'Term::ANSIColor'	=> 0,
 	'Text::Abbrev'	=> 0,
 	constant	=> 0,

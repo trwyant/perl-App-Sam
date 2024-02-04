@@ -56,7 +56,7 @@ sub run {
 	@ARGV
 	    or push @ARGV, File::Spec->curdir();
 
-	$files_matched += $sam->process( $_ ) for @ARGV;
+	$files_matched = $sam->process( @ARGV );
     }
 
     return $files_matched;
@@ -82,6 +82,11 @@ sam - Search for strings in files, and possibly modify them
  sam --version
 
 =head1 OPTIONS
+
+=head2 -1
+
+If this Boolean option is asserted, the first match that succeeds causes
+the run to end. The name of the option is "one", not "lower-case ell".
 
 =head2 -A
 
