@@ -185,13 +185,9 @@ sub new {
 		$self->{match} = "(?|@pat)";
 	    } elsif ( @pat == 1 ) {
 		$self->{match} = $pat[0];
-	    } elsif ( ! $self->{dump} ) {
-		$self->__croak( 'No match string specified by --file' );
 	    }
 	} elsif ( $argv && @{ $argv } ) {
 	    $self->{match} = shift @{ $argv };
-	} elsif ( ! $self->{dump} ) {
-	    $self->__croak( 'No match string specified' );
 	}
     }
 
@@ -2079,6 +2075,9 @@ See L<--literal|sam/--literal> in the L<sam|sam> documentation.
 
 See L<--match|sam/--match> in the L<sam|sam> documentation. If legal but
 not specified, the first non-option argument in C<argv> will be used.
+
+If this argument is not specified, L<process()|/process> will throw an
+exception.
 
 =item C<max_count>
 
