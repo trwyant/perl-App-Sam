@@ -166,9 +166,9 @@ sub new {
     $self->__incompat_arg( qw{ underline output } );
 
     unless ( $self->{f} || defined $self->{match} ) {
-	if ( $self->{_file} ) {
+	if ( $self->{file} ) {
 	    my @pat;
-	    foreach my $file ( @{ $self->{_file} } ) {
+	    foreach my $file ( @{ $self->{file} } ) {
 		open my $fh, '<:encoding(utf-8)', $file
 		    or $self->__croak( "Failed to open $file: $!" );
 		while ( <$fh> ) {
@@ -409,8 +409,8 @@ sub files_from {
 	    # STDIN.
 	}
 	return @rslt;
-    } elsif ( $self->{_files_from} && @{ $self->{_files_from} } ) {
-	return $self->files_from( @{ $self->{_files_from} || [] } );
+    } elsif ( $self->{files_from} && @{ $self->{files_from} } ) {
+	return $self->files_from( @{ $self->{files_from} || [] } );
     }
     return;
 }
@@ -1743,7 +1743,7 @@ sub __validate_files_from {
 	$_ eq '-'
 	    or -r
 	    or return 0;
-	push @{ $self->{"_$attr_name"} }, $_;
+	push @{ $self->{$attr_name} }, $_;
     }
     return 1;
 }
