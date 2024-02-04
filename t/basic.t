@@ -71,7 +71,7 @@ load_module_ok 'App::Sam';
 	output		=> '$p$&',
 	recurse		=> T,
 	sort_files		=> T,
-	_syntax_add		=> hash {	# Ensure Perl's syntax is defined.
+	syntax_add		=> hash {	# Ensure Perl's syntax is defined.
 	    field type	=> hash {
 		field	perl		=> 'Perl';
 		field	perltest	=> 'Perl';
@@ -88,7 +88,7 @@ load_module_ok 'App::Sam';
 	},
 	_tplt_leader	=> '$.:',
 	_tplt_trailer	=> q/$p/,
-	_type_add		=> hash {
+	type_add		=> hash {
 	    field ext	=> hash {	# Ensure Perl is defined.
 		field PL	=> [ 'perl' ];
 		field pl	=> [ 'perl' ];
@@ -263,7 +263,7 @@ EOD
     is $sam, hash {
 	field backup	=> '.bak';
 	field encoding	=> 'iso-latin-1';
-	field _syntax_add	=> hash {
+	field syntax_add	=> hash {
 	    field type	=> hash {
 		field perl	=> DNE;
 		etc;
@@ -276,7 +276,7 @@ EOD
 	    };
 	    etc;
 	};
-	field _type_add	=> hash {
+	field type_add	=> hash {
 	    field ext	=> hash {
 		field PL	=> DNE;
 		field pl	=> DNE;

@@ -215,7 +215,7 @@ sub new {
 
     foreach my $prop ( qw{ syntax type } ) {
 
-	my $attr = "_${prop}_add";
+	my $attr = "${prop}_add";
 	foreach my $kind ( qw{ ext is } ) {
 	    foreach my $prop_spec ( values %{ $self->{$attr}{$kind} || {} } ) {
 		@{ $prop_spec } = List::Util::uniqstr( @{ $prop_spec } );
@@ -417,7 +417,7 @@ sub files_from {
 
 sub _file_property {
     ( my ( $self, $property, $path ), local $_ ) = @_;
-    my $prop_spec = $self->{"_${property}_add"} || {};
+    my $prop_spec = $self->{"${property}_add"} || {};
     $_ //= ( File::Spec->splitpath( $path ) )[2];
     my @rslt;
 
@@ -469,9 +469,9 @@ sub __file_syntax {
 sub __file_syntax_del {
     my ( $self, $syntax ) = @_;
     delete $self->{_syntax_def}{$syntax};
-    foreach my $type ( keys %{ $self->{_syntax_add}{type} } ) {
-	$syntax eq $self->{_syntax_add}{type}{$type}
-	    and delete $self->{_syntax_add}{type}{$type};
+    foreach my $type ( keys %{ $self->{syntax_add}{type} } ) {
+	$syntax eq $self->{syntax_add}{type}{$type}
+	    and delete $self->{syntax_add}{type}{$type};
     }
     return;
 }
@@ -483,7 +483,7 @@ sub __file_type {
 
 sub __file_type_del {
     my ( $self, $type, $really ) = @_;
-    my $def = $self->{_type_add};
+    my $def = $self->{type_add};
     foreach my $kind ( qw{ is ext } ) {
 	foreach my $key ( keys %{ $def->{$kind} } ) {
 	    @{ $def->{$kind}{$key} } = grep { $_ ne $type }
@@ -503,7 +503,7 @@ sub __file_type_del {
 	    keys %{ $self->{_syntax_def}{$syntax} }
 		or delete $self->{_syntax_def}{$syntax};
 	}
-	delete $self->{_syntax_add}{type}{$type};
+	delete $self->{syntax_add}{type}{$type};
     }
     return;
 }
@@ -1657,7 +1657,7 @@ sub __validate_file_property_add {
 	    ext	=> sub {
 		my ( $self, $prop_name, $prop_val, $data ) = @_;
 		my @item = split /,/, $data;
-		push @{ $self->{"_${prop_name}_add"}{ext}{$_} }, $prop_val
+		push @{ $self->{"${prop_name}_add"}{ext}{$_} }, $prop_val
 		    for @item;
 		push @{ $self->{"_${prop_name}_def"}{$prop_val}{ext} },
 		    map { ".$_" } @item;
@@ -1665,7 +1665,7 @@ sub __validate_file_property_add {
 	    },
 	    is	=> sub {
 		my ( $self, $prop_name, $prop_val, $data ) = @_;
-		push @{ $self->{"_${prop_name}_add"}{is}{$data} }, $prop_val;
+		push @{ $self->{"${prop_name}_add"}{is}{$data} }, $prop_val;
 		push @{ $self->{"_${prop_name}_def"}{$prop_val}{is} }, $data;
 		return 1;
 	    },
@@ -1674,7 +1674,7 @@ sub __validate_file_property_add {
 		local $@ = undef;
 		my $code = eval "sub { $data }"	## no critic (ProhibitStringyEval)
 		    or return 0;
-		push @{ $self->{"_${prop_name}_add"}{match} },
+		push @{ $self->{"${prop_name}_add"}{match} },
 		    [ $prop_val, $code, "$prop_val:$data" ];
 		push @{ $self->{"_${prop_name}_def"}{$prop_val}{match} }, $data;
 		return 1;
@@ -1684,7 +1684,7 @@ sub __validate_file_property_add {
 		local $@ = undef;
 		my $code = eval "sub { $data }"	## no critic (ProhibitStringyEval)
 		    or return 0;
-		push @{ $self->{"_${prop_name}_add"}{firstlinematch} },
+		push @{ $self->{"${prop_name}_add"}{firstlinematch} },
 		    [ $prop_val, $code, "$prop_val:$data" ];
 		push @{ $self->{"_${prop_name}_def"}{$prop_val}
 		    {firstlinematch} }, $data;
@@ -1699,7 +1699,7 @@ sub __validate_file_property_add {
 		foreach ( @item ) {
 		    $self->{_type_def}{$_}
 			or return 0;
-		    $self->{"_${prop_name}_add"}{type}{$_} = $prop_val;
+		    $self->{"${prop_name}_add"}{type}{$_} = $prop_val;
 		    push @{ $self->{"_${prop_name}_def"}{$prop_val}{type} }, $_;
 		}
 		return 1;
