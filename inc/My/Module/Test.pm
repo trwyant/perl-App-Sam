@@ -19,7 +19,7 @@ our $VERSION = '0.000_001';
 
 sub capture_stdout (&) {
     my ( $code ) = @_;
-    my $data;
+my $data;
     {
 	# Thanks to David Farrell for the algorithm. Specifically:
 	# https://www.perl.com/article/45/2013/10/27/How-to-redirect-and-restore-STDOUT/
@@ -120,28 +120,67 @@ __END__
 
 =head1 NAME
 
-My::Module::Test - <<< replace boilerplate >>>
+My::Module::Test - Test support for App-Sam
 
 =head1 SYNOPSIS
 
-<<< replace boilerplate >>>
+ use lib 'inc';
+ use My::Module::Test;
 
 =head1 DESCRIPTION
 
-<<< replace boilerplate >>>
+This Perl module provides test support routines for the C<App-Sam>
+package. It is private to that package, and may be changed or revoked at
+any time. Documentation is for the benefit of the author.
 
-=head1 METHODS
+=head1 SUBTOUTINES
 
-This class supports the following public methods:
+The following package-private subroutines are exported by default:
 
-=head1 ATTRIBUTES
+=head2 capture_stdout
 
-This class has the following attributes:
+ my $stdout = capture_stdout {
+     say 'Hello, world!';
+ };
 
+This subroutine's prototype is C<(&)>, meaning it takes as its only
+argument a block of code. That code is executed, and anything written to
+F<STDOUT> is returned.
+
+=head2 dependencies_table
+
+ diag $_ for dependencies_table;
+
+This subroutine builds and returns a text table describing the
+dependencies of the package. L<Test2::Util::Table|Test2::Util::Table>
+does the heavy lifting.
+
+=head2 slurp_syntax
+
+ print slurp_syntax( 'fubar.PL' );
+
+This subroutine takes as input a file name. That file is opened and
+read, and a default L<App::Sam|App::Sam> object is used to classify each
+line. The return is the contents of the file, with the syntax type of
+each line prepended to it.
+
+=head2 stdin_from_file
+
+ stdin_from_file {
+   local $_ = undef;
+   while ( <STDIN> ) {
+     print ">>$_";
+   }
+ } 'fubar.PL';
+
+This subroutine's prototype is C<(&$)> meaning it taked two arguments, a
+block and a file name, with B<no> intervening comma. The file is opened
+and assigned to F<STDIN>, and the block is executed. Nothing is
+returned.
 
 =head1 SEE ALSO
 
-<<< replace or remove boilerplate >>>
+L<App::Sam|App::Sam>
 
 =head1 SUPPORT
 
