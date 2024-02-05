@@ -411,6 +411,78 @@ t/data/sql_file.sql
 EOD
 }
 
+{
+    my $sam = CLASS->new(
+	range_start	=> 'day',
+	match		=> '\A',
+    );
+
+    my $stdout = capture_stdout {
+	$sam->process( 't/data/bright.txt' );
+    };
+
+    is $stdout, <<'EOD', '--range-start';
+t/data/bright.txt
+3:    She set out one day
+4:    In a relative way
+5:And returned the previous night.
+EOD
+}
+
+{
+    my $sam = CLASS->new(
+	range_end	=> 'way',
+	match		=> '\A',
+    );
+
+    my $stdout = capture_stdout {
+	$sam->process( 't/data/bright.txt' );
+    };
+
+    is $stdout, <<'EOD', '--range-end';
+t/data/bright.txt
+1:There was a young lady named Bright
+2:Who could travel much faster than light.
+3:    She set out one day
+4:    In a relative way
+EOD
+}
+
+{
+    my $sam = CLASS->new(
+	range_start	=> 'day',
+	range_end	=> 'way',
+	match		=> '\A',
+    );
+
+    my $stdout = capture_stdout {
+	$sam->process( 't/data/bright.txt' );
+    };
+
+    is $stdout, <<'EOD', '--range-start, --range-end';
+t/data/bright.txt
+3:    She set out one day
+4:    In a relative way
+EOD
+}
+
+{
+    my $sam = CLASS->new(
+	range_start	=> 'one',
+	range_end	=> 'day',
+	match		=> '\A',
+    );
+
+    my $stdout = capture_stdout {
+	$sam->process( 't/data/bright.txt' );
+    };
+
+    is $stdout, <<'EOD', '--range-start, --range-end match on same line';
+t/data/bright.txt
+3:    She set out one day
+EOD
+}
+
 
 done_testing;
 

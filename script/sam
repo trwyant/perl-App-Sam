@@ -571,6 +571,37 @@ This Boolean option is a synonym for L<--recurse|/--recurse>.
 
 This Boolean option is a synonym for L<--recurse|/--recurse>.
 
+=head2 --range-end
+
+ --range-end=bar
+
+L<--range-start|/--range-start> and C<--range-end> specify patterns that
+delimit a search range. If either is specified, the L<--match|/--match>
+pattern will only be attempted within the range, which starts with a
+line that matches L<--range-start|/--range-start> and ends with a line
+that matches C<--range-end>, inclusive.
+
+Ranges can start and end on the same line.
+
+The behaviour of this functionality is undefined if both
+L<--range-start|/--range-start> and C<--range-end> can match the same
+string.
+
+If C<--range-end> is specified but L<--range-start|/--range-start> is
+not, the range runs from the beginning of the file to the first line
+that matches C<--range-end>.
+
+Similarly, if L<--range-start|/--range-start> is specified but
+C<--range-end> is not, the range runs from the first match of
+L<--range-start|/--range-start> to the end of the file.
+
+=head2 --range-start
+
+ --range-start=fu
+
+C<--range-start> and L<--range-end|/--range-end> specify patterns that
+delimit a search range. See L<--range-end|/--range-end> for the details.
+
 =head2 --recurse
 
 This Boolean option tells the directory traversal logic whether it

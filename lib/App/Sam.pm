@@ -212,9 +212,8 @@ sub new {
 	    or next;
 	my $str = join ' || ', map { "m $_" }
 	    List::Util::uniqstr( @{ $self->{$attr_name}{match} } );
-	my $code = eval "sub { $str }"	## no critic (ProhibitStringyEval)
-	    or $self->__confess( "Failed to compile $attr_name match spec" );
-	$self->{$attr_name}{match} = $code;
+	$self->{$attr_name}{match} = $self->__compile_match( $attr_name,
+	    $str );
     }
 
     foreach my $prop ( qw{ syntax type } ) {
@@ -246,9 +245,37 @@ sub new {
     delete $self->{filter}
 	and $self->__validate_files_from( undef, files_from => '-' );
 
+    if ( $self->{range_start} || $self->{range_end} ) {
+	state $range_val = {
+	    range_start	=> 1,
+	    range_end	=> 0,
+	};
+	my @str;
+	foreach ( sort keys %{ $range_val } ) {
+	    defined $self->{$_}
+		or next;
+	    $self->__compile_match( $_, "m ($self->{$_})" );
+	    push @str, "$self->{$_}(?{ \$self->{_process}{in_range} = $range_val->{$_} })";
+	}
+	local $" = '|';
+	$self->{_range} = $self->__compile_match( _range => "m (@str)g" );
+    }
+
     $self->__make_munger();
 
     return $self;
+}
+
+sub __compile_match {
+    my ( $self, $attr_name, $attr_val ) = @_;
+    local $@ = undef;
+    my $code = eval "sub { $attr_val }" ## no critic (ProhibitStringyEval)
+	or do {
+	my $method = substr( $attr_name, 0, 1 ) eq '_' ?
+	    '__confess' : '__croak';
+	$self->$method( "Invalid $attr_name match: $@" );
+    };
+    return $code;
 }
 
 sub create_samrc {
@@ -830,6 +857,12 @@ sub __file_type_del {
 	match	=> {
 	    type	=> '=s',
 	},
+	range_end	=> {
+	    type	=> '=s',
+	},
+	range_start	=> {
+	    type	=> '=s',
+	},
 	replace	=> {
 	    type	=> '=s',
 	},
@@ -1308,6 +1341,9 @@ sub _process_file {
 	filename	=> $self->__color( filename => $file ),
     };
 
+    $self->{_range}
+	and $self->{_process}{in_range} = $self->{range_start} ? 0 : 1;
+
     -B $file
 	and return 0;
 
@@ -1514,6 +1550,15 @@ sub _process_match {
 
     $self->{flags} & FLAG_FAC_NO_MATCH_PROC
 	and return $self->{_munger}->( $self );
+
+    if ( $self->{_range} ) {
+	my $in_range = $self->{_process}{in_range};
+	$in_range ||= $self->{_process}{in_range}
+	    while $self->{_range}->( $self );
+	$self->{_process}{in_range}
+	    or $in_range
+	    or return $self->{invert_match};
+    }
 
     $self->{not}{match}
 	and $self->{not}{match}->()
@@ -2221,6 +2266,14 @@ See L<--passthru|sam/--passthru> in the L<sam|sam> documentation.
 =item C<print0>
 
 See L<--print0|sam/--print0> in the L<sam|sam> documentation.
+
+=item C<range_end>
+
+See L<--range-end|sam/--range-end> in the L<sam|sam> documentation.
+
+=item C<range_start>
+
+See L<--range-start|sam/--range-start> in the L<sam|sam> documentation.
 
 =item C<recurse>
 
