@@ -243,6 +243,9 @@ sub new {
 	}
     }
 
+    delete $self->{filter}
+	and $self->__validate_files_from( undef, files_from => '-' );
+
     $self->__make_munger();
 
     return $self;
@@ -706,6 +709,9 @@ sub __file_type_del {
 	    validate	=> '__validate_radio',
 	    arg		=> [ 'files_with_matches' ],
 	    flags	=> FLAG_FAC_NO_MATCH_PROC,
+	},
+	filter		=> {
+	    type	=> '!',
 	},
 	filter_files_from	=> {
 	    type	=> '!',
@@ -1256,7 +1262,10 @@ sub process {
     my ( $self, @files ) = @_;
 
     @files
-	or @files = @{ $self->{argv} || [] };
+	or @files = (
+	$self->files_from(),
+	@{ $self->{argv} || [] },
+    );
 
     my $files_matched;
 
@@ -2110,6 +2119,11 @@ documentation.
 See L<--files-without-matches|sam/--files-without-matches> in the
 L<sam|sam> documentation.
 
+=item C<--filter>
+
+See L<--filter|sam/--filter> in the L<sam|sam> documentation. Note that,
+unlike L<sam|sam>, the default is false.
+
 =item C<filter_files_from>
 
 See L<--filter-files-from|sam/--filter-files-from> in the L<sam|sam>
@@ -2353,8 +2367,9 @@ written to F<STDOUT>. If any files are modified, the modified file is
 written unless L<dry_run|/dry_run> is true. The number of files
 containing matches returned.
 
-If no arguments are passed, the contents of the L<argv|/argv> argument
-to L<new()|/new> are used.
+If no arguments are passed, the contents of the
+L<files_from|/files_from> and L<argv|/argv> arguments to L<new()|/new>
+are used.
 
 An argument can be a scalar reference, but in this case modifications
 are not written.

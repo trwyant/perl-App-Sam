@@ -33,6 +33,7 @@ sub run {
 	color	=> IS_TTY,
 	die	=> 1,
 	argv	=> \@ARGV,
+	filter	=> -p STDIN,
     );
 
     $sam->dumped()
@@ -262,6 +263,12 @@ contain matches are listed.
 
 If this option is asserted,
 L<--files-with-matches|/--files-with-matches> will be negated.
+
+=head2 --filter
+
+If this Boolean option is asserted, it is equivalent to specifying
+C<-x>, i.e. C<--files-from=->. This is asserted by default if F<STDIN>
+is a pipe, but can be negated again by C<--no-filter>.
 
 =head2 --filter-files-from
 

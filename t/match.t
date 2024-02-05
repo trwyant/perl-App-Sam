@@ -152,7 +152,7 @@ EOD
     );
 
     my $stdout = capture_stdout {
-	is $sam->process( 't/data' ), 17, '-f t/data found 17 files';
+	is $sam->process( 't/data' ), 18, '-f t/data found 17 files';
     };
 
     is $stdout, <<'EOD', '-f listed everything in t/data';
@@ -160,6 +160,7 @@ t/data/batch_file.bat
 t/data/bright.txt
 t/data/cc_file.c
 t/data/cpp_file.cpp
+t/data/files_from
 t/data/fortran_file.for
 t/data/java_file.java
 t/data/json_file.json
@@ -308,6 +309,7 @@ EOD
     is $stdout, <<'EOD', q(--files-without-matches);
 t/data/batch_file.bat
 t/data/bright.txt
+t/data/files_from
 t/data/json_file.json
 t/data/make_file.mak
 t/data/match_file
@@ -387,6 +389,25 @@ EOD
     is $stdout, <<'EOD', '-1 found correct data';
 t/data/cc_file.c
 13: * Author: Thomas R. Wyant, III F<wyant at cpan dot org>
+EOD
+}
+
+{
+    my $sam = CLASS->new(
+	filter	=> 1,
+	match	=> 'Wyant',
+    );
+
+    my $stdout = capture_stdout {
+	stdin_from_file {
+	    $sam->process();
+	} 't/data/files_from';
+    };
+
+    is $stdout, <<'EOD', '--filter';
+t/data/sql_file.sql
+6: * Author: Thomas R. Wyant, III F<wyant at cpan dot org>
+8: * Copyright (C) 2018-2023 by Thomas R. Wyant, III
 EOD
 }
 

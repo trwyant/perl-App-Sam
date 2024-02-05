@@ -37,6 +37,7 @@ t/data/batch_file.bat
 t/data/bright.txt
 t/data/cc_file.c
 t/data/cpp_file.cpp
+t/data/files_from
 t/data/fortran_file.for
 t/data/java_file.java
 t/data/json_file.json

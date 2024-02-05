@@ -10,7 +10,9 @@ use Test2::Util::Table qw{ table };
 
 use Carp;
 
-our @EXPORT_OK = qw{ capture_stdout dependencies_table slurp_syntax };
+our @EXPORT_OK = qw{
+    capture_stdout dependencies_table slurp_syntax stdin_from_file
+};
 our @EXPORT = @EXPORT_OK;
 
 our $VERSION = '0.000_001';
@@ -24,6 +26,7 @@ sub capture_stdout (&) {
 	local *STDOUT;
 	open STDOUT, '>', \$data
 	    or croak "Failed to open scalar reference for output: $!";
+	binmode STDOUT;
 	STDOUT->autoflush( 1 );
 	$code->();
     }
@@ -97,6 +100,17 @@ sub slurp_syntax {
 	push @rslt, sprintf '%4s:%s', substr( $parser->__classify(), 0, 4 ), $_;
     }
     return join '', @rslt;
+}
+
+sub stdin_from_file (&$) {
+    my ( $code, $file ) = @_;
+    {
+	local *STDIN;
+	open STDIN, '<:encoding(utf-8)', $file
+	    or die "Failed to open $file: $!\n";
+	$code->();
+    }
+    return;
 }
 
 
