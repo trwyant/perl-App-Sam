@@ -298,6 +298,53 @@ sub _display_opt_for_dump {
     return;
 }
 
+{
+    Readonly::Array my @COLORS => (
+	qw{ black red green yellow blue magenta cyan white } );
+    Readonly::Scalar my $BOLD	=> 'bold';
+    Readonly::Scalar my $LEADER => ' ' x length $BOLD;
+    sub help_colors {
+	my ( undef, $exit ) = @_;	# Invocant unused.
+	$exit //= caller eq __PACKAGE__;
+
+	print <<'EOD';
+
+The sam program allows customization of the colors used when presenting
+matches to the user. The heavy lifting is done by the Term::ANSIColor
+module, and you can specify colors any way that module accepts.
+
+What follows is a palette specified using the eight-color scheme for
+both foreground and background colors.
+
+EOD
+	say $LEADER, map { _help_colors_cell( $_ ) } @COLORS;
+	say $LEADER, map { _help_colors_cell( '-------' ) } @COLORS;
+	say $LEADER, map { _help_colors_cell( $_, $_ ) } @COLORS;
+	say $BOLD, map { _help_colors_cell( $_, "$BOLD $_" ) } @COLORS;
+
+	foreach my $bg ( map { " on_$_" } @COLORS ) {
+	    say '';
+	    say $LEADER,
+		( map { _help_colors_cell( $_, "$_$bg" ) } @COLORS),
+		$bg;
+	    say $BOLD,
+		( map { _help_colors_cell( $_, "$BOLD $_$bg" ) } @COLORS ),
+		$bg;
+	}
+
+	$exit and exit;
+	return;
+    }
+}
+
+sub _help_colors_cell {
+    my ( $text, $color ) = @_;
+    my $cell = sprintf '%-7s', substr $text, 0, 7;
+    $color
+	and $cell = Term::ANSIColor::colored( $cell, $color );
+    return " $cell";
+}
+
 sub help_syntax {
     my ( $self, $exit ) = @_;
     $exit //= caller eq __PACKAGE__;
@@ -835,13 +882,17 @@ sub __file_type_del {
 	    validate	=> '__validate_fixed_value',
 	    arg		=> [ files_from	=> '-' ],
 	},
-	help_types	=> {
+	help_colors	=> {
 	    type	=> '',
-	    validate	=> 'help_types',
+	    validate	=> 'help_colors',
 	},
 	help_syntax	=> {
 	    type	=> '',
 	    validate	=> 'help_syntax',
+	},
+	help_types	=> {
+	    type	=> '',
+	    validate	=> 'help_types',
 	},
     );
 
@@ -2082,6 +2133,10 @@ specified in argument L<C<match>|/match>
 
 See L<--heading|sam/--heading> in the L<sam|sam> documentation.
 
+=item C<help_colors>
+
+See L<--help-colors|sam/--help-colors> in the L<sam|sam> documentation.
+
 =item C<help_syntax>
 
 See L<--help-syntax|sam/--help-syntax> in the L<sam|sam> documentation.
@@ -2255,6 +2310,17 @@ be file names, and will be filtered if C<filter_files_from> is true.
 If called without arguments, reads the files specified by the
 C<files_from> argument to L<new()|/new>, if any, and returns their
 possibly-filtered contents.
+
+=head2 help_colors
+
+ $sam->help_colors( $exit );
+
+This method prints to F<STDOUT> a color palette specified using the
+eight-color scheme for both foreground and background colors. If the
+argument is true, it exits; otherwise it returns. The default for
+C<$exit> is true if called from the C<$sam> object (which happens if
+argument C<help_types> is true or option C<--help-types> is asserted),
+and false otherwise.
 
 =head2 help_syntax
 

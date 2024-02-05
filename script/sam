@@ -311,14 +311,19 @@ containing a match (if negated). The default is C<--heading>.
 This option displays the documentation for this script. The script then
 exits.
 
+=head2 --help-colors
+
+This option displays on F<STDOUT> a color palate using the eight-color
+scheme for both foreground and background. The script then exits.
+
 =head2 --help-syntax
 
-This option displays the current syntax filter definitions to F<STDOUT>.
+This option displays on F<STDOUT> the current syntax filter definitions.
 The script then exits.
 
 =head2 --help-types
 
-This option displays the current file type definitions to F<STDOUT>. The
+This option displays on F<STDOUT> the current file type definitions. The
 script then exits.
 
 =head2 --ignore-case
