@@ -783,6 +783,9 @@ sub __file_type_del {
 	    alias	=> [ 'k' ],
 	    flags	=> FLAG_FAC_TYPE,
 	},
+	line		=> {
+	    type	=> '!',
+	},
 	literal	=> {
 	    type	=> '!',
 	    alias	=> [ 'Q' ],
@@ -1223,14 +1226,15 @@ sub __make_munger {
 	$self->{with_filename}
 	    and not $self->{heading}
 	    and push @leader, '$f';
-	push @leader, '$.';
+	$self->{line}
+	    and push @leader, '$.';
 	$self->{column}
 	    and push @leader, '$c';
 	( $self->{syntax} || $self->{show_syntax} )
 	    and push @leader, '$s';
 	{
 	    local $" = ':';
-	    $self->{_tplt_leader} = "@leader:";
+	    $self->{_tplt_leader} = @leader ? "@leader:" : '';
 	}
 	$self->{_tplt_trailer} = '$p';
 	$self->{output} = '$p$&';
@@ -2232,6 +2236,10 @@ See L<--known-types|sam/--known-types> in the L<sam|sam> documentation.
 =item C<known_types>
 
 See L<--known-types|sam/--known-types> in the L<sam|sam> documentation.
+
+=item C<line>
+
+See L<--line|sam/--line> in the L<sam|sam> documentation.
 
 =item C<literal>
 

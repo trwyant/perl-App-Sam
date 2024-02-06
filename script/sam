@@ -386,6 +386,11 @@ L<--files-with-matches|/--files-with-matches>.
 This Boolean option is a synonym for
 L<--files-without-matches|/--files-without-matches>.
 
+=head2 --line
+
+If this Boolean option is asserted, the line number of the match is
+displayed. The default is C<--line>.
+
 =head2 --literal
 
 If this Boolean option is asserted, the L<--match|/--match> and

@@ -43,6 +43,23 @@ EOD
 
 {
     my $sam = CLASS->new(
+	match	=> 'ay$',
+	line	=> 0,
+    );
+
+    my $stdout = capture_stdout {
+	is $sam->process( 't/data/bright.txt' ), 1, 'Matches in 1 file';
+    };
+
+    is $stdout, <<'EOD', 'Matched lines 3 and 4 of limmerick';
+t/data/bright.txt
+    She set out one day
+    In a relative way
+EOD
+}
+
+{
+    my $sam = CLASS->new(
 	match		=> 'ay$',
 	with_filename	=> 0,
     );

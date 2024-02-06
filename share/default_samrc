@@ -537,6 +537,10 @@
 --heading
 
 
+### Line number
+
+--line
+
 ### With file name
 
 --with-filename
