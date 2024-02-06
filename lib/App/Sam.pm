@@ -164,7 +164,8 @@ sub new {
 
     $self->__incompat_arg( qw{ f match } );
     $self->__incompat_arg( qw{ f g files_with_matches
-	files_without_matches replace max_count 1 } );
+	files_without_matches replace max_count } );
+    $self->__incompat_arg( qw{ replace 1 } );
     $self->__incompat_arg( qw{ file match } );
     $self->__incompat_arg( qw{ count passthru } );
     $self->__incompat_arg( qw{ underline output } );
