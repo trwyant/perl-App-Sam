@@ -16,6 +16,7 @@ use Term::ANSIColor;
 		return bless {
 		    _process	=> {
 			filename	=> 'fu.bar',
+			filename_colored	=> 'fu.bar',
 		    },
 		}, CLASS;
 	    },

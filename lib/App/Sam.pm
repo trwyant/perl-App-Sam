@@ -262,6 +262,24 @@ sub new {
 	$self->{_range} = $self->__compile_match( _range => "m (@str)g" );
     }
 
+    {
+	my $t_stdout = -t STDOUT;
+	$self->{color} //= $t_stdout;
+	if ( $self->{ack_mode} ) {
+	    $self->{heading} //= $t_stdout;
+	    my $single_file = $self->{argv} && @{ $self->{argv} } == 1 &&
+		! -d $self->{argv}[0];
+	    $self->{with_filename} //= ! $single_file;
+	    $self->{line} //= $self->{with_filename};
+	    $self->{_clr_eol} = Term::ANSIColor::color( 'reset' ) . CLR_EOL;
+	} else {
+	    $self->{heading} //= 1;
+	    $self->{with_filename} //= 1;
+	    $self->{line} //= 1;
+	    $self->{_clr_eol} = CLR_EOL;
+	}
+    }
+
     $self->__make_munger();
 
     return $self;
@@ -620,6 +638,9 @@ sub __file_type_del {
     my %attr_spec_hash = (
 	1		=> {
 	    type	=> '',
+	},
+	ack_mode	=> {
+	    type	=> '!',
 	},
 	after_context	=> {
 	    type	=> '=i',
@@ -1029,7 +1050,7 @@ sub __get_attr_default_file_name {
 		$rc_cache{$file} = [ @{ $arg } ];
 		if ( $self->{dump} ) {
 		    state $dflt = $self->__get_attr_default_file_name();
-		    my $display = $file eq $dflt ? 'Default' : $file;
+		    my $display = $file eq $dflt ? 'Defaults' : $file;
 		    $self->_display_opt_for_dump( $display );
 		}
 	    } elsif ( $! == ENOENT && ! $required ) {
@@ -1285,13 +1306,13 @@ sub __print {	## no critic (RequireArgUnpacking)
     if ( $self->{print0} ) {
 	$line =~ s/ \n \z /\0/smx;
 	$self->{_process}{colored}
-	    and $line .= CLR_EOL;
+	    and $line .= $self->{_clr_eol};
     }
     # We do this even with --print0, because the output may contain
     # embedded new lines -- in fact, that is what --print0 is all about.
     # NOTE that ack uses "\e[0m\e[K" here. But "\e[K" suffices for me.
     $self->{_process}{colored}
-	and $line =~ s/ (?= \n ) / CLR_EOL /smxge;
+	and $line =~ s/ (?= \n ) /$self->{_clr_eol}/smxg;
     print $line;
     return;
 }
@@ -1348,8 +1369,10 @@ sub _process_file {
     my ( $self, $file ) = @_;
 
     local $self->{_process} = {
-	filename	=> $self->__color( filename => $file ),
+	filename	=> $file,
+	filename_colored	=> $self->__color( filename => $file ),
     };
+    delete $self->{_process}{colored};
 
     $self->{_range}
 	and $self->{_process}{in_range} = $self->{range_start} ? 0 : 1;
@@ -1435,7 +1458,10 @@ sub _process_file {
 
 	if ( $self->{_process}{matched} = $self->_process_match() ) {
 	    if ( $self->{files_with_matches} && ! $self->{count} ) {
-		$self->__say( join ' => ', $self->{_process}{filename}, @show_types );
+		$self->__say( join ' => ',
+		    $self->_process_get_filename_for_output(),
+		    @show_types,
+		);
 		return $self->_process_result( 1 );
 	    }
 	    $lines_matched++;
@@ -1448,6 +1474,10 @@ sub _process_file {
 
 	    if ( ! $self->{_process}{header} ) {
 		$self->{_process}{header} = 1;
+		# NOTE that this will be set already if we are coloring
+		# output, but the headings are independent lines.
+		local $self->{_process}{colored} = 0;
+
 		$self->{_want_break}
 		    and $self->__say( '' );
 		$self->{_want_break} = $self->{break};
@@ -1455,7 +1485,8 @@ sub _process_file {
 		    and $self->{with_filename}
 		    and $self->__say(
 			join ' => ',
-			$self->{_process}{filename},
+			$self->_process_get_filename_for_output(
+			    $self->{ack_mode} ),
 			@show_types,
 		    );
 	    }
@@ -1499,7 +1530,10 @@ sub _process_file {
 	if ( $self->{with_filename} ) {
 	    ( $lines_matched || ! $self->{files_with_matches} )
 		and $self->__say( join ' => ', sprintf(
-		    '%s:%d', $self->{_process}{filename}, $lines_matched ),
+		    '%s:%d',
+		    $self->_process_get_filename_for_output(),
+		    $lines_matched,
+		),
 		@show_types );
 	} else {
 	    $self->{_total_count} += $lines_matched;
@@ -1553,6 +1587,14 @@ sub _process_display_p {
 	and return 1;
 
     return 0;
+}
+
+sub _process_get_filename_for_output {
+    my ( $self, $ignore_coloring ) = @_;
+    $self->{color}
+	and not $ignore_coloring
+	and $self->{_process}{colored} = 1;
+    return $self->{_process}{filename_colored};
 }
 
 # Perform a match if appropriate. By default, returns true if a match
@@ -1709,7 +1751,9 @@ sub _process_template_item {
 	    '&'	=> sub { $_[0]->__color( match => $capt->( $_[0], 0 ) ) },
 	    "'"	=> sub { substr $_, $_[0]->{_tplt}{p}[0] },
 	    c	=> sub { $_[0]->__color( colno => $_[0]{_tplt}{m}[0] + 1 ) },
-	    f	=> sub { $_[0]->{_process}{filename} },
+	    f	=> sub {
+		$_[0]->_process_get_filename_for_output();
+	    },
 	    p	=> sub {
 		return substr $_, $_[0]{_tplt}{pos},
 		    $_[0]{_tplt}{m}[0] - $_[0]{_tplt}{pos};
@@ -2060,6 +2104,10 @@ following named arguments:
 =item C<1>
 
 See L<-1|sam/-1> in the L<sam|sam> documentation.
+
+=item C<ack_mode>
+
+See L<--ack-mode|sam/--ack-mode> in the L<sam|sam> documentation.
 
 =item C<after_context>
 

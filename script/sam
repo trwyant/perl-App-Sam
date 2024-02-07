@@ -94,6 +94,29 @@ the run to end. The name of the option is "one", not "lower-case ell".
 
 This option is a synonym for L<--after-context|/--after-context>.
 
+=head2 --ack-mode
+
+Asserting this Boolean option makes the default behavior of F<sam> more
+like that of L<ack|ack>. Specifically:
+
+--heading is asserted by default if output is to a terminal, and negated
+if not.
+
+--with-filename is asserted by default if there are multiple file
+arguments or the single file argument is a directory. Otherwise
+--no-filename is asserted by default.
+
+--line is asserted by default if --with-filename is asserted, and
+negated by default if --no-filename is asserted.
+
+All the above defaults are overridden by an explicit specification of
+the option.
+
+In addition, there are differences in the handling of color. I consider
+these implementation details that may change without notice, but the
+appearance of the output should not change based on the use of this
+option.
+
 =head2 --after-context
 
 This option specifies the number of lines of context to display after a

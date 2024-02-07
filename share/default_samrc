@@ -530,17 +530,3 @@
 ### Encoding
 
 --encoding=utf-8
-
-
-### Heading
-
---heading
-
-
-### Line number
-
---line
-
-### With file name
-
---with-filename

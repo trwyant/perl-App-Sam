@@ -54,6 +54,8 @@ load_module_ok 'App::Sam';
     isa_ok $sam, 'App::Sam';
 
     is $sam, {
+	_clr_eol		=> "\e[K",
+	color			=> F,
 	color_colno		=> 'bold yellow',
 	color_filename		=> 'bold green',
 	color_lineno		=> 'bold yellow',
