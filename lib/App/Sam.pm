@@ -1317,11 +1317,16 @@ sub process {
 	    and last;
     }
 
-    # We need to preserve the STOP information if we're being called
-    # recursively, but to ditch it otherwise.
-    return caller eq __PACKAGE__ ?
-	$self->_process_result( $files_matched ) :
-	$files_matched;
+    if ( caller eq __PACKAGE__ ) {
+	# We need to preserve the STOP information if we're being called
+	# recursively, but to ditch it otherwise.
+	return $self->_process_result( $files_matched );
+    } else {
+	$self->{count}
+	    and not $self->{with_filename}
+	    and $self->__say( $self->{_total_count} // 0 );
+	return $files_matched;
+    }
 }
 
 # NOTE: Call this ONLY from inside process().
@@ -1429,8 +1434,8 @@ sub _process_file {
 		$self->{_process}{syntax_obj}->__classify();
 
 	if ( $self->{_process}{matched} = $self->_process_match() ) {
-	    if ( $self->{files_with_matches} ) {
-		$self->__say( join ' => ', $file, @show_types );
+	    if ( $self->{files_with_matches} && ! $self->{count} ) {
+		$self->__say( join ' => ', $self->{_process}{filename}, @show_types );
 		return $self->_process_result( 1 );
 	    }
 	    $lines_matched++;
@@ -1490,10 +1495,16 @@ sub _process_file {
 	return $self->_process_result( 1 );
     }
 
-    $self->{count}
-	and $self->__say( join ' => ',
-	    sprintf( '%s:%d', $self->{_process}{filename},
-		$lines_matched ), @show_types );
+    if ( $self->{count} ) {
+	if ( $self->{with_filename} ) {
+	    ( $lines_matched || ! $self->{files_with_matches} )
+		and $self->__say( join ' => ', sprintf(
+		    '%s:%d', $self->{_process}{filename}, $lines_matched ),
+		@show_types );
+	} else {
+	    $self->{_total_count} += $lines_matched;
+	}
+    }
 
     if ( defined( $self->{replace} ) && ! $self->{dry_run} &&
 	$lines_matched && ! ref $file
