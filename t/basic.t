@@ -93,7 +93,6 @@ load_module_ok 'App::Sam';
 	_tplt_trailer	=> q/$p/,
 	type_add		=> hash {
 	    field ext	=> hash {	# Ensure Perl is defined.
-		field PL	=> [ 'perl' ];
 		field pl	=> [ 'perl' ];
 		field pod	=> [ 'perl', 'pod' ];
 		field psgi	=> [ 'perl' ];
@@ -121,7 +120,9 @@ load_module_ok 'App::Sam';
 	},
 	_type_def		=> hash {
 	    field perl	=> {
-		ext			=> [ qw{ .pl .PL .pm .pod .t .psgi } ],
+		ext			=> [
+		    map { '.' . App::Sam::Util::__fold_case( $_ ) }
+		    qw{ pl pm pod t psgi } ],
 		firstlinematch	=> [ '/^#!.*\bperl/' ],
 	    };
 	    etc;

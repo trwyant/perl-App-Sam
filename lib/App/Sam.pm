@@ -7,7 +7,7 @@ use warnings;
 
 use utf8;
 
-use App::Sam::Util qw{ :carp __syntax_types @CARP_NOT };
+use App::Sam::Util qw{ :carp __fold_case __syntax_types @CARP_NOT };
 use File::Next ();
 use File::Basename ();
 use File::Spec;
@@ -524,9 +524,11 @@ sub _file_property {
     $prop_spec->{is}{$_}
 	and push @rslt, @{ $prop_spec->{is}{$_} };
 
-    m/ [.] ( [^.]* ) \z /smx
-	and $prop_spec->{ext}{$1}
-	and push @rslt, @{ $prop_spec->{ext}{$1} };
+    if ( m/ [.] ( [^.]* ) \z /smx ) {
+	my $type;
+	$type = $prop_spec->{ext}{ __fold_case( $1 ) }
+	    and push @rslt, @{ $type };
+    }
 
     if ( my $match = $prop_spec->{match} ) {
 	foreach my $m ( @{ $match } ) {
@@ -1869,7 +1871,7 @@ sub __validate_file_property_add {
 	state $validate_kind = {
 	    ext	=> sub {
 		my ( $self, $prop_name, $prop_val, $data ) = @_;
-		my @item = split /,/, $data;
+		my @item = split /,/, __fold_case( $data );
 		push @{ $self->{"${prop_name}_add"}{ext}{$_} }, $prop_val
 		    for @item;
 		push @{ $self->{"_${prop_name}_def"}{$prop_val}{ext} },

@@ -14,6 +14,7 @@ our @EXPORT_OK = qw{
     __carp
     __confess
     __croak
+    __fold_case
     __syntax_types
     SYNTAX_CODE
     SYNTAX_COMMENT
@@ -113,6 +114,12 @@ sub _decorate_die_args {
     state $me = sprintf '%s: ', $self->__me();
     unshift @arg, $me;
     return @arg;
+}
+
+if ( "$]" >= 5.015008 ) {
+    *__fold_case = sub { CORE::fc( $_[0] ) };
+} else {
+    *__fold_case = sub { lc( $_[0] ) };
 }
 
 sub __syntax_types {

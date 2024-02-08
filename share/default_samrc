@@ -359,7 +359,7 @@
 
 # Perl
 # https://perl.org/
---type-add=perl:ext:pl,PL,pm,pod,t,psgi
+--type-add=perl:ext:pl,pm,pod,t,psgi
 --type-add=perl:firstlinematch:/^#!.*\bperl/
 
 # Perl tests
