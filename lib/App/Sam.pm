@@ -175,7 +175,7 @@ sub new {
 	    my @pat;
 	    foreach my $file ( @{ $self->{file} } ) {
 		open my $fh, '<:encoding(utf-8)', $file
-		    or $self->__croak( "Failed to open $file: $!" );
+		    or $self->__croak( "Unable to open $file: $!" );
 		while ( <$fh> ) {
 		    chomp;
 		    m/ \A \( /smx
@@ -303,7 +303,7 @@ sub create_samrc {
     my $default_file = $self->__get_attr_default_file_name();
     local $_ = undef;	# while (<>) does not localize $_
     open my $fh, '<:encoding(utf-8)', $default_file
-	or $self->__croak( "Failed to open $default_file: $!" );
+	or $self->__croak( "Unable to open $default_file: $!" );
     while ( <$fh> ) {
 	$. == 1
 	    and s/==VERSION==/$VERSION/;
@@ -494,7 +494,7 @@ sub files_from {
 		$fh = \*STDIN;
 	    } else {
 		open $fh, "<$encoding", $file	## no critic (RequireBriefOpen)
-		    or $self->__croak( "Failed to open $file: $!" );
+		    or $self->__croak( "Unable to open $file: $!" );
 	    }
 	    while ( <$fh> ) {
 		m/ \S /smx
@@ -539,6 +539,7 @@ sub _file_property {
 
     if (
 	my $match = $prop_spec->{firstlinematch}
+	    and not -B $path
 	    and open my $fh, '<' . $self->__get_encoding( $path ), $path
     ) {
 	local $_ = <$fh>;
@@ -1060,7 +1061,7 @@ sub __get_attr_default_file_name {
 		return;
 	    } else {
 		$self->__croak( $rc_cache{$file} =
-		    "Failed to open resource file $file: $!" );
+		    "Unablw to open resource file $file: $!" );
 	    }
 	}
 	{
@@ -1290,6 +1291,9 @@ sub __ignore {
 	and return 1;
     if ( $kind eq 'file' && $self->{type} ) {
 
+	-B $_
+	    and return 1;
+
 	# Encoding: undef = unspecified, 0 = accept, 1 = skip
 	my $want_type;
 	foreach my $type ( $self->__file_type( $path, $_ ) ) {
@@ -1379,7 +1383,14 @@ sub _process_file {
     $self->{_range}
 	and $self->{_process}{in_range} = $self->{range_start} ? 0 : 1;
 
-    -B $file
+    -e $file
+	or do {
+	$self->{s}
+	    or $self->__carp( "$file: $!" );
+	return 0;
+    };
+
+    -B _
 	and return 0;
 
     $self->{_process}{type} = [ $self->__file_type( $file ) ]
@@ -1429,7 +1440,7 @@ sub _process_file {
     open my $fh, "<$encoding", $file	## no critic (RequireBriefOpen)
 	or do {
 	$self->{s}
-	    or $self->__carp( "Failed to open $file for input: $!" );
+	    or $self->__carp( "Unable to open $file: $!" );
 	return 0;
     };
 
@@ -1437,7 +1448,7 @@ sub _process_file {
     if ( defined $self->{replace} ) {
 	if ( REF_SCALAR eq ref $self->{dry_run} ) {
 	    open $mod_fh, '>:raw', $self->{dry_run}	## no critic (RequireBriefOpen)
-		or $self->__confess( "Failed to open scalar ref: $!" );
+		or $self->__confess( "Unable to open scalar ref: $!" );
 	} elsif ( $self->{dry_run} || ref $file ) {
 	    # Do nothing
 	} else {
@@ -1549,13 +1560,13 @@ sub _process_file {
 	    my $backup = "$file$self->{backup}";
 	    rename $file, $backup
 		or $self->__croak(
-		"Failed to rename $file to $backup: $!" );
+		"Unable to rename $file to $backup: $!" );
 	}
 
 	$mod_fh->unlink_on_destroy( 0 );
 	rename "$mod_fh", $file
 	    or $self->__croak(
-	    "Failed to rename $mod_fh to $file: $!" );
+	    "Unable to rename $mod_fh to $file: $!" );
     }
 
     return $self->_process_result( $lines_matched ? 1 : 0 );
@@ -1951,15 +1962,9 @@ sub __validate_file_property_add {
 
 sub __validate_files_from {
     my ( $self, undef, $attr_name, $attr_val ) = @_;	# $attr_spec unused
-    not ref $attr_val
-	or REF_ARRAY eq ref $attr_val
-	or return 0;
-    foreach ( ref $attr_val ? @{ $attr_val } : $attr_val ) {
-	$_ eq '-'
-	    or -r
-	    or return 0;
-	push @{ $self->{$attr_name} }, $_;
-    }
+
+    push @{ $self->{$attr_name} }, ref $attr_val ? @{ $attr_val } : $attr_val;
+
     return 1;
 }
 
