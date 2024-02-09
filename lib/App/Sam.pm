@@ -746,7 +746,6 @@ sub __file_type_del {
 	},
 	g	=> {
 	    type	=> '!',	# The expression comes from --match.
-	    flags	=> FLAG_FAC_NO_MATCH_PROC,
 	},
 	file		=> {
 	    type	=> '=s@',
@@ -1284,15 +1283,17 @@ sub __make_munger {
 	    or $self->__confess( "Invalid match '$str': $@" );
     } else {
 	my @leader;
-	$self->{with_filename}
-	    and not $self->{heading}
-	    and push @leader, '$f';
-	$self->{line}
-	    and push @leader, '$.';
-	$self->{column}
-	    and push @leader, '$c';
-	( $self->{syntax} || $self->{show_syntax} )
-	    and push @leader, '$s';
+	unless ( $self->{g} ) {
+	    $self->{with_filename}
+		and not $self->{heading}
+		and push @leader, '$f';
+	    $self->{line}
+		and push @leader, '$.';
+	    $self->{column}
+		and push @leader, '$c';
+	    ( $self->{syntax} || $self->{show_syntax} )
+		and push @leader, '$s';
+	}
 	{
 	    local $" = ':';
 	    $self->{_tplt_leader} = @leader ? "@leader:" : '';
@@ -1465,8 +1466,9 @@ sub _process_file {
     if ( $self->{f} || $self->{g} ) {
 	if ( $self->{g} ) {
 	    local $_ = $file;
-	    $self->{_munger}->( $self ) xor $self->{invert_match}
+	    $self->_process_unconditional_match()
 		or return 0;
+	    $file = $self->{_tplt}{line};
 	}
 	$self->__say( join ' => ', $file, @show_types );
 	return $self->_process_result( 1 );
@@ -1674,6 +1676,12 @@ sub _process_match {
 	$self->{syntax}{$self->{_process}{syntax}}
 	    or return $self->{invert_match};
     }
+
+    return $self->_process_unconditional_match();
+}
+
+sub _process_unconditional_match {
+    my ( $self ) = @_;
     pos( $_ ) = 0;
     $self->{_tplt} = {
 	pos	=> 0,
