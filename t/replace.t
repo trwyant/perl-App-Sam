@@ -5,6 +5,7 @@ use 5.010001;
 use strict;
 use warnings;
 
+use App::Sam::Util qw{ :case };
 use Test2::V0 -target => 'App::Sam';
 use Test2::Tools::Mock;
 
@@ -28,7 +29,7 @@ my $mock = mock 'App::Sam' => (
     my $sam = CLASS->new(
 	dry_run		=> \$got,
 	match		=> '\bbright\b',
-	ignore_case	=> 1,
+	match_case	=> RE_CASE_BLIND,
 	replace		=> 'Wright',
     );
 
@@ -55,7 +56,7 @@ EOD
     my $sam = CLASS->new(
 	dry_run		=> \$got,
 	match		=> '\s*bright\b',
-	ignore_case	=> 1,
+	match_case	=> RE_CASE_BLIND,
 	argv		=> [ qw{ --remove } ],
     );
 

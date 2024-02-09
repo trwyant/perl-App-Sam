@@ -359,16 +359,21 @@ script then exits.
 
 =head2 --ignore-case
 
-If this Boolean option is asserted, the L<--match|/--match> option
-ignores case. The default is C<--no-ignore-case>.
+If this option is specified, the L<--match|/--match> option
+ignores case.
+
+Options C<--ignore-case>, L<--no-ignore-case|/--no-ignore-case>, and
+L<--smart-case|/--smart-case> override each other. If more than one is
+specified, the last-specified wins. The default is
+L<--no-ignore-case|/--no-ignore-case>.
 
 =head2 -i
 
-This Boolean option is a synonym for L<--ignore-case|/--ignore-case>.
+This option is a synonym for L<--ignore-case|/--ignore-case>.
 
 =head2 -I
 
-This Boolean option is a synonym for L<--no-ignore-case|/--ignore-case>.
+This option is a synonym for L<--no-ignore-case|/--no-ignore-case>.
 
 =head2 --ignore-directory
 
@@ -457,6 +462,20 @@ is, if it is present, file names of files with matches are not
 displayed.
 
 L<-h|/-h> is a synonym for this option.
+
+=head2 --no-ignore-case
+
+If this option is specified, the L<--match|/--match> option is sensitive
+to case.
+
+Options L<--ignore-case|/--ignore-case>, C<--no-ignore-case>, and
+L<--smart-case|/--smart-case> override each other. If more than one is
+specified, the last-specified wins. The default is
+C<--no-ignore-case>.
+
+=head2 --no-smart-case
+
+This option is equivalent to L<--no-ignore-case|/--no-ignore-case>.
 
 =head2 --not
 
@@ -653,6 +672,10 @@ argument. If this option is specified, a match string is required.
 This Boolean option suppresses open error messages on files to be
 searched.
 
+=head2 -S
+
+This option is a synonym for L<--smart-case|/--smart-case>.
+
 =head2 --samrc
 
 This option specifies the name of a resource file to read. This is read
@@ -669,6 +692,17 @@ type does not have syntax defined on it.
 
 If this Boolean option is asserted, file types are appended to the file
 name when displayed.
+
+=head2 --smart-case
+
+If this option is specified, the L<--match|/--match> option
+ignores case B<if and only if> the L<--match|/--match> value contains no
+literal upper-case characters.
+
+Options L<--ignore-case|/--ignore-case>,
+L<--no-ignore-case|/--no-ignore-case>, and C<--smart-case> override each
+other. If more than one is specified, the last-specified wins. The
+default is L<--no-ignore-case|/--no-ignore-case>.
 
 =head2 --sort-files
 

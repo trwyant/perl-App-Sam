@@ -16,6 +16,9 @@ our @EXPORT_OK = qw{
     __croak
     __fold_case
     __syntax_types
+    RE_CASE_BLIND
+    RE_CASE_SMART
+    RE_CASE_SENSITIVE
     SYNTAX_CODE
     SYNTAX_COMMENT
     SYNTAX_DATA
@@ -28,6 +31,8 @@ our @EXPORT_OK = qw{
 
 our %EXPORT_TAGS = (
     carp	=> [ qw{ __carp __confess __croak } ],
+    case	=> [ qw{ __fold_case }, grep { m/ \A RE_CASE_ /smx }
+	@EXPORT_OK ],
     syntax	=> [ grep { m/ \A SYNTAX_ /smx } @EXPORT_OK ],
 );
 
@@ -52,6 +57,10 @@ our @CARP_NOT = qw{
     App::Sam::Syntax::_cc_like
     App::Sam::Util
 };
+
+# NOTE that RE_CASE_SENSITIVE must be false, and the others must be
+# true.
+use enum qw{ ENUM:RE_CASE_ SENSITIVE=0 BLIND SMART };
 
 use constant SYNTAX_CODE		=> 'code';
 use constant SYNTAX_COMMENT		=> 'comment';
@@ -200,6 +209,22 @@ go.
 =head1 MANIFEST CONSTANTS
 
 This module provides the following package-private manifest constants:
+
+=head2 RE_CASE_BLIND
+
+This enumerated value specifies that the match expression is to be
+case-blind.
+
+=head2 RE_CASE_SENSITIVE
+
+This enumerated value specifies that the match expression is to be
+case-sensitive.
+
+=head2 RE_CASE_SMART
+
+This enumerated value specifies that the match expression is to be
+treated as case-sensitive if it contains any literal upper-case
+characters, and case-blind if not.
 
 =head2 SYNTAX_CODE
 

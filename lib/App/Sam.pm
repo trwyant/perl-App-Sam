@@ -5,9 +5,12 @@ use 5.010001;
 use strict;
 use warnings;
 
+use charnames qw{ :full :short };
+use if charnames->VERSION >= 1.30, charnames => ':loose';
+
 use utf8;
 
-use App::Sam::Util qw{ :carp __fold_case __syntax_types @CARP_NOT };
+use App::Sam::Util qw{ :carp :case __syntax_types @CARP_NOT };
 use File::Next ();
 use File::Basename ();
 use File::Spec;
@@ -74,6 +77,11 @@ use constant FLAG_DEFAULT	=> FLAG_IS_ATTR | FLAG_IS_OPT |
 use constant FLAG_FACILITY	=> FLAG_FAC_NO_MATCH_PROC |
     FLAG_FAC_SYNTAX | FLAG_FAC_TYPE;
 use constant FLAG_PROCESS_SPECIAL => FLAG_PROCESS_EARLY | FLAG_PROCESS_LATE;
+
+Readonly::Scalar my $GT		=> "\N{GREATER-THAN SIGN}";
+Readonly::Scalar my $LP		=> "\N{LEFT PARENTHESIS}";
+Readonly::Scalar my $RCB	=> "\N{RIGHT CURLY BRACKET}";
+Readonly::Scalar my $RP		=> "\N{RIGHT PARENTHESIS}";
 
 # To be filled in (and made read-only) later.
 our %ATTR_SPEC;
@@ -778,14 +786,19 @@ sub __file_type_del {
 	    type	=> '!',
 	},
 	ignore_case	=> {
+	    type	=> '',
 	    alias	=> [ qw{ i } ],
-	    type	=> '!',
+	    flags	=> FLAG_IS_OPT,
+	    validate	=> '__validate_fixed_value',
+	    arg		=> [ match_case => RE_CASE_BLIND ],
 	},
 	I	=> {
-	    type	=> '|',
+	    type	=> '',
+	    alias	=> [ qw{ noignore_case no_ignore_case
+		nosmart_case no_smart_case } ],
 	    flags	=> FLAG_IS_OPT,
-	    validate	=> '__validate_inverted_value',
-	    arg		=> 'ignore_case',
+	    validate	=> '__validate_fixed_value',
+	    arg		=> [ match_case => RE_CASE_SENSITIVE ],
 	},
 	ignore_directory	=> {
 	    type	=> '=s@',
@@ -814,6 +827,17 @@ sub __file_type_del {
 	literal	=> {
 	    type	=> '!',
 	    alias	=> [ 'Q' ],
+	},
+	match_case	=> {
+	    type	=> '=i',
+	    flags	=> FLAG_PROCESS_NORMAL,
+	},
+	smart_case	=> {
+	    type	=> '',
+	    alias	=> [ 'S' ],
+	    flags	=> FLAG_IS_OPT,
+	    validate	=> '__validate_fixed_value',
+	    arg		=> [ match_case => RE_CASE_SMART ],
 	},
 	max_count	=> {
 	    type	=> '=i',
@@ -903,7 +927,7 @@ sub __file_type_del {
 	no_replace	=> {
 	    type	=> '',
 	    flags	=> FLAG_IS_OPT,
-	    alias	=> [ qw{ noreplace no_remove no-remove noremove } ],
+	    alias	=> [ qw{ noremove no_remove noreplace no_replace } ],
 	    validate	=> '__validate_fixed_value',
 	    arg		=> [ 'replace' ],
 	},
@@ -966,10 +990,14 @@ sub __file_type_del {
     foreach my $key ( keys %attr_spec_hash ) {
 	my $val = $attr_spec_hash{$key};
 	$val->{name} = $key;
-	if ( $key =~ m/ _ /smx ) {
-	    ( my $alias = $key ) =~ s/ _ /-/smxg;
-	    push @{ $val->{alias} }, $alias;
+	my @alias;
+	foreach ( $key, @{ $val->{alias} } ) {
+	    my $aka;
+	    ( $aka = $_ ) =~ tr/_/-/
+		and push @alias, $aka;
 	}
+	@alias
+	    and push @{ $val->{alias} }, @alias;
 
 	defined $val->{flags}
 	    or $val->{flags} = FLAG_DEFAULT;
@@ -1214,11 +1242,16 @@ sub __incompat_arg {
     return;
 }
 
+Readonly::Array my @RE_CASE => do {
+    my @re_case;
+    $re_case[ RE_CASE_SENSITIVE ] = sub { '' };
+    $re_case[ RE_CASE_BLIND ] = sub { 'i' };
+    $re_case[ RE_CASE_SMART ] = sub { __smartcase( $_[0] ) ? 'i' : '' };
+    @re_case;
+};
+
 sub __make_munger {
     my ( $self ) = @_;
-    my $modifier = '';
-    $self->{ignore_case}
-	and $modifier .= 'i';
 
     defined( my $match = $self->{match} )
 	or do {
@@ -1227,6 +1260,9 @@ sub __make_munger {
 	};
 	return;
     };
+
+    my $modifier = '';
+    $modifier .= $RE_CASE[ $self->{match_case} // RE_CASE_SENSITIVE ]->( $match );
 
     $self->{literal}
 	and $match = quotemeta $match;
@@ -1826,6 +1862,99 @@ sub __set_attr {
     return 1;
 }
 
+# Returns true if case-blind and false if not.
+# This implementation interprets the ack functionality to detect literal
+# upper-case characters. If it has them, the entire match is
+# case-sensitive. If it does not, the entire match is case-blind.
+# This determination does NOT take into account whether the literals are
+# in the scope of a (?i:...). It also does not count upper-case classes
+# like [[:upper:]] or \p{Upper_case}.
+#
+# Interpolation is ignored; the
+# contents of the interpolation can not be analyzed statically, but
+# something like $FOO does not represent a literal upper-case letter,
+# and nor does $foo{BAR}. But interpolation is probably not important in
+# the current context, though I might want to consider looking for it
+# anyway to prevent its use.
+sub __smartcase {
+    ( local $_ ) = @_;
+    pos = 0;
+    while ( pos $_ < length $_ ) {
+	m/ \G \\ c . /smxgc		# Control character
+	    and next;
+	m/ \G \\ x \{ ( \s* [[:xdigit:]]+ ) \s* \} /smxgc	# Hex
+	    and _smartcase_ordinal( hex $1 ) ? return RE_CASE_SENSITIVE : next;
+	m/ \G \\ x ( [[:xdigit:]]{1,2} ) /smxgc		# Hex
+	    and _smartcase_ordinal( hex $1 ) ? return RE_CASE_SENSITIVE : next;
+	m/ \G \\ o \{ ( \s* [0-7]+ ) \s* \} /smxgc	# Octal
+	    and _smartcase_ordinal( oct $1 ) ? return RE_CASE_SENSITIVE : next;
+	m/ \G \\ o ( [0-7]{1,3} ) /smxgc		# Octal
+	    and _smartcase_ordinal( oct $1 ) ? return RE_CASE_SENSITIVE : next;
+	m/ \G \\ [gk] \{ [^$RCB]+ \} /smxgco	# Named backreference
+	    and next;
+	m/ \G \\ k < [^$GT]+ > /smxgco	# Named backreference
+	    and next;
+	m/ \G \\ k ' [^']+ ' /smxgc	# Named backreference
+	    and next;
+	m/ \G \\ [Bb] \{ [^$RCB]+ \} /smxgco	# Unicode boundary
+	    and next;
+	m/ \G \\ [Pp] \{ [^$RCB]+ \} /smxgco	# Unicode property
+	    and next;
+	m/ \G \\ [Pp] . /smxgc			# Unicode property
+	    and next;
+	m/ \G \\ N \{ ( [^$RCB]+ ) \} /smxgco	# Character by name
+	    and _smartcase_named_char( $1 ) ? return RE_CASE_SENSITIVE : next;
+	m/ \G \\ u [[:alpha:]] /smxgc	# Uppercase next char
+	    and return RE_CASE_SENSITIVE;
+	m/ \G \\ U /smxgc		# Uppercase until ...
+	    and return RE_CASE_SENSITIVE;	# ... we assume
+	m/ \G \\ . /smxgc	# Escaped character
+	    and next;
+
+	m/ \G [\$\@] \{ \w+ \} /smxgc	# Interpolation
+	    and next;
+	m/ \G [\$\@] \w+ /smxgc		# Interpolation
+	    and next;
+	# FIXME dereference (e.g. $foo{BAR})
+
+	m/ \G \( \? < [^$GT]+ > /smxgco	# Named capture
+	    and next;
+	m/ \G \( \? ' [^']+ ' /smxgc	# Named capture
+	    and next;
+	m/ \G \( R [^$RP]+ \) /smxgco	# True if in recursion
+	    and next;
+	m/ \G \( < [^$GT]+ > /smxgco	# True if name matched
+	    and next;
+	m/ \G \( ' [^']+ ' /smxgc	# True if name matched
+	    and next;
+
+	m/ \G \( \*? [[:upper:]]+ \) /smxgc	# Backtrack control, misc
+	    and next;
+
+	m/ \G [^[:upper:]\\$LP]* /smxgc;	# Gobble
+	m/ \G [[:upper:]] /smxgc
+	    and return RE_CASE_SENSITIVE;
+    }
+    return RE_CASE_BLIND;
+}
+
+sub _smartcase_named_char {
+    my ( $name ) = @_;
+    $name =~ s/ \A \s+ //smx;
+    $name =~ s/ \s+ \z //smx;
+    return _smartcase_ordinal( charnames::vianame( $name ) );
+}
+
+sub _smartcase_ordinal {
+    my ( $ord ) = @_;
+    defined $ord
+	or return;
+    my $char = chr $ord;
+    $char eq uc $char
+	or return;
+    return 1;
+}
+
 sub __validate_accept_scalar {
     my ( $self, undef, $attr_name, $attr_val ) = @_;
     $self->{$attr_name} = $attr_val;
@@ -1840,10 +1969,15 @@ sub __validate_accept_array {
 }
 
 sub __validate_fixed_value {
-    my ( $self, $attr_spec ) = @_;	# $attr_name, $attr_val unused
+    my ( $self, $attr_spec, $attr_name ) = @_;	# $attr_val unused
     REF_ARRAY eq ref $attr_spec->{arg}
-	or $self->__confess( "$attr_spec->{name} arg must be an array ref" );
-    return $self->__set_attr( @{ $attr_spec->{arg} } );
+	or $self->__confess( "$attr_name arg must be an array ref" );
+    if ( $attr_spec->{arg}[0] eq $attr_name ) {
+	$self->{$attr_name} = $attr_spec->{arg}[1];
+	return 1;
+    } else {
+	return $self->__set_attr( @{ $attr_spec->{arg} } );
+    }
 }
 
 sub __validate_color {
@@ -2275,10 +2409,6 @@ See L<--help-syntax|sam/--help-syntax> in the L<sam|sam> documentation.
 
 See L<--help-types|sam/--help-types> in the L<sam|sam> documentation.
 
-=item C<ignore_case>
-
-See L<--ignore-case|sam/--ignore-case> in the L<sam|sam> documentation.
-
 =item C<ignore_directory>
 
 See L<--ignore-directory|sam/--ignore-directory> in the L<sam|sam>
@@ -2319,6 +2449,21 @@ not specified, the first non-option argument in C<argv> will be used.
 
 If this argument is not specified, L<process()|/process> will throw an
 exception.
+
+=item C<match_case>
+
+This enumerated value specifies how the L<match|/match> expression
+handles case. Possible values are
+L<RE_CASE_BLIND|App::Sam::Util/RE_CASE_BLIND>,
+L<RE_CASE_SENSITIVE|App::Sam::Util/RE_CASE_SENSITIVE>, and
+L<RE_CASE_SMART|App::Sam::Util/RE_CASE_SMART>, which are documented in
+L<App::Sam::Util|App::Sam::Util>.
+
+There is no option corresponding to this argument. Instead, these values
+correspond to L<sam|sam> options
+L<--ignore-case|sam/--ignore-case>,
+L<--no-ignore-case|sam/--no-ignore-case>, and
+L<--smart-case|sam/--smart-case> respectively.
 
 =item C<max_count>
 
