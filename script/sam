@@ -473,6 +473,17 @@ L<--smart-case|/--smart-case> override each other. If more than one is
 specified, the last-specified wins. The default is
 C<--no-ignore-case>.
 
+=head2 --no-ignore-directory
+
+This option specifies that a directory not be ignored. Unlike
+L<ack|ack>, all this does is to undo a previous
+L<--ignore-directory|/--ignore-directory>.
+
+=head2 --no-ignore-file
+
+This option specifies that a file not be ignored. Unlike L<ack|ack>, all
+this does is to undo a previous L<--ignore-file|/--ignore-file>.
+
 =head2 --no-smart-case
 
 This option is equivalent to L<--no-ignore-case|/--no-ignore-case>.

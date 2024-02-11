@@ -44,6 +44,9 @@ use enum qw{ BITMASK:FLAG_
     PROCESS_EARLY PROCESS_NORMAL PROCESS_LATE
 };
 
+Readonly::Scalar my $DIR_SEP => IS_WINDOWS ? "\\/" : File::Spec->catfile(
+    '', '' );
+
 =begin comment
 
 BEGIN {
@@ -858,6 +861,18 @@ sub __file_type_del {
 	    type	=> '',
 	    alias	=> [ 'H' ],
 	},
+	no_ignore_directory	=> {
+	    type	=> '=s@',
+	    alias	=> [ 'noignore_directory' ],
+	    validate	=> '__validate_ignore',
+	    arg		=> 'ignore_directory',
+	},
+	no_ignore_file	=> {
+	    type	=> '=s@',
+	    alias	=> [ 'noignore_file' ],
+	    validate	=> '__validate_ignore',
+	    arg		=> 'ignore_file',
+	},
 	not		=> {
 	    type	=> '=s@',
 	    validate	=> '__validate_not'
@@ -926,7 +941,7 @@ sub __file_type_del {
 	no_replace	=> {
 	    type	=> '',
 	    flags	=> FLAG_IS_OPT,
-	    alias	=> [ qw{ noremove no_remove noreplace no_replace } ],
+	    alias	=> [ qw{ noremove no_remove noreplace } ],
 	    validate	=> '__validate_fixed_value',
 	    arg		=> [ 'replace' ],
 	},
@@ -1317,8 +1332,21 @@ sub __ignore {
     ( my ( $self, $kind, $path ), local $_ ) = @_;
     my $prop_spec = $self->{"ignore_$kind"}
 	or $self->__confess( "Invalid ignore kind '$kind'" );
+
+    ( $path //= {
+	    directory	=> $File::Next::dir,
+	    file		=> $File::Next::name,
+	}->{$kind}
+    ) or $self->__confess( "Can not default path for '$kind'" );
     $_ //= ( File::Spec->splitpath( $path ) )[2];
+
     $prop_spec->{is}{$_}
+	and return 1;
+    # NOTE that the ack docs seem to me to say that this does not work.
+    # But t/ack-ignore-dir.t explicitly tests for it.
+    # FIXME Given ack --ignore-dir=another_subdir --noignore-dir=CVS,
+    # ack lists files in .../another_subdir/CVS/.
+    $prop_spec->{is}{$path}
 	and return 1;
     m/ [.] ( [^.]* ) \z /smx
 	and $prop_spec->{ext}{$1}
@@ -2126,36 +2154,62 @@ sub __validate_inverted_value {
     return $self->__set_attr( $attr_spec->{arg}, ! $attr_val );
 }
 
+# If arg is true, we assume delete of the named spec
 sub __validate_ignore {
-    my ( $self, undef, $attr_name, $attr_val ) = @_;	# $attr_spec unused
+    my ( $self, $attr_spec, $attr_name, $attr_val ) = @_;
     foreach ( ref $attr_val ? @{ $attr_val } : $attr_val ) {
 	my ( $kind, $data ) = split /:/, $_, 2;
 	defined $data
 	    or ( $kind, $data ) = ( is => $kind );
 	state $validate_kind = {
 	    ext	=> sub {
-		my ( $self, $attr_name, $data ) = @_;
+		my ( $self, $attr_spec, $attr_name, $data ) = @_;
 		my @item = split /,/, $data;
-		@{ $self->{$attr_name}{ext} }{ @item } = ( ( 1 ) x @item );
+		if ( my $name = $attr_spec->{arg} ) {
+		    delete $self->{$name}{ext}{$_} for @item;
+		} else {
+		    @{ $self->{$attr_name}{ext} }{ @item } = ( ( 1 ) x @item );
+		}
 		return 1;
 	    },
 	    is	=> sub {
-		my ( $self, $attr_name, $data ) = @_;
-		$self->{$attr_name}{is}{$data} = 1;
+		my ( $self, $attr_spec, $attr_name, $data ) = @_;
+		$attr_name eq 'ignore_directory'
+		    and $data =~ s( [$DIR_SEP] \z )()smxo;
+		if ( my $name = $attr_spec->{arg} ) {
+		    delete $self->{$name}{is}{$data};
+		    # NOTE the comment above in __ignore() about
+		    # ignoring paths. I observe that in ack a
+		    # --no-ignore-*=is:base_name also deletes entries
+		    # for relative paths with that base name. Hence this
+		    # loop.
+		    foreach my $path ( keys %{ $self->{$name}{is} } ) {
+			$data eq ( File::Spec->splitpath( $path ))[2]
+			    and delete $self->{$name}{is}{$path};
+		    }
+		} else {
+		    $self->{$attr_name}{is}{$data} = 1;
+		}
 		return 1;
 	    },
 	    match	=> sub {
-		my ( $self, $attr_name, $data ) = @_;
-		local $@ = undef;
-		eval "qr $data"	## no critic (ProhibitStringyEval)
-		    or return 0;
-		push @{ $self->{$attr_name}{match} }, $data;
+		my ( $self, $attr_spec, $attr_name, $data ) = @_;
+		if ( my $name = $attr_spec->{arg} ) {
+		    @{ $self->{$name}{match} } =
+			grep { $_ ne $data }
+			@{ $self->{$name}{match} };
+		} else {
+		    local $@ = undef;
+		    eval "qr $data"	## no critic (ProhibitStringyEval)
+			or return 0;
+		    push @{ $self->{$attr_name}{match} }, $data;
+		}
 		return 1;
 	    },
 	};
 	my $code = $validate_kind->{$kind}
 	    or return 0;
-	$code->( $self, $attr_name, $data )
+	$code->( $self, $attr_spec, $attr_name, $data )
 	    or return 0;
     }
     return 1;
@@ -2476,6 +2530,16 @@ L<--smart-case|sam/--smart-case> respectively.
 =item C<max_count>
 
 See L<--max-count|sam/--max-count> in the L<sam|sam> documentation.
+
+=item C<no_ignore_directory>
+
+See L<--no-ignore-directory|sam/--no-ignore-directory> in the L<sam|sam>
+documentation.
+
+=item C<no_ignore_file>
+
+See L<--no-ignore-file|sam/--no-ignore-file> in the L<sam|sam>
+documentation.
 
 =item C<not>
 
