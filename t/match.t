@@ -25,6 +25,8 @@ my $mock = mock 'App::Sam' => (
     ],
 );
 
+=begin comment
+
 {
     my $sam = CLASS->new(
 	match	=> 'ay$',
@@ -146,6 +148,10 @@ t/data/bright.txt
 4:    In a relative way
 EOD
 }
+
+=end comment
+
+=cut
 
 {
     my $sam = CLASS->new(

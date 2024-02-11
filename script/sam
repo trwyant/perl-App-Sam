@@ -783,7 +783,12 @@ C<--syntax-add>.
 
 =head2 -t
 
-This Boolean option is a synonym for L<--type|/--type>.
+This option is a synonym for L<--type|/--type>.
+
+=head2 -T
+
+This option is equivalent to L<--type|/--type> with C<'no-'> prefixed to
+the type name.
 
 =head2 --type
 

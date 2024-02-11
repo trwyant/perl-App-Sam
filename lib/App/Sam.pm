@@ -44,6 +44,8 @@ use enum qw{ BITMASK:FLAG_
     PROCESS_EARLY PROCESS_NORMAL PROCESS_LATE
 };
 
+use enum qw{ ENUM:TYPE_ WANTED=0 NOT_WANTED };
+
 Readonly::Scalar my $DIR_SEP => IS_WINDOWS ? "\\/" : File::Spec->catfile(
     '', '' );
 
@@ -271,6 +273,13 @@ sub new {
 	}
 	local $" = '|';
 	$self->{_range} = $self->__compile_match( _range => "m (@str)g" );
+    }
+
+    if ( $self->{known_types} ) {
+	foreach my $type ( keys %{ $self->{_type_def} } ) {
+	    exists $self->{type}{$type}
+		or $self->{type}{$type} = TYPE_WANTED;
+	}
     }
 
     {
@@ -968,6 +977,12 @@ sub __file_type_del {
 	    validate	=> '__validate_syntax',
 	    flags	=> FLAG_FAC_SYNTAX,
 	},
+	T	=> {
+	    type	=> '=s@',
+	    flags	=> FLAG_IS_OPT | FLAG_FAC_TYPE,
+	    validate	=> '__validate_type',
+	    arg		=> 1,
+	},
 	type	=> {
 	    type	=> '=s@',
 	    alias	=> [ 't' ],
@@ -1136,31 +1151,25 @@ sub __get_validator {
 	or $attr_spec = $ATTR_SPEC{$attr_spec}
 	or $self->__confess( "Undefined attribute '$_[1]'" );
     if ( my $method = $attr_spec->{validate} ) {
-	if ( my $facility = $attr_spec->{flags} & FLAG_FACILITY ) {
-	    # NOTE we count on the attribute spec setup code to have
-	    # provided a validator if the facility was specified
-	    $die
-		and return sub {
-		$self->$method( $attr_spec, @_ )
-		    or die "Invalid value --$_[0]=$_[1]\n";
+	my $facility = $attr_spec->{flags} & FLAG_FACILITY;
+	# NOTE we count on the attribute spec setup code to have
+	# provided a validator if the facility was specified
+	$die
+	    or return sub {
+		if ( $self->$method( $attr_spec, @_ ) ) {
+		    $self->{flags} |= $facility;
+		    return 1;
+		}
+		return 0;
+	    };
+	return sub {
+	    if ( $self->$method( $attr_spec, @_ ) ) {
 		$self->{flags} |= $facility;
 		return 1;
-	    };
-	    return sub {
-		return $self->$method( $attr_spec, @_ ) &&
-		( $self->{flags} |= $facility );
-	    };
-	} else {
-	    $die
-		and return sub {
-		$self->$method( $attr_spec, @_ )
-		    or die "Invalid value --$_[0]=$_[1]\n";
-		return 1;
-	    };
-	    return sub {
-		return $self->$method( $attr_spec, @_ );
-	    };
-	}
+	    }
+	    ( my $opt_name = $_[0] ) =~ tr/_/-/;
+	    die "Invalid value --$opt_name=$_[1]\n";
+	};
     }
     return;
 }
@@ -1357,6 +1366,7 @@ sub __ignore {
     if ( $kind eq 'file' && $self->{type} ) {
 
 	-B $_
+	    and -s _
 	    and return 1;
 
 	# Encoding: undef = unspecified, 0 = accept, 1 = skip
@@ -1456,21 +1466,25 @@ sub _process_file {
     };
 
     -B _
+	and -s _
 	and return 0;
 
     $self->{_process}{type} = [ $self->__file_type( $file ) ]
 	if $self->{flags} & FLAG_FAC_TYPE;
 
-    $self->{known_types}
-	and not @{ $self->{_process}{type} }
-	and return 0;
-
     $self->{flush}
 	and local $| = 1;
 
     my @show_types;
-    $self->{show_types}
-	and push @show_types, join ',', @{ $self->{_process}{type} };
+    # This rigamarole is just to duplicate the ack --show-types output
+    # in the case where the file has no type.
+    if ( $self->{show_types} ) {
+	if ( @{ $self->{_process}{type} } ) {
+	    @show_types = ( ' ' . join ',', @{ $self->{_process}{type} } );
+	} else {
+	    @show_types = ( '' );
+	}
+    }
 
     if ( $self->{flags} & FLAG_FAC_SYNTAX ) {
 	if ( my ( $class ) = $self->__file_syntax( $file ) ) {
@@ -1498,7 +1512,7 @@ sub _process_file {
 		or return 0;
 	    $file = $self->{_tplt}{line};
 	}
-	$self->__say( join ' => ', $file, @show_types );
+	$self->__say( join ' =>', $file, @show_types );
 	return $self->_process_result( 1 );
     }
 
@@ -2253,14 +2267,16 @@ sub __validate_syntax {
 }
 
 sub __validate_type {
-    my ( $self, undef, undef, $attr_val ) = @_;	# $attr_spec, $attr_name unused
+    my ( $self, $attr_spec, undef, $attr_val ) = @_;	# $attr_name unused
     foreach ( ref $attr_val ? @{ $attr_val } : $attr_val ) {
-	my $neg;
-	if ( $self->{_type_def}{$_} ) { 
-	    $self->{type}{$_} = 0;
-	} elsif ( ( $neg = $_ ) =~ s/ \A no-? //smxi && (
-		$self->{_type_def}{$neg} ) ) {
-	    $self->{type}{$neg} = 1;
+	my $type = $_;
+	if ( $self->{_type_def}{$type} ) { 
+	    $self->{type}{$type} = $attr_spec->{arg} ? TYPE_NOT_WANTED :
+		TYPE_WANTED;
+	} elsif ( $type =~ s/ \A no-? //smxi && (
+		$self->{_type_def}{$type} ) ) {
+	    $self->{type}{$type} = $attr_spec->{arg} ? TYPE_WANTED :
+		TYPE_NOT_WANTED;
 	} else {
 	    return 0;
 	}
