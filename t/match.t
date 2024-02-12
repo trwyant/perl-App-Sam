@@ -506,6 +506,23 @@ t/data/bright.txt
 EOD
 }
 
+{
+    my $sam = CLASS->new(
+	proximate	=> 1,
+	match		=> 'Wyant',
+    );
+
+    my $stdout = capture_stdout {
+	$sam->process( 't/data/sql_file.sql' );
+    };
+
+    is $stdout, <<'EOD', '--proximate';
+t/data/sql_file.sql
+6: * Author: Thomas R. Wyant, III F<wyant at cpan dot org>
+
+8: * Copyright (C) 2018-2023 by Thomas R. Wyant, III
+EOD
+}
 
 done_testing;
 

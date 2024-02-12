@@ -604,6 +604,14 @@ This convenience option is a synonym for L<--no-replace|/--no-replace>.
 
 This option can also be specified as C<--noremove>.
 
+=head2 -p
+
+This option is a synonym for L<--proximate|/--proximate>.
+
+=head2 -P
+
+This option is equivalent to L<--proximate=0|/--proximate>.
+
 =head2 --passthru
 
 If this Boolean option is asserted, all lines are displayed whether or
@@ -617,6 +625,13 @@ This Boolean option is a synonym for L<--passthru|/--passthru>.
 
 If this Boolean option is asserted, lines of search output are
 terminated with a null character (C<\0>) instead of a new line (C<\n>).
+
+=head2 --proximate
+
+ --proximate=3
+
+This option inserts a blank line between outputs that are more than the
+given number of input lines apart.
 
 =head2 -Q
 

@@ -901,6 +901,16 @@ sub __file_type_del {
 	print0		=> {
 	    type	=> '!',
 	},
+	P		=> {
+	    type	=> '',
+	    flags	=> FLAG_IS_OPT,
+	    validate	=> '__validate_fixed_value',
+	    arg		=> [ proximate	=> 0 ],
+	},
+	proximate	=> {
+	    type	=> '=i',
+	    alias	=> [ 'p' ],
+	},
 	recurse		=> {
 	    type	=> '!',
 	    alias	=> [ qw{ r R } ],
@@ -1584,7 +1594,14 @@ sub _process_file {
 		    );
 	    }
 
+	    $self->{proximate}
+		and defined $self->{_process}{last_printed}
+		and $. - @before_context - $self->{_process}{last_printed} >
+		    $self->{proximate}
+		and $self->__say( '' );
+
 	    $self->__print( $_ ) for @before_context;
+	    $self->{_process}{last_printed} = $.;
 	    @before_context = ();
 	    $self->__print( $self->{_tplt}{line} );
 	    if ( $self->{_tplt}{ul_spec} ) {
@@ -2574,6 +2591,10 @@ See L<--passthru|sam/--passthru> in the L<sam|sam> documentation.
 =item C<print0>
 
 See L<--print0|sam/--print0> in the L<sam|sam> documentation.
+
+=item C<proximate>
+
+See L<--proximate|sam/--proximate> in the L<sam|sam> documentation.
 
 =item C<range_end>
 
