@@ -25,6 +25,20 @@ sub ACTION_authortest {
     return;
 }
 
+sub ACTION_acktest {
+    my ( $self, @args ) = @_;
+
+    -e 'META.json'
+	or $self->depends_on( 'distmeta' );
+
+    $self->depends_on( 'build' );
+
+    $self->test_files( qw{ foo/t/*.t } );
+    $self->depends_on( 'test' );
+
+    return;
+}
+
 sub ACTION_test {
     my ( $self, @args ) = @_;
 

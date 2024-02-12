@@ -1717,7 +1717,7 @@ sub _process_match {
     my ( $self ) = @_;
 
     $self->{flags} & FLAG_FAC_NO_MATCH_PROC
-	and return $self->{_munger}->( $self );
+	and return ( $self->{_munger}->( $self ) xor $self->{invert_match} );
 
     if ( $self->{_range} ) {
 	my $in_range = $self->{_process}{in_range};
@@ -1741,6 +1741,7 @@ sub _process_match {
 
 sub _process_unconditional_match {
     my ( $self ) = @_;
+
     pos( $_ ) = 0;
     $self->{_tplt} = {
 	pos	=> 0,
