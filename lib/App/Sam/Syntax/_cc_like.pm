@@ -13,9 +13,6 @@ our $VERSION = '0.000_001';
 
 sub __classify_code {
     my ( $self ) = @_;
-    $. == 1
-	and $self->__match_shebang()
-	and return SYNTAX_METADATA;
     $self->__match_single_line_documentation()
 	and return SYNTAX_COMMENT;
     $self->__match_block_documentation_start() and do {
@@ -126,12 +123,6 @@ sub __match_single_line_preprocessor {
 
 sub __match_preprocessor_continuation {
     return m/ \\ $ /smx;
-}
-
-# Shebang
-
-sub __match_shebang {
-    return 0;
 }
 
 1;

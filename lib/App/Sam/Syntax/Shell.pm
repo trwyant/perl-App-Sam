@@ -7,7 +7,7 @@ use warnings;
 
 use parent qw{ App::Sam::Syntax };
 
-use App::Sam::Util qw{ :syntax @CARP_NOT };
+use App::Sam::Util qw{ :syntax __match_shebang @CARP_NOT };
 
 our $VERSION = '0.000_001';
 
@@ -15,13 +15,10 @@ sub __classifications {
     return ( SYNTAX_CODE, SYNTAX_COMMENT, SYNTAX_METADATA );
 }
 
-sub __classify {
+sub __classify_code {
     m/ \A \s* \# /smx
-	or return SYNTAX_CODE;
-    $. == 1
-	and m / \A \# ! .* \b (?: ba | t?c | k | z | fi )? sh \b /smx
-	and return SYNTAX_METADATA;
-    return SYNTAX_COMMENT;
+	and return SYNTAX_COMMENT;
+    return SYNTAX_CODE;
 }
 
 1;

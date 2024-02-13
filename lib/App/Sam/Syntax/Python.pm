@@ -7,7 +7,7 @@ use warnings;
 
 use parent qw{ App::Sam::Syntax };
 
-use App::Sam::Util qw{ :syntax @CARP_NOT };
+use App::Sam::Util qw{ :syntax __match_shebang @CARP_NOT };
 
 our $VERSION = '0.000_001';
 
@@ -19,9 +19,6 @@ sub __classifications {
 sub __classify_code {
     my ( $self ) = @_;
     if ( m/ \A \s* \# /smx ) {
-	1 == $.
-	    and m/ python /smx
-	    and return SYNTAX_METADATA;
 	return SYNTAX_COMMENT;
     } elsif ( m/ \A \s* """ ( .+ """ \s* \z )? /smx ) {
 	my $kind = delete $self->{Was_def} ?
@@ -47,7 +44,6 @@ sub __classify_documentation {
 	and $self->{in} = SYNTAX_CODE;
     return SYNTAX_DOCUMENTATION;
 }
-
 
 1;
 

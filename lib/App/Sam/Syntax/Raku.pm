@@ -7,7 +7,7 @@ use warnings;
 
 use parent qw{ App::Sam::Syntax };
 
-use App::Sam::Util qw{ :syntax @CARP_NOT };
+use App::Sam::Util qw{ :syntax __match_shebang @CARP_NOT };
 use Readonly;
 
 our $VERSION = '0.000_001';
@@ -26,9 +26,6 @@ sub __classifications {
 sub __classify_code {
     my ( $self ) = @_;
     if ( m/ \A \s* \# /smxg ) {
-	1 == $.
-	    and m/ raku /smx
-	    and return SYNTAX_METADATA;
 	m/ \G ` ( ( [$open_brkt] ) \g{-1}* ) /smxgco and do {
 	    my $close_brkt = _close_bracket( $1 );
 	    index( $_, $close_brkt ) >= 0

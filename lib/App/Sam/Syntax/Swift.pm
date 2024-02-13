@@ -7,7 +7,7 @@ use warnings;
 
 use parent qw{ App::Sam::Syntax::_cc_like };
 
-use App::Sam::Util qw{ :syntax @CARP_NOT };
+use App::Sam::Util qw{ :syntax __match_shebang @CARP_NOT };
 
 our $VERSION = '0.000_001';
 
@@ -40,10 +40,6 @@ sub __match_single_line_documentation {
 
 sub __match_single_line_preprocessor {
     return;
-}
-
-sub __match_shebang {
-    return m/ \A [#] ! /smx;
 }
 
 1;

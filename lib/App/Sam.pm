@@ -18,7 +18,7 @@ use Errno qw{ :POSIX };
 use File::ShareDir;
 use File::Temp ();
 use Getopt::Long ();
-use List::Util ();
+use List::Util 1.45;	# for uniqstr()
 use Module::Load ();
 use Readonly;
 use Scalar::Util ();

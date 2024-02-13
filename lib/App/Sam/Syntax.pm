@@ -28,11 +28,16 @@ sub __init {
 
 sub __classify {
     my ( $self ) = @_;
+    $. == 1
+	and $self->__match_shebang()
+	and return SYNTAX_METADATA;
     my $in = $self->{in};
     my $code = $self->can( "__classify_$in" )
 	or $self->__confess( "__classify_$in() not implemented" );
     goto &$code;
 }
+
+sub __match_shebang { return 0 }
 
 1;
 
@@ -133,6 +138,17 @@ corresponding to syntax types that can not occur.
 
 The C<'other'> syntax type is provided as a catch-all, but the author's
 strongly-held opinion that it should not be used.
+
+=head2 __match_shebang
+
+This method is called by L<__classify()|/__classify> if C<$. == 1>. It
+must return a true value if and only if the syntax supports shebang
+lines and it determines that C<$_> contains a shebang line.
+
+At this level of the class hierarchy it always returns a false value.
+Subclasses that support shebang lines can import a generic
+L<__match_shebang()|App::Sam::Util/__match_shebang> from
+L<App::Sam::Util|App::Sam::Util>, or provide their own.
 
 =head1 SEE ALSO
 

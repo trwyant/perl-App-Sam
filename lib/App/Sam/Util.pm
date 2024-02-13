@@ -15,6 +15,7 @@ our @EXPORT_OK = qw{
     __confess
     __croak
     __fold_case
+    __match_shebang
     __syntax_types
     RE_CASE_BLIND
     RE_CASE_SMART
@@ -132,6 +133,10 @@ if ( "$]" >= 5.015008 ) {
     *__fold_case = sub { lc( $_[0] ) };
 }
 
+sub __match_shebang {
+    return ! index $_, '#!';
+}
+
 sub __syntax_types {
     state $types = [ map { __PACKAGE__->$_() } @{ $EXPORT_TAGS{syntax} } ];
     return @{ $types };
@@ -189,6 +194,18 @@ This mixin calls displays the given message using either C<die()> if
 the invocant's C<die> attribute is true, or C<croak()> if not.
 
 It can be imported by name or using the C<:carp> tag.
+
+=head2 __fold_case
+
+This subroutine returns its argument case-folded. Under Perl 5.15.8 this
+is done using the C<fc()> built-in. Under earlier Perls this was not
+available, so C<lc()> is used instead.
+
+=head2 __match_shebang
+
+This is a generic shebang line matcher that can be imported into syntax
+classifiers that need it. All it does is to return a true value if C<$_>
+starts with C<'#!'>.
 
 =head2 __syntax_types
 
