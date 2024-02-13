@@ -26,8 +26,8 @@ sub __classify_code {
     $self->__match_single_line_comment()
 	and return SYNTAX_COMMENT;
     $self->__match_block_comment_start() and do {
-	$self->__match_block_comment_end()
-	    or $self->{in} = SYNTAX_COMMENT;
+	$self->{Comment_match} = $self->__match_block_comment( 0 )
+	    and $self->{in} = SYNTAX_COMMENT;
 	return SYNTAX_COMMENT;
     };
     $self->__match_single_line_preprocessor() and do {
@@ -54,8 +54,9 @@ sub __classify_documentation {
 
 sub __classify_comment {
     my ( $self ) = @_;
-    $self->__match_block_comment_end()
-	and $self->{in} = SYNTAX_CODE;
+    $self->{Comment_nest} = $self->__match_block_comment(
+	$self->{Comment_nest} )
+	or $self->{in} = SYNTAX_CODE;
     return SYNTAX_COMMENT;
 }
 
@@ -77,8 +78,8 @@ sub __classify_preprocessor {
 
 # Comments
 
-sub __match_block_comment_end {
-    return m< [*] / >smx;
+sub __match_block_comment {
+    return ! m< [*] / >smx;
 }
 
 sub __match_block_comment_start {

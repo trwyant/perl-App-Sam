@@ -175,7 +175,7 @@ EOD
     );
 
     my $stdout = capture_stdout {
-	is $sam->process( 't/data' ), 18, '-f t/data found 17 files';
+	is $sam->process( 't/data' ), 19, '-f t/data found 19 files';
     };
 
     is $stdout, <<'EOD', '-f listed everything in t/data';
@@ -195,6 +195,7 @@ t/data/python_file.py
 t/data/raku_file.raku
 t/data/shell_file.sh
 t/data/sql_file.sql
+t/data/swift_file.swift
 t/data/vim_file.vim
 t/data/yaml_file.yml
 EOD
@@ -207,7 +208,7 @@ EOD
     );
 
     my $stdout = capture_stdout {
-	is $sam->process( 't/data' ), 15, '-fk t/data found 15 files';
+	is $sam->process( 't/data' ), 16, '-fk t/data found 16 files';
     };
 
     is $stdout, <<'EOD', '-fk listed only known types in t/data';
@@ -224,6 +225,7 @@ t/data/python_file.py
 t/data/raku_file.raku
 t/data/shell_file.sh
 t/data/sql_file.sql
+t/data/swift_file.swift
 t/data/vim_file.vim
 t/data/yaml_file.yml
 EOD
@@ -340,6 +342,7 @@ t/data/perl_file.PL
 t/data/properties_file.properties
 t/data/python_file.py
 t/data/raku_file.raku
+t/data/swift_file.swift
 t/data/vim_file.vim
 t/data/yaml_file.yml
 EOD

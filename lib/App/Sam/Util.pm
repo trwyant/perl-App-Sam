@@ -52,6 +52,7 @@ our @CARP_NOT = qw{
     App::Sam::Syntax::Raku
     App::Sam::Syntax::SQL
     App::Sam::Syntax::Shell
+    App::Sam::Syntax::Swift
     App::Sam::Syntax::Vim
     App::Sam::Syntax::YAML
     App::Sam::Syntax::_cc_like
