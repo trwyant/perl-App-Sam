@@ -63,6 +63,7 @@ load_module_ok 'App::Sam';
 	die			=> F,
 	encoding		=> 'utf-8',
 	env			=> F,
+	filter			=> F,
 	flags			=> 0,
 	ignore_sam_defaults	=> F,
 	heading			=> T,

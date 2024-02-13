@@ -177,11 +177,13 @@ sub new {
 
     $self->__incompat_arg( qw{ f match } );
     $self->__incompat_arg( qw{ f g files_with_matches
-	files_without_matches replace max_count } );
+	files_without_matches replace } );
     $self->__incompat_arg( qw{ replace 1 } );
     $self->__incompat_arg( qw{ file match } );
     $self->__incompat_arg( qw{ count passthru } );
     $self->__incompat_arg( qw{ underline output } );
+
+    $self->{filter} //= -p STDIN;
 
     unless ( $self->{f} || defined $self->{match} ) {
 	if ( $self->{file} ) {
@@ -204,7 +206,7 @@ sub new {
 	    } elsif ( @pat == 1 ) {
 		$self->{match} = $pat[0];
 	    }
-	} elsif ( $argv && @{ $argv } ) {
+	} elsif ( ! $self->{filter} && $argv && @{ $argv } ) {
 	    $self->{match} = shift @{ $argv };
 	}
     }
@@ -256,9 +258,6 @@ sub new {
 	}
     }
 
-    delete $self->{filter}
-	and $self->__validate_files_from( undef, files_from => '-' );
-
     if ( $self->{range_start} || $self->{range_end} ) {
 	state $range_val = {
 	    range_start	=> 1,
@@ -282,6 +281,12 @@ sub new {
 	}
     }
 
+    if ( $self->{max_count} && ( $self->{f} || $self->{g} ||
+	    $self->{files_with_matches} ||
+	    $self->{files_without_matches} ) ) {
+	$self->{_max_files_wanted} = $self->{max_count};
+    } 
+
     {
 	my $t_stdout = -t STDOUT;
 	$self->{color} //= $t_stdout;
@@ -298,6 +303,12 @@ sub new {
 	    $self->{line} //= 1;
 	    $self->{_clr_eol} = CLR_EOL;
 	}
+    }
+
+    if ( $self->{filter} ) {
+	my $encoding = $self->__get_encoding();
+	binmode STDIN, $encoding
+	    or $self->__croak( "Unable to set STDIN to $encoding: $!" );
     }
 
     $self->__make_munger();
@@ -1289,7 +1300,7 @@ sub __make_munger {
     defined( my $match = $self->{match} )
 	or do {
 	$self->{_munger} = sub {
-	    $_[0]->__croak( 'No match string specified' );
+	    $_[0]->__croak( 'No regular expression found' );
 	};
 	return;
     };
@@ -1411,11 +1422,20 @@ sub __print {	## no critic (RequireArgUnpacking)
 sub process {
     my ( $self, @files ) = @_;
 
-    @files
-	or @files = (
-	$self->files_from(),
-	@{ $self->{argv} || [] },
-    );
+    # OK -- all the logic is here, so all script/sam has to do is to
+    # unconditionally call process()
+
+    unless ( @files ) {
+	@files = $self->files_from();
+	if ( $self->{filter} ) {
+	    @files
+		or @files = ( \*STDIN );
+	} else {
+	    push @files, @{ $self->{argv} || [] };
+	    @files
+		or @files = ( File::Spec->curdir() );
+	}
+    }
 
     my $files_matched;
 
@@ -1427,18 +1447,15 @@ sub process {
 	$files_matched += $rslt;
 	$rslt eq STOP
 	    and last;
+	$self->{_max_files_wanted}
+	    and $files_matched >= $self->{max_count}
+	    and last;
     }
 
-    if ( caller eq __PACKAGE__ ) {
-	# We need to preserve the STOP information if we're being called
-	# recursively, but to ditch it otherwise.
-	return $self->_process_result( $files_matched );
-    } else {
-	$self->{count}
-	    and not $self->{with_filename}
-	    and $self->__say( $self->{_total_count} // 0 );
-	return $files_matched;
-    }
+    $self->{count}
+	and not $self->{with_filename}
+	and $self->__say( $self->{_total_count} // 0 );
+    return $files_matched;
 }
 
 # NOTE: Call this ONLY from inside process().
@@ -1447,9 +1464,17 @@ sub _process_dir {
     my $iterator = $self->__get_file_iterator( $file );
     my $files_matched = 0;
     while ( defined( my $fn = $iterator->() ) ) {
-	my $rslt = $self->process( $fn );
+	my $rslt = ( ref( $fn ) || ! -d $fn ) ?
+	    $self->_process_file( $fn ) :
+	    $self->_process_dir( $fn );
 	$files_matched += $rslt;
 	$rslt eq STOP
+	    and return $self->_process_result( $files_matched );
+	# FIXME I think this is buggy. {max_count} should be compared to
+	# the total number of files processed, not just the number
+	# processed in this directory.
+	$self->{_max_files_wanted}
+	    and $files_matched >= $self->{max_count}
 	    and return $self->_process_result( $files_matched );
     }
     return $files_matched;
@@ -1527,12 +1552,18 @@ sub _process_file {
     }
 
     my $encoding = $self->__get_encoding( $file );
-    open my $fh, "<$encoding", $file	## no critic (RequireBriefOpen)
-	or do {
-	$self->{s}
-	    or $self->__carp( "Unable to open $file: $!" );
-	return 0;
-    };
+
+    my $fh;
+    if ( Scalar::Util::openhandle( $file ) ) {
+	$fh = $file;
+    } else {
+	open $fh, "<$encoding", $file	## no critic (RequireBriefOpen)
+	    or do {
+	    $self->{s}
+		or $self->__carp( "Unable to open $file: $!" );
+	    return 0;
+	};
+    }
 
     my $mod_fh;
     if ( defined $self->{replace} ) {
@@ -2465,10 +2496,10 @@ documentation.
 See L<--files-without-matches|sam/--files-without-matches> in the
 L<sam|sam> documentation.
 
-=item C<--filter>
+=item C<filter>
 
-See L<--filter|sam/--filter> in the L<sam|sam> documentation. Note that,
-unlike L<sam|sam>, the default is false.
+See L<--filter|sam/--filter> in the L<sam|sam> documentation. The
+default is true if F<STDIN> is a pipe; otherwise it is false.
 
 =item C<filter_files_from>
 

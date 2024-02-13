@@ -34,7 +34,6 @@ sub run {
 	color	=> IS_TTY,
 	die	=> 1,
 	argv	=> \@ARGV,
-	filter	=> -p STDIN,
     );
 
     $sam->dumped()
@@ -52,13 +51,7 @@ sub run {
 	}
 
     } else {
-
-	push @ARGV, $sam->files_from();
-
-	@ARGV
-	    or push @ARGV, File::Spec->curdir();
-
-	$files_matched = $sam->process( @ARGV );
+	$files_matched = $sam->process();
     }
 
     return $files_matched;
@@ -290,9 +283,13 @@ L<--files-with-matches|/--files-with-matches> will be negated.
 
 =head2 --filter
 
-If this Boolean option is asserted, it is equivalent to specifying
-C<-x>, i.e. C<--files-from=->. This is asserted by default if F<STDIN>
-is a pipe, but can be negated again by C<--no-filter>.
+If this Boolean option is asserted, matches are searched for in
+F<STDIN>, any file specifications (either directly from the command
+line or from L<--files-from|/--files-from>) are ignored, and the match
+string must be specified using an explicit L<--match|/--match> option.
+
+This option is asserted by default if F<STDIN> is a pipe, otherwise it
+is negated by default.
 
 =head2 --filter-files-from
 

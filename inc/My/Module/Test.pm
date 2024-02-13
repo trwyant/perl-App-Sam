@@ -19,7 +19,7 @@ our $VERSION = '0.000_001';
 
 sub capture_stdout (&) {
     my ( $code ) = @_;
-my $data;
+    my $data;
     {
 	# Thanks to David Farrell for the algorithm. Specifically:
 	# https://www.perl.com/article/45/2013/10/27/How-to-redirect-and-restore-STDOUT/

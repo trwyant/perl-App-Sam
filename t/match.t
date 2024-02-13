@@ -420,18 +420,18 @@ EOD
 
 {
     my $sam = CLASS->new(
-	filter	=> 1,
-	match	=> 'Wyant',
+	filter		=> 1,
+	match		=> 'Wyant',
+	with_filename	=> 0,
     );
 
     my $stdout = capture_stdout {
 	stdin_from_file {
 	    $sam->process();
-	} 't/data/files_from';
+	} 't/data/sql_file.sql';
     };
 
     is $stdout, <<'EOD', '--filter';
-t/data/sql_file.sql
 6: * Author: Thomas R. Wyant, III F<wyant at cpan dot org>
 8: * Copyright (C) 2018-2023 by Thomas R. Wyant, III
 EOD
