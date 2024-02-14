@@ -46,7 +46,6 @@ EOD
     };
 
     is $stdout, <<'EOD', 'Matched line 1 of limerick';
-t/data/bright.txt
 1:There was a young lady named Wright
 EOD
 }
@@ -73,7 +72,6 @@ EOD
     };
 
     is $stdout, <<'EOD', 'Matched line 1 of limerick';
-t/data/bright.txt
 1:There was a young lady named
 EOD
 }

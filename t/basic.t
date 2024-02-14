@@ -55,7 +55,6 @@ load_module_ok 'App::Sam';
 
     is $sam, {
 	_clr_eol		=> "\e[K",
-	color			=> F,
 	color_colno		=> 'bold yellow',
 	color_filename		=> 'bold green',
 	color_lineno		=> 'bold yellow',
@@ -66,13 +65,10 @@ load_module_ok 'App::Sam';
 	filter			=> F,
 	flags			=> 0,
 	ignore_sam_defaults	=> F,
-	heading			=> T,
 	ignore_directory	=> hash { etc },
 	ignore_file		=> hash { etc },
-	line			=> T,
 	match			=> 'foo',
 	_munger		=> validator( sub { REF_CODE eq ref } ),
-	output		=> '$p$&',
 	recurse		=> T,
 	sort_files		=> T,
 	syntax_add		=> hash {	# Ensure Perl's syntax is defined.
@@ -90,8 +86,6 @@ load_module_ok 'App::Sam';
 	    };
 	    etc;
 	},
-	_tplt_leader	=> '$.:',
-	_tplt_trailer	=> q/$p/,
 	type_add		=> hash {
 	    field ext	=> hash {	# Ensure Perl is defined.
 		field pl	=> [ 'perl' ];
@@ -128,7 +122,6 @@ load_module_ok 'App::Sam';
 	    };
 	    etc;
 	},
-	with_filename		=> T,
     }, 'Got expected object';
 
     is $sam->__me(), 'basic.t', '__me() returns base name of script';

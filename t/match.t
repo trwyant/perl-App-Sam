@@ -25,8 +25,6 @@ my $mock = mock 'App::Sam' => (
     ],
 );
 
-=begin comment
-
 {
     my $sam = CLASS->new(
 	match	=> 'ay$',
@@ -37,7 +35,6 @@ my $mock = mock 'App::Sam' => (
     };
 
     is $stdout, <<'EOD', 'Matched lines 3 and 4 of limmerick';
-t/data/bright.txt
 3:    She set out one day
 4:    In a relative way
 EOD
@@ -46,6 +43,7 @@ EOD
 {
     my $sam = CLASS->new(
 	match	=> 'ay$',
+	with_filename	=> 1,
 	line	=> 0,
     );
 
@@ -63,7 +61,6 @@ EOD
 {
     my $sam = CLASS->new(
 	match		=> 'ay$',
-	with_filename	=> 0,
     );
 
     my $stdout = capture_stdout {
@@ -87,7 +84,6 @@ EOD
     };
 
     is $stdout, <<'EOD', 'Showed Perl syntax classifications';
-t/data/perl_file.PL
 1:meta:#!/usr/bin/env perl
 2:code:
 3:code:use strict;
@@ -122,7 +118,6 @@ EOD
     };
 
     is $stdout, <<'EOD', 'Showed Perl syntax classifications';
-t/data/perl_file.PL
 2:code:
 3:code:use strict;
 4:code:use warnings;
@@ -143,15 +138,10 @@ EOD
     };
 
     is $stdout, <<'EOD', 'Matched lines 3 and 4 of limmerick';
-t/data/bright.txt
 3:    She set out one day
 4:    In a relative way
 EOD
 }
-
-=end comment
-
-=cut
 
 {
     my $sam = CLASS->new(
@@ -163,10 +153,9 @@ EOD
     };
 
     is $stdout, <<'EOD',
-t/data/bright.txt
 1:There was a young lady named Bright
 EOD
-	'Matched line 1 of limmerick per --match t/data/match_file';
+	'Matched line 1 of limerick per --match t/data/match_file';
 }
 
 {
@@ -274,7 +263,6 @@ EOD
 	is $sam->process( 't/data/sql_file.sql' ), 1, '--max-count=1';
     };
     is $stdout, <<'EOD', q(--output);
-t/data/sql_file.sql
 6: * Author: Thomas R. Wyant, III F<wyant at cpan dot org>
 EOD
 }
@@ -360,7 +348,6 @@ EOD
     };
 
     is $stdout, <<'EOD', '--context=1 displayed 3 lines';
-t/data/bright.txt
 2:Who could travel much faster than light.
 3:    She set out one day
 4:    In a relative way
@@ -378,7 +365,6 @@ EOD
     };
 
     is $stdout, <<'EOD', '--underline';
-t/data/bright.txt
 1:There was a young lady named Bright
                                ^^^^^^
 EOD
@@ -448,7 +434,6 @@ EOD
     };
 
     is $stdout, <<'EOD', '--range-start';
-t/data/bright.txt
 3:    She set out one day
 4:    In a relative way
 5:And returned the previous night.
@@ -466,7 +451,6 @@ EOD
     };
 
     is $stdout, <<'EOD', '--range-end';
-t/data/bright.txt
 1:There was a young lady named Bright
 2:Who could travel much faster than light.
 3:    She set out one day
@@ -486,7 +470,6 @@ EOD
     };
 
     is $stdout, <<'EOD', '--range-start, --range-end';
-t/data/bright.txt
 3:    She set out one day
 4:    In a relative way
 EOD
@@ -504,7 +487,6 @@ EOD
     };
 
     is $stdout, <<'EOD', '--range-start, --range-end match on same line';
-t/data/bright.txt
 3:    She set out one day
 EOD
 }
@@ -520,7 +502,6 @@ EOD
     };
 
     is $stdout, <<'EOD', '--proximate';
-t/data/sql_file.sql
 6: * Author: Thomas R. Wyant, III F<wyant at cpan dot org>
 
 8: * Copyright (C) 2018-2023 by Thomas R. Wyant, III

@@ -287,23 +287,9 @@ sub new {
 	$self->{_max_files_wanted} = $self->{max_count};
     } 
 
-    {
-	my $t_stdout = -t STDOUT;
-	$self->{color} //= $t_stdout;
-	if ( $self->{ack_mode} ) {
-	    $self->{heading} //= $t_stdout;
-	    my $single_file = $self->{argv} && @{ $self->{argv} } == 1 &&
-		! -d $self->{argv}[0];
-	    $self->{with_filename} //= ! $single_file;
-	    $self->{line} //= $self->{with_filename};
-	    $self->{_clr_eol} = Term::ANSIColor::color( 'reset' ) . CLR_EOL;
-	} else {
-	    $self->{heading} //= 1;
-	    $self->{with_filename} //= 1;
-	    $self->{line} //= 1;
-	    $self->{_clr_eol} = CLR_EOL;
-	}
-    }
+    $self->{_clr_eol} = $self->{ack_mode} ? 
+	Term::ANSIColor::color( 'reset' ) . CLR_EOL :
+	CLR_EOL;
 
     if ( $self->{filter} ) {
 	my $encoding = $self->__get_encoding();
@@ -1321,30 +1307,11 @@ sub __make_munger {
     if ( $self->{flags} & FLAG_FAC_NO_MATCH_PROC ) {
 	# Do nothing -- we just want to know if we have a match.
     } elsif ( defined $self->{output} ) {
-	$self->{_tplt_leader} = $self->{_tplt_trailer} = '';
 	$self->{output} =~ s/ (?<! \n ) \z /\n/smx;
 	$str = '$_[0]->_process_callback() while ' . $str . 'g';
 	$code = eval "sub { $str }"	## no critic (ProhibitStringyEval)
 	    or $self->__confess( "Invalid match '$str': $@" );
     } else {
-	my @leader;
-	unless ( $self->{g} ) {
-	    $self->{with_filename}
-		and not $self->{heading}
-		and push @leader, '$f';
-	    $self->{line}
-		and push @leader, '$.';
-	    $self->{column}
-		and push @leader, '$c';
-	    ( $self->{syntax} || $self->{show_syntax} )
-		and push @leader, '$s';
-	}
-	{
-	    local $" = ':';
-	    $self->{_tplt_leader} = @leader ? "@leader:" : '';
-	}
-	$self->{_tplt_trailer} = '$p';
-	$self->{output} = '$p$&';
 	$str = '$_[0]->_process_callback() while ' . $str . 'g';
 	$code = eval "sub { $str }"	## no critic (ProhibitStringyEval)
 	    or $self->__confess( "Invalid match '$str': $@" );
@@ -1436,6 +1403,50 @@ sub process {
 		or @files = ( File::Spec->curdir() );
 	}
     }
+
+    defined $self->{with_filename}
+	or local $self->{with_filename} = (
+	    @files == 1 && ! -d $files[0] ) ? 0 : 1;
+    defined $self->{line}
+	or local $self->{line} = $self->{ack_mode} ?
+	    $self->{with_filename} : 1;
+    my $t_stdout = -t STDOUT;
+    defined $self->{color}
+	or local $self->{color} = $t_stdout;
+    defined $self->{heading}
+	or local $self->{heading} = $self->{ack_mode} ? $t_stdout : 1;
+
+    # NOTE that this was moved here from __make_munger() because that
+    # method no longer knows the final value of {with_filename}.
+    if ( $self->{flags} & FLAG_FAC_NO_MATCH_PROC ) {
+	# Do nothing -- we just want to know if we have a match.
+    } elsif ( defined $self->{output} ) {
+	$self->{_tplt_leader} = $self->{_tplt_trailer} = '';
+    } else {
+	my @leader;
+	unless ( $self->{g} ) {
+	    $self->{with_filename}
+		and not $self->{heading}
+		and push @leader, '$f';
+	    $self->{line}
+		and push @leader, '$.';
+	    $self->{column}
+		and push @leader, '$c';
+	    ( $self->{syntax} || $self->{show_syntax} )
+		and push @leader, '$s';
+	}
+	{
+	    local $" = ':';
+	    $self->{_tplt_leader} = @leader ? "@leader:" : '';
+	}
+	$self->{_tplt_trailer} = '$p';
+    }
+
+    # NOTE this has to be done here because the above logic needs
+    # {output} to be undefined unless it was actually specified to
+    # new().
+    defined $self->{output}
+	or local $self->{output} = '$p$&';
 
     my $files_matched;
 
