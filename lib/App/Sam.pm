@@ -38,6 +38,9 @@ use constant REF_SCALAR	=> ref \0;
 
 use constant STOP	=> 'STOP';
 
+use constant TPLT_FLUSH	=> '$p\\n';
+use constant TPLT_MATCH	=> '$p$&';
+
 use enum qw{ BITMASK:FLAG_
     FAC_NO_MATCH_PROC FAC_SYNTAX FAC_TYPE
     IS_ATTR IS_OPT
@@ -268,7 +271,7 @@ sub new {
 	    defined $self->{$_}
 		or next;
 	    $self->__compile_match( $_, "m ($self->{$_})" );
-	    push @str, "$self->{$_}(?{ \$self->{_process}{in_range} = $range_val->{$_} })";
+	    push @str, "$self->{$_}(?{ \$self->{_process_file}{in_range} = $range_val->{$_} })";
 	}
 	local $" = '|';
 	$self->{_range} = $self->__compile_match( _range => "m (@str)g" );
@@ -490,7 +493,7 @@ sub __color {
 	and return $text;
     defined( my $color = $self->{"color_$kind"} )
 	or $self->__confess( "Invalid color kind '$kind'" );
-    $self->{_process}{colored} = 1;
+    $self->{_process_file}{colored} = 1;
     return Term::ANSIColor::colored( $text, $color );
 }
 
@@ -569,8 +572,8 @@ sub _file_property {
 
     if ( my $type_map = $prop_spec->{type} ) {
 	foreach my $type (
-	    $self->{_process}{type} ?
-	    @{ $self->{_process}{type} } :
+	    $self->{_process_file}{type} ?
+	    @{ $self->{_process_file}{type} } :
 	    $self->__file_type( $path, $_ )
 	) {
 	    $type_map->{$type}
@@ -1203,12 +1206,12 @@ sub __get_option_parser {
     $pass_thru = $pass_thru ? 1 : 0;
     state $opt_psr = [];
     return $opt_psr->[$pass_thru] ||= do {
-	my $p = Getopt::Long::Parser->new();
-	$p->configure( qw{
+	my $psr = Getopt::Long::Parser->new();
+	$psr->configure( qw{
 	    bundling no_ignore_case } );
 	$pass_thru
-	    and $p->configure( qw{ pass_through } );
-	$p;
+	    and $psr->configure( qw{ pass_through } );
+	$psr;
     };
 }
 
@@ -1374,13 +1377,13 @@ sub __print {	## no critic (RequireArgUnpacking)
     my $line = join '', @_[ 1 .. $#_ ];
     if ( $self->{print0} ) {
 	$line =~ s/ \n \z /\0/smx;
-	$self->{_process}{colored}
+	$self->{_process_file}{colored}
 	    and $line .= $self->{_clr_eol};
     }
     # We do this even with --print0, because the output may contain
     # embedded new lines -- in fact, that is what --print0 is all about.
     # NOTE that ack uses "\e[0m\e[K" here. But "\e[K" suffices for me.
-    $self->{_process}{colored}
+    $self->{_process_file}{colored}
 	and $line =~ s/ (?= \n ) /$self->{_clr_eol}/smxg;
     print $line;
     return;
@@ -1415,38 +1418,38 @@ sub process {
 	or local $self->{color} = $t_stdout;
     defined $self->{heading}
 	or local $self->{heading} = $self->{ack_mode} ? $t_stdout : 1;
+    local $self->{output} = $self->{output};
 
     # NOTE that this was moved here from __make_munger() because that
     # method no longer knows the final value of {with_filename}.
     if ( $self->{flags} & FLAG_FAC_NO_MATCH_PROC ) {
 	# Do nothing -- we just want to know if we have a match.
-    } elsif ( defined $self->{output} ) {
-	$self->{_tplt_leader} = $self->{_tplt_trailer} = '';
+    } elsif ( $self->{g} ) {
+	$self->{_tplt_leader} = '';
+	# NOTE that the following is NOT TPLT_FLUSH because we do not
+	# want the \n.
+	$self->{_tplt_trailer} = '$p';
     } else {
 	my @leader;
-	unless ( $self->{g} ) {
-	    $self->{with_filename}
-		and not $self->{heading}
-		and push @leader, '$f';
-	    $self->{line}
-		and push @leader, '$.';
-	    $self->{column}
-		and push @leader, '$c';
-	    ( $self->{syntax} || $self->{show_syntax} )
-		and push @leader, '$s';
+	$self->{with_filename}
+	    and not $self->{heading}
+	    and push @leader, '$f';
+	$self->{line}
+	    and push @leader, '$.';
+	$self->{column}
+	    and push @leader, '$c';
+	( $self->{syntax} || $self->{show_syntax} )
+	    and push @leader, '$s';
+	my $prefix = @leader ? join( ':', @leader ) . ':' : '';
+	if ( defined $self->{output} ) {
+	    substr $self->{output}, 0, 0, $prefix;
+	    $self->{_tplt_leader} = $self->{_tplt_trailer} = '';
+	} else {
+	    $self->{_tplt_leader} = $prefix;
+	    $self->{_tplt_trailer} = TPLT_FLUSH;
 	}
-	{
-	    local $" = ':';
-	    $self->{_tplt_leader} = @leader ? "@leader:" : '';
-	}
-	$self->{_tplt_trailer} = '$p';
     }
-
-    # NOTE this has to be done here because the above logic needs
-    # {output} to be undefined unless it was actually specified to
-    # new().
-    defined $self->{output}
-	or local $self->{output} = '$p$&';
+    $self->{output} //= TPLT_MATCH;
 
     my $files_matched;
 
@@ -1495,14 +1498,14 @@ sub _process_dir {
 sub _process_file {
     my ( $self, $file ) = @_;
 
-    local $self->{_process} = {
+    local $self->{_process_file} = {
 	filename	=> $file,
 	filename_colored	=> $self->__color( filename => $file ),
     };
-    delete $self->{_process}{colored};
+    delete $self->{_process_file}{colored};
 
     $self->{_range}
-	and $self->{_process}{in_range} = $self->{range_start} ? 0 : 1;
+	and $self->{_process_file}{in_range} = $self->{range_start} ? 0 : 1;
 
     -e $file
 	or do {
@@ -1515,7 +1518,7 @@ sub _process_file {
 	and -s _
 	and return 0;
 
-    $self->{_process}{type} = [ $self->__file_type( $file ) ]
+    $self->{_process_file}{type} = [ $self->__file_type( $file ) ]
 	if $self->{flags} & FLAG_FAC_TYPE;
 
     $self->{flush}
@@ -1525,8 +1528,8 @@ sub _process_file {
     # This rigamarole is just to duplicate the ack --show-types output
     # in the case where the file has no type.
     if ( $self->{show_types} ) {
-	if ( @{ $self->{_process}{type} } ) {
-	    @show_types = ( ' ' . join ',', @{ $self->{_process}{type} } );
+	if ( @{ $self->{_process_file}{type} } ) {
+	    @show_types = ( ' ' . join ',', @{ $self->{_process_file}{type} } );
 	} else {
 	    @show_types = ( '' );
 	}
@@ -1534,7 +1537,7 @@ sub _process_file {
 
     if ( $self->{flags} & FLAG_FAC_SYNTAX ) {
 	if ( my ( $class ) = $self->__file_syntax( $file ) ) {
-	    $self->{_process}{syntax_obj} =
+	    $self->{_process_file}{syntax_obj} =
 		$self->{_syntax_obj}{$class} ||=
 		"App::Sam::Syntax::$class"->new( die => $self->{die} );
 	}
@@ -1543,10 +1546,10 @@ sub _process_file {
 	# object OR it does not produce the requested syntax, ignore
 	# the file.
 	if ( $self->{syntax} ) {
-	    $self->{_process}{syntax_obj}
+	    $self->{_process_file}{syntax_obj}
 		or return 0;
 	    List::Util::first( sub { $self->{syntax}{$_} },
-		$self->{_process}{syntax_obj}->__classifications() )
+		$self->{_process_file}{syntax_obj}->__classifications() )
 		or return 0;
 	}
     }
@@ -1595,13 +1598,13 @@ sub _process_file {
     my @before_context;
     while ( <$fh> ) {
 
-	delete $self->{_process}{colored};
+	delete $self->{_process_file}{colored};
 
-	$self->{_process}{syntax_obj}
-	    and $self->{_process}{syntax} =
-		$self->{_process}{syntax_obj}->__classify();
+	$self->{_process_file}{syntax_obj}
+	    and $self->{_process_file}{syntax} =
+		$self->{_process_file}{syntax_obj}->__classify();
 
-	if ( $self->{_process}{matched} = $self->_process_match() ) {
+	if ( $self->{_process_file}{matched} = $self->_process_match() ) {
 	    if ( $self->{files_with_matches} && ! $self->{count} ) {
 		$self->__say( join ' => ',
 		    $self->_process_get_filename_for_output(),
@@ -1617,11 +1620,11 @@ sub _process_file {
 
 	if ( $self->_process_display_p() ) {
 
-	    if ( ! $self->{_process}{header} ) {
-		$self->{_process}{header} = 1;
+	    if ( ! $self->{_process_file}{header} ) {
+		$self->{_process_file}{header} = 1;
 		# NOTE that this will be set already if we are coloring
 		# output, but the headings are independent lines.
-		local $self->{_process}{colored} = 0;
+		local $self->{_process_file}{colored} = 0;
 
 		$self->{_want_break}
 		    and $self->__say( '' );
@@ -1637,13 +1640,13 @@ sub _process_file {
 	    }
 
 	    $self->{proximate}
-		and defined $self->{_process}{last_printed}
-		and $. - @before_context - $self->{_process}{last_printed} >
+		and defined $self->{_process_file}{last_printed}
+		and $. - @before_context - $self->{_process_file}{last_printed} >
 		    $self->{proximate}
 		and $self->__say( '' );
 
 	    $self->__print( $_ ) for @before_context;
-	    $self->{_process}{last_printed} = $.;
+	    $self->{_process_file}{last_printed} = $.;
 	    @before_context = ();
 	    $self->__print( $self->{_tplt}{line} );
 	    if ( $self->{_tplt}{ul_spec} ) {
@@ -1724,15 +1727,15 @@ sub _process_display_p {
     $self->{files_without_matches}
 	and return 0;
 
-    if ( $self->{_process}{matched} ) {
+    if ( $self->{_process_file}{matched} ) {
 	$self->{after_context}
-	    and $self->{_process}{after_context} =
+	    and $self->{_process_file}{after_context} =
 		$self->{after_context} + 1;
 	return 1;
     }
 
-    $self->{_process}{after_context}
-	and --$self->{_process}{after_context}
+    $self->{_process_file}{after_context}
+	and --$self->{_process_file}{after_context}
 	and return 1;
 
     $self->{passthru}
@@ -1745,8 +1748,8 @@ sub _process_get_filename_for_output {
     my ( $self, $ignore_coloring ) = @_;
     $self->{color}
 	and not $ignore_coloring
-	and $self->{_process}{colored} = 1;
-    return $self->{_process}{filename_colored};
+	and $self->{_process_file}{colored} = 1;
+    return $self->{_process_file}{filename_colored};
 }
 
 # Perform a match if appropriate. By default, returns true if a match
@@ -1762,10 +1765,10 @@ sub _process_match {
 	and return ( $self->{_munger}->( $self ) xor $self->{invert_match} );
 
     if ( $self->{_range} ) {
-	my $in_range = $self->{_process}{in_range};
-	$in_range ||= $self->{_process}{in_range}
+	my $in_range = $self->{_process_file}{in_range};
+	$in_range ||= $self->{_process_file}{in_range}
 	    while $self->{_range}->( $self );
-	$self->{_process}{in_range}
+	$self->{_process_file}{in_range}
 	    or $in_range
 	    or return $self->{invert_match};
     }
@@ -1773,8 +1776,8 @@ sub _process_match {
     $self->{not}{match}
 	and $self->{not}{match}->()
 	and return $self->{invert_match};
-    if ( $self->{syntax} && defined $self->{_process}{syntax} ) {
-	$self->{syntax}{$self->{_process}{syntax}}
+    if ( $self->{syntax} && defined $self->{_process_file}{syntax} ) {
+	$self->{syntax}{$self->{_process_file}{syntax}}
 	    or return $self->{invert_match};
     }
 
@@ -1814,7 +1817,7 @@ sub _process_callback {
 	    local $self->{color} = 0;
 	    $self->{_tplt}{capt}[0] = $self->__process_template(
 		$self->{replace} );
-	    $self->{_tplt}{replace} .= $self->__process_template( '$p$&' );
+	    $self->{_tplt}{replace} .= $self->__process_template( TPLT_MATCH );
 	}
 
 	$self->{_tplt}{line} .= $self->__process_template(
@@ -1835,7 +1838,7 @@ sub _process_callback {
     } else {	# We're being called to flush tne buffer
 
 	defined $self->{replace}
-	    and $self->{_tplt}{replace} .= $self->__process_template( '$p' );
+	    and $self->{_tplt}{replace} .= $self->__process_template( TPLT_FLUSH );
 	$self->{_tplt}{line} .= $self->__process_template(
 	    $self->{_tplt_trailer} );
     }
@@ -1866,6 +1869,7 @@ sub __process_template {
 	or $self->__confess( 'Undefined template' );
     $self->{_tplt}{m} = [ defined pos ? @- : ( length ) ];
     $self->{_tplt}{p} = [ defined pos ? @+ : ( length ) ];
+    $self->{_tplt}{'+'} = $+ // '';
     {	# Hope: match vars localized to block
 	$tplt =~ s( ( [\\\$] ) ( . ) )
 	    ( $self->_process_template_item( $1, $2 ) )smxge;
@@ -1904,20 +1908,27 @@ sub _process_template_item {
 	    7	=> sub { $capt->( $_[0], 7 ) },
 	    8	=> sub { $capt->( $_[0], 8 ) },
 	    9	=> sub { $capt->( $_[0], 9 ) },
-	    _	=> sub { "$_" },
+	    _	=> sub { chomp( my $s = $_ ); $s },
 	    '.'	=> sub { $_[0]->__color( lineno => $. ) },
 	    '`'	=> sub { substr $_, 0, $_[0]->{_tplt}{m}[0] },
 	    '&'	=> sub { $_[0]->__color( match => $capt->( $_[0], 0 ) ) },
-	    "'"	=> sub { substr $_, $_[0]->{_tplt}{p}[0] },
+	    "'"	=> sub {
+		my $s = substr $_, $_[0]->{_tplt}{p}[0];
+		chomp $s;
+		return $s;
+	    },
+	    '+'	=> sub { $_[0]->{_tplt}{'+'} },
 	    c	=> sub { $_[0]->__color( colno => $_[0]{_tplt}{m}[0] + 1 ) },
 	    f	=> sub {
 		$_[0]->_process_get_filename_for_output();
 	    },
 	    p	=> sub {
-		return substr $_, $_[0]{_tplt}{pos},
+		my $s = substr $_, $_[0]{_tplt}{pos},
 		    $_[0]{_tplt}{m}[0] - $_[0]{_tplt}{pos};
+		chomp $s;
+		return $s; 
 	    },
-	    s	=> sub { substr $_[0]{_process}{syntax} // '', 0, 4 },
+	    s	=> sub { substr $_[0]{_process_file}{syntax} // '', 0, 4 },
 	},
     };
     my $code = $hdlr->{$kind}{$item}

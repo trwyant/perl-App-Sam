@@ -34,7 +34,7 @@ my $mock = mock 'App::Sam' => (
 	is $sam->process( 't/data/bright.txt' ), 1, 'Matches in 1 file';
     };
 
-    is $stdout, <<'EOD', 'Matched lines 3 and 4 of limmerick';
+    is $stdout, <<'EOD', 'Matched lines 3 and 4 of limerick';
 3:    She set out one day
 4:    In a relative way
 EOD
@@ -51,7 +51,7 @@ EOD
 	is $sam->process( 't/data/bright.txt' ), 1, 'Matches in 1 file';
     };
 
-    is $stdout, <<'EOD', 'Matched lines 3 and 4 of limmerick';
+    is $stdout, <<'EOD', 'Matched lines 3 and 4 of limerick';
 t/data/bright.txt
     She set out one day
     In a relative way
@@ -67,7 +67,7 @@ EOD
 	$sam->process( 't/data/bright.txt' );
     };
 
-    is $stdout, <<'EOD', 'Matched lines 3 and 4 of limmerick';
+    is $stdout, <<'EOD', 'Matched lines 3 and 4 of limerick';
 3:    She set out one day
 4:    In a relative way
 EOD
@@ -137,7 +137,7 @@ EOD
 	$sam->process( 't/data/bright.txt' );
     };
 
-    is $stdout, <<'EOD', 'Matched lines 3 and 4 of limmerick';
+    is $stdout, <<'EOD', 'Matched lines 3 and 4 of limerick';
 3:    She set out one day
 4:    In a relative way
 EOD
@@ -237,9 +237,10 @@ EOD
 
 {
     my $sam = CLASS->new(
-	match	=> '(?:Thomas|Wyant)',
-	output	=> '$f:$.:$c:$&',
-	heading	=> 0,
+	match		=> '(?:Thomas|Wyant)',
+	output		=> '$c:$&',
+	heading		=> 0,
+	with_filename	=> 1,
     );
 
     my $stdout = capture_stdout {

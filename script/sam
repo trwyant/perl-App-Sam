@@ -502,9 +502,10 @@ below.
 =head2 --output
 
 This option takes a string as a template to be executed once for each
-match. An implicit return is appended to the string. The templating
-system is a superset to that of L<ack|ack>, with the following special
-strings recognized:
+match. An implicit return is appended to the string.
+
+The templating system is a superset to that of L<ack|ack>. The following
+special strings are recognized:
 
 =over
 
@@ -564,6 +565,11 @@ The current match.
 
 Everything on the line after the end of the current match.
 
+=item C<$+>
+
+The contents of the highest-numbered capture group that was actually
+used, or the empty string if no capture groups were used.
+
 =item C<$c>
 
 The column number of the beginning of the current match.
@@ -576,7 +582,8 @@ The name of the input file.
 
 Everything after the end of the last match and before the beginning of
 the next match. On the first match this is everything from the beginning
-of the line.
+of the line. If there is no match (or after the last match) it is
+everything from the last match (if any) to the end of the line.
 
 =item C<$s>
 

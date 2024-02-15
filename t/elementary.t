@@ -14,7 +14,7 @@ use Term::ANSIColor;
 	override	=> [
 	    new		=> sub {
 		return bless {
-		    _process	=> {
+		    _process_file	=> {
 			filename	=> 'fu.bar',
 			filename_colored	=> 'fu.bar',
 		    },
