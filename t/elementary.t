@@ -18,6 +18,10 @@ use Term::ANSIColor;
 			filename	=> 'fu.bar',
 			filename_colored	=> 'fu.bar',
 		    },
+		    _match	=> {
+			matched	=> 1,
+		    },
+		    flags	=> 0,
 		}, CLASS;
 	    },
 	],
@@ -58,13 +62,13 @@ use Term::ANSIColor;
 	    local $sam->{color_match} = 'black on_yellow';
 	    is $sam->__process_template( '$.' ),
 		colored( 42, 'bold yellow' ),
-		q/Template '$.', coloried/;
+		q/Template '$.', colored/;
 	    is $sam->__process_template( '$c' ),
 		colored( 7, 'bold yellow' ),
-		q/Template '$c', coloried/;
+		q/Template '$c', colored/;
 	    is $sam->__process_template( '$&' ),
 		colored( 'was', 'black on_yellow' ),
-		q/Template '$&', coloried/;
+		q/Template '$&', colored/;
 	    # NOTE that there is no point in testing the file name here,
 	    # because it is not colorized by the templating engine.
 	}

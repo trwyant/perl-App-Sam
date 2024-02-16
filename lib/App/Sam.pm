@@ -129,6 +129,7 @@ sub new {
 	color_match	=> 'black on_yellow',
 	env		=> $priority_arg{env} // 1,
 	flags		=> 0,
+	invert_match	=> 0,
 	recurse		=> 1,
 	sort_files	=> 1,
     }, $class;
@@ -488,6 +489,13 @@ sub __color {
     my ( $self, $kind, $text ) = @_;
     $self->{color}
 	or return $text;
+    state $color_unconditionally = { map { $_ => 1 } qw{ filename lineno } };
+    unless ( $self->{flags} & FLAG_FAC_NO_MATCH_PROC ||
+	$color_unconditionally->{$kind} ) {
+	$self->{_match}
+	    and $self->{_match}{matched}
+	    or return $text;
+    }
     state $uncolored = { map { $_ => 1 } '', "\n" };
     $uncolored->{$text}
 	and return $text;
@@ -1433,14 +1441,14 @@ sub process {
 	my @leader;
 	$self->{with_filename}
 	    and not $self->{heading}
-	    and push @leader, '$f';
+	    and push @leader, '$f$F';
 	$self->{line}
-	    and push @leader, '$.';
+	    and push @leader, '$.$F';
 	$self->{column}
-	    and push @leader, '$c';
+	    and push @leader, '$c$F';
 	( $self->{syntax} || $self->{show_syntax} )
-	    and push @leader, '$s';
-	my $prefix = @leader ? join( ':', @leader ) . ':' : '';
+	    and push @leader, '$s$F';
+	my $prefix = join '', @leader;
 	if ( defined $self->{output} ) {
 	    substr $self->{output}, 0, 0, $prefix;
 	    $self->{_tplt_leader} = $self->{_tplt_trailer} = '';
@@ -1557,6 +1565,7 @@ sub _process_file {
     if ( $self->{f} || $self->{g} ) {
 	if ( $self->{g} ) {
 	    local $_ = $file;
+	    local $self->{_match} = { matched => undef };
 	    $self->_process_unconditional_match()
 		or return 0;
 	    $file = $self->{_tplt}{line};
@@ -1764,6 +1773,8 @@ sub _process_match {
     $self->{flags} & FLAG_FAC_NO_MATCH_PROC
 	and return ( $self->{_munger}->( $self ) xor $self->{invert_match} );
 
+=begin comment
+
     if ( $self->{_range} ) {
 	my $in_range = $self->{_process_file}{in_range};
 	$in_range ||= $self->{_process_file}{in_range}
@@ -1781,7 +1792,38 @@ sub _process_match {
 	    or return $self->{invert_match};
     }
 
+=end comment
+
+=cut
+
+    local $self->{_match} = {
+	matched	=>	$self->_process_match_p(),
+    };
+
     return $self->_process_unconditional_match();
+}
+
+sub _process_match_p {
+    my ( $self ) = @_;
+
+    if ( $self->{_range} ) {
+	my $in_range = $self->{_process_file}{in_range};
+	$in_range ||= $self->{_process_file}{in_range}
+	    while $self->{_range}->( $self );
+	$self->{_process_file}{in_range}
+	    or $in_range
+	    or return $self->{invert_match};
+    }
+
+    $self->{not}{match}
+	and $self->{not}{match}->()
+	and return $self->{invert_match};
+    if ( $self->{syntax} && defined $self->{_process_file}{syntax} ) {
+	$self->{syntax}{$self->{_process_file}{syntax}}
+	    or return $self->{invert_match};
+    }
+
+    return undef;	## no critic (ProhibitExplicitReturnUndef)
 }
 
 sub _process_unconditional_match {
@@ -1793,7 +1835,7 @@ sub _process_unconditional_match {
     };
     $self->{_munger}->( $self );
     $self->_process_callback();		# Flush buffer.
-    return( $self->{_tplt}{num_matches} xor $self->{invert_match} );
+    return $self->{_match}{matched};
 }
 
 # NOTE that this is to be called only to process a match, including
@@ -1803,6 +1845,8 @@ sub _process_unconditional_match {
 sub _process_callback {
     my ( $self ) = @_;
     $self->{_tplt}{capt} = [];
+    $self->{_match}{matched} //= ( defined( pos ) xor
+	$self->{invert_match} );
     unless ( defined $self->{_tplt}{line} ) {
 	$self->{_tplt}{line} = $self->__process_template(
 	    $self->{_tplt_leader} );
@@ -1867,8 +1911,10 @@ sub __process_template {
     my ( $self, $tplt ) = @_;
     defined $tplt
 	or $self->__confess( 'Undefined template' );
+    $self->{_tplt}{matched} = defined pos;
     $self->{_tplt}{m} = [ defined pos ? @- : ( length ) ];
     $self->{_tplt}{p} = [ defined pos ? @+ : ( length ) ];
+    $self->{_tplt}{prev} = '';
     $self->{_tplt}{'+'} = $+ // '';
     {	# Hope: match vars localized to block
 	$tplt =~ s( ( [\\\$] ) ( . ) )
@@ -1917,11 +1963,16 @@ sub _process_template_item {
 		chomp $s;
 		return $s;
 	    },
-	    '+'	=> sub { $_[0]->{_tplt}{'+'} },
-	    c	=> sub { $_[0]->__color( colno => $_[0]{_tplt}{m}[0] + 1 ) },
+	    '+'	=> sub { $_[0]{_tplt}{'+'} },
+	    c	=> sub {
+		$_[0]{_tplt}{matched}
+		    or return '';
+		return $_[0]->__color( colno => $_[0]{_tplt}{m}[0] + 1 )
+	    },
 	    f	=> sub {
 		$_[0]->_process_get_filename_for_output();
 	    },
+	    F	=> sub { length $_[0]{_tplt}{prev} ? $_[0]{_match}{matched} ? ':' : '-' : '' },
 	    p	=> sub {
 		my $s = substr $_, $_[0]{_tplt}{pos},
 		    $_[0]{_tplt}{m}[0] - $_[0]{_tplt}{pos};
@@ -1933,7 +1984,9 @@ sub _process_template_item {
     };
     my $code = $hdlr->{$kind}{$item}
 	or return $item;
-    return $code->( $self );
+    my $rslt = $code->( $self );
+    $self->{_tplt}{prev} = $rslt;
+    return $rslt;
 }
 
 # Determine the length of the leader of the current line, in characters.

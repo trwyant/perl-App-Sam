@@ -349,9 +349,9 @@ EOD
     };
 
     is $stdout, <<'EOD', '--context=1 displayed 3 lines';
-2:Who could travel much faster than light.
+2-Who could travel much faster than light.
 3:    She set out one day
-4:    In a relative way
+4-    In a relative way
 EOD
 }
 

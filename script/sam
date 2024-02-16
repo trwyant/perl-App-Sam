@@ -578,6 +578,11 @@ The column number of the beginning of the current match.
 
 The name of the input file.
 
+=item C<$F>
+
+The field separator. This is C<''> if the previous field produced no
+output. Otherwise it is C<':'> if the line is a match, or C<'-'> if not.
+
 =item C<$p>
 
 Everything after the end of the last match and before the beginning of
