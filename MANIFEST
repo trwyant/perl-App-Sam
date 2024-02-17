@@ -55,6 +55,7 @@ t/data/vim_file.vim
 t/data/yaml_file.yml
 t/elementary.t
 t/match.t
+t/misc.t
 t/replace.t
 t/syntax_batch.t
 t/syntax_cc.t

@@ -607,6 +607,11 @@ sub __file_syntax_del {
     return;
 }
 
+sub file_type_is {
+    my ( $self, $path, $type ) = @_;
+    return List::Util::first { $_ eq $type } $self->__file_type( $path );
+}
+
 sub __file_type {
     my ( $self, @arg ) = @_;
     return $self->_file_property( type => @arg );
@@ -2810,6 +2815,18 @@ C<$exit> is true if called from the C<$sam> object.
 =head2 dumped
 
 This method returns the value of the L<dump|/dump> argument.
+
+=head2 file_type_is
+
+ if ( defined $sam->file_type_is( $path, 'perl' ) ) { ... }
+
+This method takes as its arguments a path to a file, and a file type. If
+the file is of the specified type it returns that type, otherwise it
+returns C<undef>.
+
+B<Note> that omitting the C<defined> in the above example will produce
+incorrect behavior if you have defined (and actually ask for) file types
+C<''> or C<'0'>.
 
 =head2 files_from
 
