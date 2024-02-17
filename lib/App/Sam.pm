@@ -210,7 +210,7 @@ sub new {
 	    } elsif ( @pat == 1 ) {
 		$self->{match} = $pat[0];
 	    }
-	} elsif ( ! $self->{filter} && $argv && @{ $argv } ) {
+	} elsif ( $argv && @{ $argv } ) {
 	    $self->{match} = shift @{ $argv };
 	}
     }
@@ -230,7 +230,7 @@ sub new {
 	$self->{$attr_name}	# Prevent autovivification
 	    and $self->{$attr_name}{match}
 	    or next;
-	my $str = join ' || ', map { "m $_" }
+	my $str = join ' || ', map { "m $_" . $self->_get_re_modifiers( $_ ) }
 	    List::Util::uniqstr( @{ $self->{$attr_name}{match} } );
 	$self->{$attr_name}{match} = $self->__compile_match( $attr_name,
 	    $str );
@@ -916,7 +916,7 @@ sub __file_type_del {
 	    arg		=> [ proximate	=> 0 ],
 	},
 	proximate	=> {
-	    type	=> '=i',
+	    type	=> ':1',
 	    alias	=> [ 'p' ],
 	},
 	recurse		=> {
@@ -1291,6 +1291,13 @@ Readonly::Array my @RE_CASE => do {
     @re_case;
 };
 
+sub _get_re_modifiers {
+    my ( $self, $re ) = @_;
+    $self->__confess( 'RE undefined' ) unless defined $re;
+    return $RE_CASE[ $self->{match_case} // RE_CASE_SENSITIVE ]->( $re );
+}
+
+
 sub __make_munger {
     my ( $self ) = @_;
 
@@ -1302,8 +1309,7 @@ sub __make_munger {
 	return;
     };
 
-    my $modifier = '';
-    $modifier .= $RE_CASE[ $self->{match_case} // RE_CASE_SENSITIVE ]->( $match );
+    my $modifier = $self->_get_re_modifiers( $match );
 
     $self->{literal}
 	and $match = quotemeta $match;
@@ -1635,9 +1641,10 @@ sub _process_file {
 		# output, but the headings are independent lines.
 		local $self->{_process_file}{colored} = 0;
 
-		$self->{_want_break}
+		$self->{_not_first_file}
+		    and ( $self->{break} || $self->{proximate} )
 		    and $self->__say( '' );
-		$self->{_want_break} = $self->{break};
+		$self->{_not_first_file} = 1;
 		$self->{heading}
 		    and $self->{with_filename}
 		    and $self->__say(
