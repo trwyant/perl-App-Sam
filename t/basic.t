@@ -112,12 +112,12 @@ load_module_ok 'App::Sam';
 		    'perl' eq $_->[0] &&
 		    REF_CODE eq ref $_->[1]
 		};
-#	    FIXME why isn't the below equivalent to the above?
-#	    item array {
-#		string 'perl';
-#		validator sub { REF_CODE eq ref } );
-#		end;
-#	    };
+#		FIXME why isn't the below equivalent to the above?
+#		item array {
+#		    string 'perl';
+#		    validator sub { REF_CODE eq ref };
+#		    end;
+#		};
 		etc;
 	    };
 	    etc;
