@@ -23,7 +23,7 @@ sub __classify_code {
     $self->__match_single_line_comment()
 	and return SYNTAX_COMMENT;
     $self->__match_block_comment_start() and do {
-	$self->{Comment_match} = $self->__match_block_comment( 0 )
+	$self->__match_block_comment( 0 )
 	    and $self->{in} = SYNTAX_COMMENT;
 	return SYNTAX_COMMENT;
     };
