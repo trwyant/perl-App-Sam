@@ -72,16 +72,16 @@ sub meta_merge {
 	dynamic_config	=> 1,
 	resources	=> {
 	    bugtracker	=> {
-#		web	=> 'https://rt.cpan.org/Public/Dist/Display.html?Name=App-Sam',
-#		# web	=> 'https://github.com/trwyant/perl-App-Sam/issues',
+		web	=> 'https://rt.cpan.org/Public/Dist/Display.html?Name=App-Sam',
+		# web	=> 'https://github.com/trwyant/perl-App-Sam/issues',
 		mailto  => 'wyant@cpan.org',
 	    },
 	    license	=> 'http://dev.perl.org/licenses/',
-#	    repository	=> {
-#		type	=> 'git',
-#		url	=> 'git://github.com/trwyant/perl-App-Sam.git',
-#		web	=> 'https://github.com/trwyant/perl-App-Sam',
-#	    },
+	    repository	=> {
+		type	=> 'git',
+		url	=> 'git://github.com/trwyant/perl-App-Sam.git',
+		web	=> 'https://github.com/trwyant/perl-App-Sam',
+	    },
 	},
 	@extra,
     };
