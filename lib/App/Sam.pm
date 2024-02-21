@@ -1334,12 +1334,30 @@ sub __make_munger {
     } elsif ( defined $self->{output} ) {
 	$self->{output} =~ s/ \n /\\n/smxg;
 	$self->{output} =~ s/ (?<! \\n ) \z /\\n/smx;
-	$str = '$_[0]->_process_callback() while ' . $str . 'g';
+	$modifier .= 'g';
+	$str = "\$_[0]->_process_callback() while m($match)$modifier";
     } else {
-	$str = '$_[0]->_process_callback() while ' . $str . 'g';
+	$modifier .= 'g';
+	$str = "\$_[0]->_process_callback() while m($match)$modifier";
     }
-    my $code = eval "sub { $str }"	## no critic (ProhibitStringyEval)
-	or $self->__confess( "Invalid match '$str': $@" );
+    my $code;
+    local $@;
+    unless ( $code = eval "sub { $str }" ) {	## no critic (ProhibitStringyEval)
+	$self->{ack_mode}
+	    or $self->__croak( "Invalid regex m($match)$modifier: $@" );
+	# Is this more trouble than it is worth?
+	# The following eval is because if $match is '(' then $@ is not
+	# compatible with ack.
+	eval { qr/$match/ };	## no critic (RequireCheckingReturnValueOfEval)
+	my ( $error, $re ) = split / <-- HERE /, $@, 3;
+	$error =~ s/; marked by\z//;
+	my $leader = ' ' x ( 1 + length $re );
+	$self->__croak( <<"EOD" );
+Invalid regex '$match'
+Regex: $match
+$leader^---HERE $error
+EOD
+    }
     $self->{_munger} = $code;
     return;
 }
@@ -1388,7 +1406,7 @@ sub __ignore {
     return 0;
 }
 
-sub __print {	## no critic (RequireArgUnpacking)
+sub __print {
     # my ( $self ) = @_;	# Invocant unused
     my $line = join '', @_[ 1 .. $#_ ];
     print $line;
