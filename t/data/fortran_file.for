@@ -11,7 +11,7 @@
 
 C Author: Thomas R. Wyant, III F<wyant at cpan dot org>
 C
-C Copyright (C) 2018-2023 by Thomas R. Wyant, III
+C Copyright (C) 2018-2024 by Thomas R. Wyant, III
 C
 C This program is distributed in the hope that it will be useful, but
 C without any warranty; without even the implied warranty of

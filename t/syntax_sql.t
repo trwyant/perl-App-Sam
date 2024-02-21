@@ -22,7 +22,7 @@ code:
 comm:/*
 comm: * Author: Thomas R. Wyant, III F<wyant at cpan dot org>
 comm: *
-comm: * Copyright (C) 2018-2023 by Thomas R. Wyant, III
+comm: * Copyright (C) 2018-2024 by Thomas R. Wyant, III
 comm: *
 comm: * This program is distributed in the hope that it will be useful, but
 comm: * without any warranty; without even the implied warranty of
