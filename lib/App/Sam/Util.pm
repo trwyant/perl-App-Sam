@@ -90,6 +90,7 @@ sub __carp {
     if ( $self->{die} ) {
 	warn _decorate_die_args( $self, @arg );
     } else {
+	local $Carp::CarpLevel = $Carp::CarpLevel + 1;
 	Carp::carp( _decorate_croak_args( $self, @arg ) );
     }
     return;
@@ -103,6 +104,7 @@ sub __confess {
 	unshift @arg, $me;
     }
     local $! = 1;	# Force exit status.
+    local $Carp::CarpLevel = $Carp::CarpLevel + 1;
     Carp::confess( _decorate_croak_args( $self, @arg ) );
 }
 
@@ -114,6 +116,7 @@ sub __croak {
     if ( $self->{die} ) {
 	die _decorate_die_args( $self, @arg );
     } else {
+	local $Carp::CarpLevel = $Carp::CarpLevel + 1;
 	Carp::croak( _decorate_croak_args( $self, @arg ) );
     }
 }
