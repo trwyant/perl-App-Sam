@@ -10,7 +10,10 @@ use if charnames->VERSION >= 1.30, charnames => ':loose';
 
 use utf8;
 
-use App::Sam::Util qw{ :carp :case __syntax_types @CARP_NOT };
+use App::Sam::Tplt;
+use App::Sam::Tplt::Color;
+use App::Sam::Tplt::Under;
+use App::Sam::Util qw{ :carp :case :term_ansi __syntax_types @CARP_NOT };
 use File::Next ();
 use File::Basename ();
 use File::Spec;
@@ -26,8 +29,6 @@ use Term::ANSIColor ();
 use Text::Abbrev ();
 
 our $VERSION = '0.000_001';
-
-use constant CLR_EOL	=> "\e[K";
 
 use constant IS_WINDOWS	=> {
     MSWin32	=> 1,
@@ -291,9 +292,7 @@ sub new {
 	$self->{_max_files_wanted} = $self->{max_count};
     } 
 
-    $self->{_clr_eol} = $self->{ack_mode} ? 
-	Term::ANSIColor::color( 'reset' ) . CLR_EOL :
-	CLR_EOL;
+    $self->{_eol} = $self->{print0} ? "\0" : "\n";
 
     if ( $self->{filter} ) {
 	my $encoding = $self->__get_encoding();
@@ -485,6 +484,8 @@ EOD
     return;
 }
 
+=begin comment
+
 sub __color {
     my ( $self, $kind, $text ) = @_;
     $self->{color}
@@ -504,6 +505,10 @@ sub __color {
     $self->{_process_file}{colored} = 1;
     return Term::ANSIColor::colored( $text, $color );
 }
+
+=end comment
+
+=cut
 
 sub dumped {
     my ( $self ) = @_;
@@ -1329,7 +1334,8 @@ sub __make_munger {
     if ( $self->{flags} & FLAG_FAC_NO_MATCH_PROC ) {
 	# Do nothing -- we just want to know if we have a match.
     } elsif ( defined $self->{output} ) {
-	$self->{output} =~ s/ (?<! \n ) \z /\n/smx;
+	$self->{output} =~ s/ \n /\\n/smxg;
+	$self->{output} =~ s/ (?<! \\n ) \z /\\n/smx;
 	$str = '$_[0]->_process_callback() while ' . $str . 'g';
 	$code = eval "sub { $str }"	## no critic (ProhibitStringyEval)
 	    or $self->__confess( "Invalid match '$str': $@" );
@@ -1340,11 +1346,6 @@ sub __make_munger {
     }
     $self->{_munger} = $code;
     return;
-}
-
-sub __me {
-    state $me = ( File::Spec->splitpath( $0 ) )[2];
-    return $me;
 }
 
 sub __ignore {
@@ -1392,27 +1393,14 @@ sub __ignore {
 }
 
 sub __print {	## no critic (RequireArgUnpacking)
-    my ( $self ) = @_;
+    # my ( $self ) = @_;	# Invocant unused
     my $line = join '', @_[ 1 .. $#_ ];
-    if ( $self->{print0} ) {
-	$line =~ s/ \n \z /\0/smx;
-	$self->{_process_file}{colored}
-	    and $line .= $self->{_clr_eol};
-    }
-    # We do this even with --print0, because the output may contain
-    # embedded new lines -- in fact, that is what --print0 is all about.
-    # NOTE that ack uses "\e[0m\e[K" here. But "\e[K" suffices for me.
-    $self->{_process_file}{colored}
-	and $line =~ s/ (?= \n ) /$self->{_clr_eol}/smxg;
     print $line;
     return;
 }
 
 sub process {
     my ( $self, @files ) = @_;
-
-    # OK -- all the logic is here, so all script/sam has to do is to
-    # unconditionally call process()
 
     unless ( @files ) {
 	@files = $self->files_from();
@@ -1437,38 +1425,73 @@ sub process {
 	or local $self->{color} = $t_stdout;
     defined $self->{heading}
 	or local $self->{heading} = $self->{ack_mode} ? $t_stdout : 1;
-    local $self->{output} = $self->{output};
+
+    my $ors;
+    $self->{print0}
+	and $ors = "\0";
+    my $tplt_prefix;
+    my $tplt_match;
+    my $tplt_finalize;
 
     # NOTE that this was moved here from __make_munger() because that
     # method no longer knows the final value of {with_filename}.
     if ( $self->{flags} & FLAG_FAC_NO_MATCH_PROC ) {
 	# Do nothing -- we just want to know if we have a match.
     } elsif ( $self->{g} ) {
-	$self->{_tplt_leader} = '';
-	# NOTE that the following is NOT TPLT_FLUSH because we do not
-	# want the \n.
-	$self->{_tplt_trailer} = '$p';
+	$tplt_prefix = '';
+	$ors = '';
     } else {
-	my @leader;
+	my @prefix;
 	$self->{with_filename}
 	    and not $self->{heading}
-	    and push @leader, '$f$F';
+	    and push @prefix, '$f$F';
 	$self->{line}
-	    and push @leader, '$.$F';
+	    and push @prefix, '$.$F';
 	$self->{column}
-	    and push @leader, '$c$F';
+	    and push @prefix, '$c$F';
 	( $self->{syntax} || $self->{show_syntax} )
-	    and push @leader, '$s$F';
-	my $prefix = join '', @leader;
+	    and push @prefix, '$s$F';
+	$tplt_prefix = join '', @prefix;
 	if ( defined $self->{output} ) {
-	    substr $self->{output}, 0, 0, $prefix;
-	    $self->{_tplt_leader} = $self->{_tplt_trailer} = '';
-	} else {
-	    $self->{_tplt_leader} = $prefix;
-	    $self->{_tplt_trailer} = TPLT_FLUSH;
+	    $tplt_match = $tplt_prefix . $self->{output};
+	    $tplt_prefix = $tplt_finalize = '';
 	}
     }
-    $self->{output} //= TPLT_MATCH;
+
+    my %usual = (
+	die		=> $self->{die},
+	prefix_tplt	=> $tplt_prefix,
+	match_tplt	=> $tplt_match,
+	finalize_tplt	=> $tplt_finalize,
+	ors		=> $ors,
+    );
+
+    if ( defined $self->{replace} ) {
+	$usual{match_tplt} //= '$p$r';
+	$usual{replace_tplt} = $self->{replace};
+    }
+
+    local $self->{_template} = {
+	out	=> ( $self->{color} ? App::Sam::Tplt::Color->new(
+		%usual,
+		color_colno	=> $self->{color_colno},
+		color_filename	=> $self->{color_filename},
+		color_lineno	=> $self->{color_lineno},
+		color_match	=> $self->{color_match},
+		color_ors	=> $self->{ack_mode} ?
+		    TERM_ANSI_RESET_COLOR . TERM_ANSI_CLR_EOL :
+		    TERM_ANSI_CLR_EOL,
+	    ) : App::Sam::Tplt->new( %usual ) ),
+    };
+    defined $self->{replace}
+	and $self->{_template}{repl} = App::Sam::Tplt->new(
+	%usual,
+	match_tplt	=> '$p$r',
+	prefix_tplt	=> '',
+	finalize_tplt	=> TPLT_FLUSH,
+    );
+    defined $self->{underline}
+	and $self->{_template}{under} = App::Sam::Tplt::Under->new( %usual );
 
     my $files_matched;
 
@@ -1519,9 +1542,9 @@ sub _process_file {
 
     local $self->{_process_file} = {
 	filename	=> $file,
-	filename_colored	=> $self->__color( filename => $file ),
     };
     delete $self->{_process_file}{colored};
+
 
     $self->{_range}
 	and $self->{_process_file}{in_range} = $self->{range_start} ? 0 : 1;
@@ -1573,13 +1596,14 @@ sub _process_file {
 	}
     }
 
+    $_->filename( $file ) for values %{ $self->{_template} };
+
     if ( $self->{f} || $self->{g} ) {
 	if ( $self->{g} ) {
 	    local $_ = $file;
-	    local $self->{_match} = { matched => undef };
 	    $self->_process_unconditional_match()
 		or return 0;
-	    $file = $self->{_tplt}{line};
+	    $file = $self->{_template}{out}->line();
 	}
 	$self->__say( join ' =>', $file, @show_types );
 	return $self->_process_result( 1 );
@@ -1636,7 +1660,7 @@ sub _process_file {
 	}
 
 	$mod_fh
-	    and print { $mod_fh } $self->{_tplt}{replace};
+	    and print { $mod_fh } $self->{_template}{repl}->line();
 
 	if ( $self->_process_display_p() ) {
 
@@ -1669,19 +1693,16 @@ sub _process_file {
 	    $self->__print( $_ ) for @before_context;
 	    $self->{_process_file}{last_printed} = $.;
 	    @before_context = ();
-	    $self->__print( $self->{_tplt}{line} );
-	    if ( $self->{_tplt}{ul_spec} ) {
-		my $line = '';
-		foreach ( @{ $self->{_tplt}{ul_spec} } ) {
-		    $line .= ' ' x $_->[0];
-		    $line .= '^' x $_->[1];
-		}
-		$self->__say( $line );
+
+	    foreach ( qw{ out under } ) {
+		my $tplt = $self->{_template}{$_}
+		    or next;
+		$self->__print( $tplt->line() );
 	    }
 
 	} elsif ( $self->{before_context} ) {
 
-	    push @before_context, $self->{_tplt}{line};
+	    push @before_context, $self->{_template}{out}->line();
 	    @before_context > $self->{before_context}
 		and splice @before_context, 0, @before_context -
 		    $self->{before_context};
@@ -1766,11 +1787,22 @@ sub _process_display_p {
 }
 
 sub _process_get_filename_for_output {
-    my ( $self, $ignore_coloring ) = @_;
+    my ( $self ) = @_;	# $ignore_coloring unused
+
+=begin comment
+
     $self->{color}
 	and not $ignore_coloring
 	and $self->{_process_file}{colored} = 1;
     return $self->{_process_file}{filename_colored};
+
+=end comment
+
+=cut
+
+    return $self->{_process_file}{filename_colored} //= do {
+	$self->{_template}{out}->execute_template( '$f' );
+    };
 }
 
 # Perform a match if appropriate. By default, returns true if a match
@@ -1785,34 +1817,8 @@ sub _process_match {
     $self->{flags} & FLAG_FAC_NO_MATCH_PROC
 	and return ( $self->{_munger}->( $self ) xor $self->{invert_match} );
 
-=begin comment
-
-    if ( $self->{_range} ) {
-	my $in_range = $self->{_process_file}{in_range};
-	$in_range ||= $self->{_process_file}{in_range}
-	    while $self->{_range}->( $self );
-	$self->{_process_file}{in_range}
-	    or $in_range
-	    or return $self->{invert_match};
-    }
-
-    $self->{not}{match}
-	and $self->{not}{match}->()
-	and return $self->{invert_match};
-    if ( $self->{syntax} && defined $self->{_process_file}{syntax} ) {
-	$self->{syntax}{$self->{_process_file}{syntax}}
-	    or return $self->{invert_match};
-    }
-
-=end comment
-
-=cut
-
-    local $self->{_match} = {
-	matched	=>	$self->_process_match_p(),
-    };
-
-    return $self->_process_unconditional_match();
+    return $self->_process_unconditional_match(
+	$self->_process_match_p() );
 }
 
 sub _process_match_p {
@@ -1839,15 +1845,29 @@ sub _process_match_p {
 }
 
 sub _process_unconditional_match {
-    my ( $self ) = @_;
+    my ( $self, $rslt ) = @_;
 
-    pos( $_ ) = 0;
-    $self->{_tplt} = {
-	pos	=> 0,
+    # NOTE that suffix 'for()' can not be used here because it clobbers
+    # the topic variable
+    foreach my $tplt ( values %{ $self->{_template} } ) {
+	$tplt->syntax( $self->{_process_file}{syntax} );
+	$tplt->init();
+    }
+
+    # NOTE that if the argument was provided and defined, it means that
+    # for some reason no match was to be done.
+    $rslt //= do {
+	$self->{_munger}->( $self );
+	( $self->{_template}{out}->matched() xor $self->{invert_match} );
     };
-    $self->{_munger}->( $self );
-    $self->_process_callback();		# Flush buffer.
-    return $self->{_match}{matched};
+
+    # NOTE that suffix 'for()' can not be used here because it clobbers
+    # the topic variable
+    foreach my $tplt ( values %{ $self->{_template} } ) {
+	$tplt->finalize();
+    }
+
+    return $rslt;
 }
 
 # NOTE that this is to be called only to process a match, including
@@ -1856,49 +1876,11 @@ sub _process_unconditional_match {
 # called in _process_match().
 sub _process_callback {
     my ( $self ) = @_;
-    $self->{_tplt}{capt} = [];
-    $self->{_match}{matched} //= ( defined( pos ) xor
-	$self->{invert_match} );
-    unless ( defined $self->{_tplt}{line} ) {
-	$self->{_tplt}{line} = $self->__process_template(
-	    $self->{_tplt_leader} );
-	$self->{underline}
-	    and $self->{_tplt}{ul_pos} = -
-		$self->_process_underline_leader_len();
+    # NOTE that suffix 'for()' can not be used here because it clobbers
+    # the topic variable
+    foreach my $tplt ( values %{ $self->{_template} } ) {
+	$tplt->match();
     }
-
-    if ( defined pos ) {	# We're being called from a successful match
-
-	if ( defined $self->{replace} ) {
-	    local $self->{color} = 0;
-	    $self->{_tplt}{capt}[0] = $self->__process_template(
-		$self->{replace} );
-	    $self->{_tplt}{replace} .= $self->__process_template( TPLT_MATCH );
-	}
-
-	$self->{_tplt}{line} .= $self->__process_template(
-	    $self->{output} );
-
-	if ( $self->{underline} ) {
-	    push @{ $self->{_tplt}{ul_spec} }, [
-		$-[0] - $self->{_tplt}{ul_pos},
-		$+[0] - $-[0],
-	    ];
-	    $self->{_tplt}{ul_pos} = $+[0];
-	}
-
-	$self->{_tplt}{num_matches}++;
-
-	$self->{_tplt}{pos} = pos $_;
-
-    } else {	# We're being called to flush tne buffer
-
-	defined $self->{replace}
-	    and $self->{_tplt}{replace} .= $self->__process_template( TPLT_FLUSH );
-	$self->{_tplt}{line} .= $self->__process_template(
-	    $self->{_tplt_trailer} );
-    }
-
     return;
 }
 
@@ -1908,108 +1890,6 @@ sub _process_result {
 	and $val
 	and return Scalar::Util::dualvar( $val, STOP );
     return $val;
-}
-
-# Process a --output template, returning the result.
-# NOTE: Call this ONLY from inside process(). This is broken out because
-# I expect it to get complicated if I implement ranges, syntax, etc.
-# NOTE ALSO: the current line is in $_.
-# FIXME? This code expects to be called in a while() statement iterating
-# over an m/.../g, and then once more to process the rest of the buffer.
-# If pos() is undefined it means the match failed and therefore we're
-# flushing the buffer. This can be scuppered by m/.../gc. The
-# alternative is an argument to indicate we're flushing.
-sub __process_template {
-    my ( $self, $tplt ) = @_;
-    defined $tplt
-	or $self->__confess( 'Undefined template' );
-    $self->{_tplt}{matched} = defined pos;
-    $self->{_tplt}{m} = [ defined pos ? @- : ( length ) ];
-    $self->{_tplt}{p} = [ defined pos ? @+ : ( length ) ];
-    $self->{_tplt}{prev} = '';
-    $self->{_tplt}{'+'} = $+ // '';
-    {	# Hope: match vars localized to block
-	$tplt =~ s( ( [\\\$] ) ( . ) )
-	    ( $self->_process_template_item( $1, $2 ) )smxge;
-    }
-    return $tplt;
-}
-
-# Process an individual --output template item.
-# NOTE: Call this only from the substitution replacement in
-# __process_template().
-sub _process_template_item {
-    my ( $self, $kind, $item ) = @_;
-    state $capt = sub {
-	$_[0]->{_tplt}{capt}[$_[1]] // substr $_,
-	$_[0]->{_tplt}{m}[$_[1]],
-	$_[0]->{_tplt}{p}[$_[1]] - $_[0]->{_tplt}{m}[$_[1]]
-    };
-    state $hdlr = {
-	'\\'	=> {
-	    0	=> sub { "\0" },
-	    a	=> sub { "\a" },
-	    b	=> sub { "\b" },
-	    e	=> sub { "\e" },
-	    f	=> sub { "\f" },
-	    n	=> sub { "\n" },
-	    r	=> sub { "\r" },
-	    t	=> sub { "\t" },
-	},
-	'$'	=> {
-	    1	=> sub { $capt->( $_[0], 1 ) },
-	    2	=> sub { $capt->( $_[0], 2 ) },
-	    3	=> sub { $capt->( $_[0], 3 ) },
-	    4	=> sub { $capt->( $_[0], 4 ) },
-	    5	=> sub { $capt->( $_[0], 5 ) },
-	    6	=> sub { $capt->( $_[0], 6 ) },
-	    7	=> sub { $capt->( $_[0], 7 ) },
-	    8	=> sub { $capt->( $_[0], 8 ) },
-	    9	=> sub { $capt->( $_[0], 9 ) },
-	    _	=> sub { chomp( my $s = $_ ); $s },
-	    '.'	=> sub { $_[0]->__color( lineno => $. ) },
-	    '`'	=> sub { substr $_, 0, $_[0]->{_tplt}{m}[0] },
-	    '&'	=> sub { $_[0]->__color( match => $capt->( $_[0], 0 ) ) },
-	    "'"	=> sub {
-		my $s = substr $_, $_[0]->{_tplt}{p}[0];
-		chomp $s;
-		return $s;
-	    },
-	    '+'	=> sub { $_[0]{_tplt}{'+'} },
-	    c	=> sub {
-		$_[0]{_tplt}{matched}
-		    or return '';
-		return $_[0]->__color( colno => $_[0]{_tplt}{m}[0] + 1 )
-	    },
-	    f	=> sub {
-		$_[0]->_process_get_filename_for_output();
-	    },
-	    F	=> sub { length $_[0]{_tplt}{prev} ? $_[0]{_match}{matched} ? ':' : '-' : '' },
-	    p	=> sub {
-		my $s = substr $_, $_[0]{_tplt}{pos},
-		    $_[0]{_tplt}{m}[0] - $_[0]{_tplt}{pos};
-		chomp $s;
-		return $s; 
-	    },
-	    s	=> sub { substr $_[0]{_process_file}{syntax} // '', 0, 4 },
-	},
-    };
-    my $code = $hdlr->{$kind}{$item}
-	or return $item;
-    my $rslt = $code->( $self );
-    $self->{_tplt}{prev} = $rslt;
-    return $rslt;
-}
-
-# Determine the length of the leader of the current line, in characters.
-# In practice, this should probably only be called from
-# _process_callback().
-sub _process_underline_leader_len {
-    my ( $self ) = @_;
-    $self->{color}
-	or return length $self->{_tplt}{line};
-    local $self->{color} = 0;
-    return length $self->__process_template( $self->{_tplt_leader} );
 }
 
 sub __get_file_iterator {
@@ -2027,7 +1907,7 @@ sub __get_file_iterator {
 }
 
 sub __say {
-    push @_, "\n";
+    push @_, $_[0]->{_eol};
     goto &__print;
 }
 

@@ -28,6 +28,7 @@ merchantability
 NL
 nobackup
 NUL
+ors
 passthrough
 passthru
 preprocessor

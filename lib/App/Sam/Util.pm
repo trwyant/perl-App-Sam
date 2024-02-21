@@ -7,6 +7,7 @@ use warnings;
 
 use Carp ();
 use Exporter qw{ import };
+use Term::ANSIColor ();
 
 our $VERSION = '0.000_001';
 
@@ -16,6 +17,7 @@ our @EXPORT_OK = qw{
     __croak
     __fold_case
     __match_shebang
+    __me
     __syntax_types
     RE_CASE_BLIND
     RE_CASE_SMART
@@ -27,6 +29,8 @@ our @EXPORT_OK = qw{
     SYNTAX_METADATA
     SYNTAX_PREPROCESSOR
     SYNTAX_OTHER
+    TERM_ANSI_CLR_EOL
+    TERM_ANSI_RESET_COLOR
     @CARP_NOT
 };
 
@@ -35,6 +39,7 @@ our %EXPORT_TAGS = (
     case	=> [ qw{ __fold_case }, grep { m/ \A RE_CASE_ /smx }
 	@EXPORT_OK ],
     syntax	=> [ grep { m/ \A SYNTAX_ /smx } @EXPORT_OK ],
+    term_ansi	=> [ grep { m/ \A TERM_ANSI_ /smx } @EXPORT_OK ],
 );
 
 our @CARP_NOT = qw{
@@ -57,6 +62,9 @@ our @CARP_NOT = qw{
     App::Sam::Syntax::Vim
     App::Sam::Syntax::YAML
     App::Sam::Syntax::_cc_like
+    App::Sam::Tplt
+    App::Sam::Tplt::Color
+    App::Sam::Tplt::Under
     App::Sam::Util
 };
 
@@ -71,6 +79,9 @@ use constant SYNTAX_DOCUMENTATION	=> 'documentation';
 use constant SYNTAX_METADATA		=> 'metadata';
 use constant SYNTAX_OTHER		=> 'other';
 use constant SYNTAX_PREPROCESSOR	=> 'preprocessor';
+
+use constant TERM_ANSI_CLR_EOL		=> "\e[K";
+use constant TERM_ANSI_RESET_COLOR	=> Term::ANSIColor::color( 'reset' );
 
 sub __carp {
     my ( $self, @arg ) = @_;
@@ -88,7 +99,7 @@ sub __confess {
     my ( $self, @arg ) = @_;
     unshift @arg, @arg ? 'Bug - ' : 'Bug';
     if ( $self->{die} ) {
-	state $me = sprintf '%s: ', $self->__me();
+	state $me = sprintf '%s: ', __me();
 	unshift @arg, $me;
     }
     local $! = 1;	# Force exit status.
@@ -118,11 +129,11 @@ sub _decorate_croak_args {
 }
 
 sub _decorate_die_args {
-    my ( $self, @arg ) = @_;
+    my ( undef, @arg ) = @_;	# $self unused
     chomp $arg[-1];
     $arg[-1] =~ s/ (?<! [.?!] ) \z /./smx;
     $arg[-1] .= $/;
-    state $me = sprintf '%s: ', $self->__me();
+    state $me = sprintf '%s: ', __me();
     unshift @arg, $me;
     return @arg;
 }
@@ -135,6 +146,11 @@ if ( "$]" >= 5.015008 ) {
 
 sub __match_shebang {
     return ! index $_, '#!';
+}
+
+sub __me {
+    state $me = ( File::Spec->splitpath( $0 ) )[2];
+    return $me;
 }
 
 sub __syntax_types {
@@ -206,6 +222,11 @@ available, so C<lc()> is used instead.
 This is a generic shebang line matcher that can be imported into syntax
 classifiers that need it. All it does is to return a true value if C<$_>
 starts with C<'#!'>.
+
+=head2 __me
+
+This returns the base name of the currently-running script, as
+determined from C<$0> at the time it is first called.
 
 =head2 __syntax_types
 
@@ -286,6 +307,19 @@ This syntax type represents preprocessor directives.
 
 It can be imported by name or using the C<:syntax> tag.
 
+=head2 TERM_ANSI_CLR_EOL
+
+This manifest constant represents the ANSI escape sequence to clear from
+the cursor to the end of the line.
+
+It can be imported by name or using the C<:term_ansi> tag.
+
+=head2 TERM_ANSI_RESET_COLOR
+
+This manifest constant represents the ANSI escape sequence to clear
+reset character and background color to the default.
+
+It can be imported by name or using the C<:term_ansi> tag.
 
 =head1 SEE ALSO
 

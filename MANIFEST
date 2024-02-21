@@ -23,11 +23,14 @@ lib/App/Sam/Syntax/SQL.pm
 lib/App/Sam/Syntax/Swift.pm
 lib/App/Sam/Syntax/Vim.pm
 lib/App/Sam/Syntax/YAML.pm
+lib/App/Sam/Tplt.pm
+lib/App/Sam/Tplt/Color.pm
+lib/App/Sam/Tplt/Under.pm
 lib/App/Sam/Util.pm
 LICENSES/Artistic
 LICENSES/Copying
 Makefile.PL
-MANIFEST			This list of files
+MANIFEST
 META.json
 META.yml
 README

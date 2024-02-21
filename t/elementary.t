@@ -5,91 +5,223 @@ use 5.010001;
 use strict;
 use warnings;
 
+use App::Sam::Tplt;
+use App::Sam::Tplt::Color;
+use App::Sam::Tplt::Under;
+use B qw{ perlstring };
 use Test2::V0 -target => 'App::Sam';
 use Test2::Tools::Mock;
 use Term::ANSIColor;
 
+use constant CARET	=> '^';
+use constant EMPTY	=> '';
+use constant SPACE	=> ' ';
+
 {
-    my $mock = mock CLASS, (
-	override	=> [
-	    new		=> sub {
-		return bless {
-		    _process_file	=> {
-			filename	=> 'fu.bar',
-			filename_colored	=> 'fu.bar',
-		    },
-		    _match	=> {
-			matched	=> 1,
-		    },
-		    flags	=> 0,
-		}, CLASS;
-	    },
-	],
+    my $tplt = App::Sam::Tplt->new(
+	filename	=> 'fu.bar',
     );
 
-    my $sam = CLASS->new();
 
-    note 'Template processing';
-
-    local $_ = 'There was a young lady named Bright';
+    local $_ = "Able was I ere I saw Elba.\n";
     local $. = 42;
 
-    # NOTE that we do this in a while() loop because that's how we
-    # expect to be called for real.
-    while ( m/ \b w ( a ) s /smxg ) {
+    while ( m/ \b ( was ) \b /smxgc ) {
 
-	is $sam->__process_template( '$1' ), 'a', q/Template '$1'/;
-	is $sam->__process_template( '$`' ), 'There ', q/Template '$`'/;
-	is $sam->__process_template( '$&' ), 'was', q/Template '$&'/;
-	is $sam->__process_template( q/$'/ ), ' a young lady named Bright',
-	    q/Template '$\''/;
-	is $sam->__process_template( '$f' ), 'fu.bar', q/Template '$f'/;
-	is $sam->__process_template( '$.' ), 42, q/Template '$.'/;
-	is $sam->__process_template( '$c' ), 7, q/Template '$c'/;
-	is $sam->__process_template( '\\t' ), "\t", q/Template '\\t'/;
-	is $sam->__process_template( '\\n' ), "\n", q/Template '\\n'/;
-	is $sam->__process_template( '\\r' ), "\r", q/Template '\\r'/;
-	is $sam->__process_template( '$_' ),
-	    'There was a young lady named Bright',
-	    q/Template '$_'/;
-	is $sam->__process_template( '$f:$c:$&' ), 'fu.bar:7:was',
-	    q/Template '$f:$c:$&'/;
+	# NOTE that we have to do this by hand because we are making
+	# such low-level entry into the system. These are candidates for
+	# moving into a context attribute for easy cleanup.
+	$tplt->{match_end} = [ @+ ];
+	$tplt->{match_start} = [ @- ];
+	$tplt->{matched} = defined pos;
+	# $tplt->{colored} (not used in testing, but still context)
 
-	{
-	    local $sam->{color} = 1;
-	    local $sam->{color_colno} = 'bold yellow';
-	    local $sam->{color_lineno} = 'bold yellow';
-	    local $sam->{color_match} = 'black on_yellow';
-	    is $sam->__process_template( '$.' ),
-		colored( 42, 'bold yellow' ),
-		q/Template '$.', colored/;
-	    is $sam->__process_template( '$c' ),
-		colored( 7, 'bold yellow' ),
-		q/Template '$c', colored/;
-	    is $sam->__process_template( '$&' ),
-		colored( 'was', 'black on_yellow' ),
-		q/Template '$&', colored/;
-	    # NOTE that there is no point in testing the file name here,
-	    # because it is not colorized by the templating engine.
+	foreach my $test (
+	    [ '\\0', "\0" ],
+	    [ '\\n', "\n" ],
+	    [ '$1', 'was' ],
+	    [ '$`', 'Able ' ],
+	    [ '$&', 'was' ],
+	    [ '$\'', ' I ere I saw Elba.' ],
+	    [ '$f', 'fu.bar' ],
+	    [ '$c', 6 ],
+	    [ '$.', 42 ],
+	) {
+	    my ( $item, $want ) = @{ $test };
+	    is $tplt->__format_item( $item ), $want,
+		"Processing item '$item' gave '@{[ perlstring $want ] }'";
 	}
-
     }
+}
 
-    $_ = 'A foo fu fool';
-    delete $sam->{_process}{colno};
-    my @want = ( 'A <foo>', ' <fu>' );
-    # NOTE that normally _process_match() does this, but we're
-    # farther down in the weeds than that.
-    $sam->{_tplt}{pos} = 0;
-    while ( m/ \b f [ou]+ \b /smxg ) {
-	my $w = shift @want;
-	is $sam->__process_template( '$p<$&>' ), $w, q/Template '$p<$&>'/;
-	# NOTE that normally _process_match() does this, but we're
-	# farther down in the weeds than that.
-	$sam->{_tplt}{pos} = pos( $_ );
+{
+    my $tplt = App::Sam::Tplt::Color->new(
+	color_colno	=> 'bold yellow',
+	color_lineno	=> 'bold yellow',
+	color_match	=> 'black on_yellow',
+	filename	=> 'fu.bar',
+    );
+
+
+    local $_ = "Able was I ere I saw Elba.\n";
+    local $. = 42;
+
+    while ( m/ \b ( was ) \b /smxgc ) {
+
+	# NOTE that we have to do this by hand because we are making
+	# such low-level entry into the system. These are candidates for
+	# moving into a context attribute for easy cleanup.
+	$tplt->{match_end} = [ @+ ];
+	$tplt->{match_start} = [ @- ];
+	$tplt->{matched} = defined pos;
+	# $tplt->{colored} (not used in testing, but still context)
+
+	foreach my $test (
+	    [ '$.', colored $., 'bold yellow' ],
+	    [ '$c', colored 6, 'bold yellow' ],
+	    [ '$&', colored 'was', 'black on_yellow' ],
+	) {
+	    my ( $item, $want ) = @{ $test };
+	    is $tplt->__format_item( $item ), $want,
+		"Processing colored item '$item' gave '@{[
+		perlstring $want ] }'";
+	}
     }
-    is $sam->__process_template( '$p<$&>' ),
-	' fool<>', q/Template '$p<$&>'/;
+}
+
+{
+    my $tplt = App::Sam::Tplt::Under->new(
+	filename	=> 'fu.bar',
+    );
+
+
+    local $_ = "Able was I ere I saw Elba.\n";
+    local $. = 42;
+
+    while ( m/ \b ( was ) \b /smxgc ) {
+
+	# NOTE that we have to do this by hand because we are making
+	# such low-level entry into the system. These are candidates for
+	# moving into a context attribute for easy cleanup.
+	$tplt->{match_end} = [ @+ ];
+	$tplt->{match_start} = [ @- ];
+	$tplt->{matched} = defined pos;
+	# $tplt->{colored} (not used in testing, but still context)
+
+	foreach my $test (
+	    [ '\\0', EMPTY ],
+	    [ '\\n', "\n" ],
+	    [ '$1', SPACE x 3 ],
+	    [ '$`', SPACE x 5 ],
+	    [ '$&', CARET x 3 ],
+	    [ '$\'', SPACE x 18 ],
+	    [ '$f', SPACE x 6 ],
+	    [ '$c', SPACE ],
+	    [ '$.', SPACE x 2 ],
+	) {
+	    my ( $item, $want ) = @{ $test };
+	    is $tplt->__format_item( $item ), $want,
+		"Processing underline item '$item' gave '@{[
+		perlstring $want ] }'";
+	}
+    }
+}
+
+{
+    my $tplt = App::Sam::Tplt->new(
+	filename	=> 'fu.bar',
+	replace_tplt	=> '<$&>',
+    );
+
+    local $_ = "Able was I ere I saw Elba.\n";
+    local $. = 42;
+    $tplt->init();
+
+    while ( m/ \b ( was ) \b /smxgc ) {
+
+	foreach my $test (
+	    [ '\\0', "\0" ],
+	    [ '\\n', "\n" ],
+	    [ '$1', 'was' ],
+	    [ '$`', 'Able ' ],
+	    [ '$&', 'was' ],
+	    [ '$r', '<was>' ],
+	    [ '$\'', ' I ere I saw Elba.' ],
+	    [ '$f', 'fu.bar' ],
+	    [ '$c', 6 ],
+	    [ '$.', 42 ],
+	) {
+	    my ( $match, $want ) = @{ $test };
+	    $tplt->match_tplt( $match );
+	    is $tplt->match(), $want,
+		"Formatting template '$match' gave '@{[ perlstring $want ] }'";
+	}
+    }
+}
+
+{
+    my $tplt = App::Sam::Tplt::Color->new(
+	color_colno	=> 'bold yellow',
+	color_lineno	=> 'bold yellow',
+	color_match	=> 'black on_yellow',
+	filename	=> 'fu.bar',
+	replace_tplt	=> '<$&>',
+    );
+
+
+    local $_ = "Able was I ere I saw Elba.\n";
+    local $. = 42;
+    $tplt->init();
+
+    while ( m/ \b ( was ) \b /smxgc ) {
+
+	foreach my $test (
+	    [ '$.', colored $., 'bold yellow' ],
+	    [ '$c', colored 6, 'bold yellow' ],
+	    [ '$&', colored 'was', 'black on_yellow' ],
+	    [ '$r', colored '<was>', 'black on_yellow' ],
+	) {
+	    my ( $match, $want ) = @{ $test };
+	    $tplt->match_tplt( $match );
+	    is $tplt->match(), $want,
+		"Formatting colored template '$match' gave '@{[
+		perlstring $want ] }'";
+	}
+    }
+}
+
+{
+    my $tplt = App::Sam::Tplt::Under->new(
+	filename	=> 'fu.bar',
+	replace_tplt	=> '<$&>',
+    );
+
+
+    local $_ = "Able was I ere I saw Elba.\n";
+    local $. = 42;
+    $tplt->init();
+
+    while ( m/ \b ( was ) \b /smxgc ) {
+
+	foreach my $test (
+	    [ '\\0', EMPTY ],
+	    [ '\\n', "\n" ],
+	    [ '$1', SPACE x 3 ],
+	    [ '$`', SPACE x 5 ],
+	    [ '$&', CARET x 3 ],
+	    [ '$r', CARET x 5 ],
+	    [ '$\'', SPACE x 18 ],
+	    [ '$f', SPACE x 6 ],
+	    [ '$c', SPACE ],
+	    [ '$.', SPACE x 2 ],
+	) {
+	    my ( $match, $want ) = @{ $test };
+	    $tplt->match_tplt( $match );
+	    is $tplt->match(), $want,
+		"Processing underline template '$match' gave '@{[
+		perlstring $want ] }'";
+	}
+    }
 }
 
 done_testing;

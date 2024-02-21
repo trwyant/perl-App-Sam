@@ -531,7 +531,8 @@ The form feed character (FF).
 
 =item C<\n>
 
-The new line character (NL).
+The record separator, taken from the C<ors> attribute. This is normally
+C<"\n">.
 
 =item C<\r>
 
@@ -589,6 +590,11 @@ Everything after the end of the last match and before the beginning of
 the next match. On the first match this is everything from the beginning
 of the line. If there is no match (or after the last match) it is
 everything from the last match (if any) to the end of the line.
+
+=item C<$r>
+
+The replacement string. This is obtained by running the
+L<--replace|/--replace> value through the template system.
 
 =item C<$s>
 

@@ -19,6 +19,14 @@ diag $_ for dependencies_table;
 
 load_module_ok 'App::Sam::Util';
 
+is App::Sam::Util::__me(), 'basic.t', '__me() returns base name of script';
+
+load_module_ok 'App::Sam::Tplt';
+
+load_module_ok 'App::Sam::Tplt::Color';
+
+load_module_ok 'App::Sam::Tplt::Under';
+
 load_module_ok 'App::Sam::Syntax';
 
 load_module_ok 'App::Sam::Syntax::_cc_like';
@@ -54,12 +62,12 @@ load_module_ok 'App::Sam';
     isa_ok $sam, 'App::Sam';
 
     is $sam, {
-	_clr_eol		=> "\e[K",
 	color_colno		=> 'bold yellow',
 	color_filename		=> 'bold green',
 	color_lineno		=> 'bold yellow',
 	color_match		=> 'black on_yellow',
 	die			=> F,
+	_eol			=> "\n",
 	encoding		=> 'utf-8',
 	env			=> F,
 	filter			=> F,
@@ -124,8 +132,6 @@ load_module_ok 'App::Sam';
 	    etc;
 	},
     }, 'Got expected object';
-
-    is $sam->__me(), 'basic.t', '__me() returns base name of script';
 
     $warning = warnings { $sam->__carp( 'Fish' ) };
     is $warning, [
