@@ -1329,21 +1329,17 @@ sub __make_munger {
     }
     my $str;
     $str = "m($match)$modifier";
-    my $code = eval "sub { $str }"	## no critic (ProhibitStringyEval)
-	or $self->__croak( "Invalid match '$match': $@" );
     if ( $self->{flags} & FLAG_FAC_NO_MATCH_PROC ) {
 	# Do nothing -- we just want to know if we have a match.
     } elsif ( defined $self->{output} ) {
 	$self->{output} =~ s/ \n /\\n/smxg;
 	$self->{output} =~ s/ (?<! \\n ) \z /\\n/smx;
 	$str = '$_[0]->_process_callback() while ' . $str . 'g';
-	$code = eval "sub { $str }"	## no critic (ProhibitStringyEval)
-	    or $self->__confess( "Invalid match '$str': $@" );
     } else {
 	$str = '$_[0]->_process_callback() while ' . $str . 'g';
-	$code = eval "sub { $str }"	## no critic (ProhibitStringyEval)
-	    or $self->__confess( "Invalid match '$str': $@" );
     }
+    my $code = eval "sub { $str }"	## no critic (ProhibitStringyEval)
+	or $self->__confess( "Invalid match '$str': $@" );
     $self->{_munger} = $code;
     return;
 }
