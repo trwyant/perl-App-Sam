@@ -511,6 +511,7 @@
 --syntax-add=Data:type:json
 --syntax-add=Fortran:type:fortran
 --syntax-add=Java:ext:java
+--syntax-add=Lisp:type:lisp
 --syntax-add=Make:type:make,tcl
 --syntax-add=Perl:type:perl,perltest,pod
 --syntax-add=Python:type:python

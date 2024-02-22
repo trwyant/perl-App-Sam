@@ -31,7 +31,7 @@ load_module_ok 'App::Sam::Syntax';
 
 load_module_ok 'App::Sam::Syntax::_cc_like';
 
-foreach my $syntax ( qw{ Batch Cc Cpp Data Fortran Java Make Perl
+foreach my $syntax ( qw{ Batch Cc Cpp Data Fortran Java Lisp Make Perl
     Properties Python Raku Shell SQL Swift Vim YAML } ) {
     my $class = "App::Sam::Syntax::$syntax";
 

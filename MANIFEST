@@ -13,6 +13,7 @@ lib/App/Sam/Syntax/Cpp.pm
 lib/App/Sam/Syntax/Data.pm
 lib/App/Sam/Syntax/Fortran.pm
 lib/App/Sam/Syntax/Java.pm
+lib/App/Sam/Syntax/Lisp.pm
 lib/App/Sam/Syntax/Make.pm
 lib/App/Sam/Syntax/Perl.pm
 lib/App/Sam/Syntax/Properties.pm
@@ -45,6 +46,7 @@ t/data/files_from
 t/data/fortran_file.for
 t/data/java_file.java
 t/data/json_file.json
+t/data/lisp_file.lisp
 t/data/make_file.mak
 t/data/match_file
 t/data/perl_file.PL
@@ -66,6 +68,7 @@ t/syntax_cpp.t
 t/syntax_data.t
 t/syntax_fortran.t
 t/syntax_java.t
+t/syntax_lisp.t
 t/syntax_make.t
 t/syntax_perl.t
 t/syntax_properties.t

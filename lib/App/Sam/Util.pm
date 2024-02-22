@@ -51,6 +51,7 @@ our @CARP_NOT = qw{
     App::Sam::Syntax::Data
     App::Sam::Syntax::Fortran
     App::Sam::Syntax::Java
+    App::Sam::Syntax::Lisp
     App::Sam::Syntax::Make
     App::Sam::Syntax::Perl
     App::Sam::Syntax::Properties

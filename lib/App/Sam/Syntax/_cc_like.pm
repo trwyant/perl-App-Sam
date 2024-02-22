@@ -14,7 +14,7 @@ our $VERSION = '0.000_001';
 sub __classify_code {
     my ( $self ) = @_;
     $self->__match_single_line_documentation()
-	and return SYNTAX_COMMENT;
+	and return SYNTAX_DOCUMENTATION;
     $self->__match_block_documentation_start() and do {
 	$self->__match_block_documentation_end()
 	    or $self->{in} = SYNTAX_DOCUMENTATION;
@@ -23,7 +23,7 @@ sub __classify_code {
     $self->__match_single_line_comment()
 	and return SYNTAX_COMMENT;
     $self->__match_block_comment_start() and do {
-	$self->__match_block_comment( 0 )
+	$self->{Comment_nest} = $self->__match_block_comment( 0 )
 	    and $self->{in} = SYNTAX_COMMENT;
 	return SYNTAX_COMMENT;
     };

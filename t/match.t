@@ -164,7 +164,7 @@ EOD
     );
 
     my $stdout = capture_stdout {
-	is $sam->process( 't/data' ), 19, '-f t/data found 19 files';
+	is $sam->process( 't/data' ), 20, '-f t/data found 20 files';
     };
 
     is $stdout, <<'EOD', '-f listed everything in t/data';
@@ -176,6 +176,7 @@ t/data/files_from
 t/data/fortran_file.for
 t/data/java_file.java
 t/data/json_file.json
+t/data/lisp_file.lisp
 t/data/make_file.mak
 t/data/match_file
 t/data/perl_file.PL
@@ -197,7 +198,7 @@ EOD
     );
 
     my $stdout = capture_stdout {
-	is $sam->process( 't/data' ), 16, '-fk t/data found 16 files';
+	is $sam->process( 't/data' ), 17, '-fk t/data found 17 files';
     };
 
     is $stdout, <<'EOD', '-fk listed only known types in t/data';
@@ -207,6 +208,7 @@ t/data/cpp_file.cpp
 t/data/fortran_file.for
 t/data/java_file.java
 t/data/json_file.json
+t/data/lisp_file.lisp
 t/data/make_file.mak
 t/data/perl_file.PL
 t/data/properties_file.properties
@@ -325,6 +327,7 @@ t/data/batch_file.bat
 t/data/bright.txt
 t/data/files_from
 t/data/json_file.json
+t/data/lisp_file.lisp
 t/data/make_file.mak
 t/data/match_file
 t/data/perl_file.PL

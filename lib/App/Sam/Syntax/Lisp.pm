@@ -1,4 +1,4 @@
-package App::Sam::Syntax::Swift;
+package App::Sam::Syntax::Lisp;
 
 use 5.010001;
 
@@ -16,35 +16,39 @@ sub __classifications {
 	SYNTAX_METADATA );
 }
 
+sub __match_block_comment_start {
+    return m( \A \s* \# \| )smx;
+}
+
 sub __match_block_comment {
     my ( undef, $nest ) = @_;
     state $incr = {
-	'/*'	=> 1,
-	'*/'	=> -1,
+	'#|'	=> 1,
+	'|#'	=> -1,
     };
-    while ( m( ( / [*] | [*] / ) )smxg ) {
+    while ( m( ( \# \| | \| \# ) )smxg ) {
 	$nest += $incr->{$1};
     }
     return $nest;
 }
 
 sub __match_single_line_comment {
-    return m| \A \s* // |smx;
+    return m| \A \s* ;;? |smx;
 }
 
 sub __match_block_documentation_start {
-    return m| \A \s* / [*] : |smx;
+    return;
 }
 
 sub __match_block_documentation_end {
-    return index( $_, '*/' ) >= 0;
+    return;
 }
 
 sub __match_single_line_documentation {
-    return m| \A \s* // : |smx;
+    return m| \A \s* ;;;* |smx;
 }
 
-sub __match_single_line_preprocessor {
+sub __match_single_line_preprocessor {	# Not done
     return;
 }
 
@@ -54,7 +58,7 @@ __END__
 
 =head1 NAME
 
-App::Sam::Syntax::Swift - Classify Swift syntax
+App::Sam::Syntax::Lisp - Classify Swift syntax
 
 =head1 SYNOPSIS
 
@@ -80,16 +84,16 @@ Of course.
 
 =item * SYNTAX_COMMENT
 
-This is a C-style comment delimited by C</*> and C<*/>, or a C++-style
-single-line comment introduced by C<//>. Unlike C, block comments nest.
-Comments will be recognized only if there is only white space before the
-beginning of the comment.
+This is a single-line comment preceded by one or two semicolons
+(C<';'>), or a block comment delimited by C<'#|'> and C<'|#'>. Block
+comments nest. Comments will be recognized only if there is only white
+space before the beginning of the comment.
 
 =item * SYNTAX_DOCUMENTATION
 
-This is C++-style documentation delimited by C</**> and C<*/>.
-Documentation will be recognized only if there is only white space
-before the beginning of the comment.
+This is Lisp-style documentation preceded by at least three semicolons
+(C<';'>). Documentation will be recognized only if there is only white
+space before the beginning of the documentation.
 
 =item * SYNTAX_METADATA
 
