@@ -505,6 +505,7 @@
 
 ### Syntax types defined
 
+--syntax-add=Ada:type:ada
 --syntax-add=Batch:type:batch
 --syntax-add=Cc:type:cc
 --syntax-add=Cpp:type:cpp

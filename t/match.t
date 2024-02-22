@@ -14,6 +14,37 @@ use lib qw{ inc };
 
 use My::Module::Test;
 
+use constant ALL_FILES		=> <<'EOD';
+t/data/ada_file.adb
+t/data/batch_file.bat
+t/data/bright.txt
+t/data/cc_file.c
+t/data/cpp_file.cpp
+t/data/files_from
+t/data/fortran_file.for
+t/data/java_file.java
+t/data/json_file.json
+t/data/lisp_file.lisp
+t/data/make_file.mak
+t/data/match_file
+t/data/perl_file.PL
+t/data/properties_file.properties
+t/data/python_file.py
+t/data/raku_file.raku
+t/data/shell_file.sh
+t/data/sql_file.sql
+t/data/swift_file.swift
+t/data/vim_file.vim
+t/data/yaml_file.yml
+EOD
+use constant ALL_FILES_COUNT	=> ALL_FILES =~ tr/\n/\n/;
+use constant KNOWN_FILES	=> do {
+    my %unknown = map {; "t/data/$_\n" => 1 } qw{ bright.txt files_from
+    match_file };
+    join '', grep { ! $unknown{$_} } split /(?<=\n)/, ALL_FILES;
+};
+use constant KNOWN_FILES_COUNT	=> KNOWN_FILES =~ tr/\n/\n/;
+
 my $mock = mock 'App::Sam' => (
     after	=> [
 	__get_attr_from_rc	=> sub {
@@ -164,31 +195,11 @@ EOD
     );
 
     my $stdout = capture_stdout {
-	is $sam->process( 't/data' ), 20, '-f t/data found 20 files';
+	is $sam->process( 't/data' ), ALL_FILES_COUNT,
+	    "-f t/data found @{[ ALL_FILES_COUNT ]} files";
     };
 
-    is $stdout, <<'EOD', '-f listed everything in t/data';
-t/data/batch_file.bat
-t/data/bright.txt
-t/data/cc_file.c
-t/data/cpp_file.cpp
-t/data/files_from
-t/data/fortran_file.for
-t/data/java_file.java
-t/data/json_file.json
-t/data/lisp_file.lisp
-t/data/make_file.mak
-t/data/match_file
-t/data/perl_file.PL
-t/data/properties_file.properties
-t/data/python_file.py
-t/data/raku_file.raku
-t/data/shell_file.sh
-t/data/sql_file.sql
-t/data/swift_file.swift
-t/data/vim_file.vim
-t/data/yaml_file.yml
-EOD
+    is $stdout, ALL_FILES, '-f listed everything in t/data';
 }
 
 {
@@ -198,28 +209,11 @@ EOD
     );
 
     my $stdout = capture_stdout {
-	is $sam->process( 't/data' ), 17, '-fk t/data found 17 files';
+	is $sam->process( 't/data' ), KNOWN_FILES_COUNT,
+	    "-fk t/data found @{[ KNOWN_FILES_COUNT ]} files";
     };
 
-    is $stdout, <<'EOD', '-fk listed only known types in t/data';
-t/data/batch_file.bat
-t/data/cc_file.c
-t/data/cpp_file.cpp
-t/data/fortran_file.for
-t/data/java_file.java
-t/data/json_file.json
-t/data/lisp_file.lisp
-t/data/make_file.mak
-t/data/perl_file.PL
-t/data/properties_file.properties
-t/data/python_file.py
-t/data/raku_file.raku
-t/data/shell_file.sh
-t/data/sql_file.sql
-t/data/swift_file.swift
-t/data/vim_file.vim
-t/data/yaml_file.yml
-EOD
+    is $stdout, KNOWN_FILES, '-fk listed only known types in t/data';
 }
 
 {
@@ -297,7 +291,7 @@ EOD
     );
 
     my $stdout = capture_stdout {
-	is $sam->process( 't/data/' ), 6, '--files-without-matches found 6';
+	is $sam->process( 't/data/' ), 6, '--files-with-matches found 6';
     };
     
     my $want = <<'EOD';
@@ -323,6 +317,7 @@ EOD
 	$sam->process( 't/data/' );
     };
     is $stdout, <<'EOD', q(--files-without-matches);
+t/data/ada_file.adb
 t/data/batch_file.bat
 t/data/bright.txt
 t/data/files_from
