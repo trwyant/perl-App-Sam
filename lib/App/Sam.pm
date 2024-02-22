@@ -1845,10 +1845,8 @@ sub _process_get_filename_for_output {
 sub _process_match {
     my ( $self ) = @_;
 
-    if ( $self->{flags} & FLAG_FAC_NO_MATCH_PROC ) {
-	pos = 0;
-	return ( $self->{_munger}->( $self ) xor $self->{invert_match} );
-    }
+    $self->{flags} & FLAG_FAC_NO_MATCH_PROC
+	and return ( $self->{_munger}->( $self ) xor $self->{invert_match} );
 
     return $self->_process_unconditional_match(
 	$self->_process_match_p() );
@@ -1886,8 +1884,6 @@ sub _process_unconditional_match {
 	$tplt->syntax( $self->{_process_file}{syntax} );
 	$tplt->init();
     }
-
-    pos = 0;
 
     # NOTE that if the argument was provided and defined, it means that
     # for some reason no match was to be done.
