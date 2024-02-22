@@ -33,6 +33,7 @@ sub ACTION_acktest {
 
     $self->depends_on( 'build' );
 
+    local $ENV{TRAVIS} = 1;
     $self->test_files( qw{ foo/t/*.t } );
     $self->depends_on( 'test' );
 
@@ -47,6 +48,7 @@ sub ACTION_test {
 
     $self->depends_on( 'build' );
 
+    local $ENV{TRAVIS} = 1;
     return $self->SUPER::ACTION_test( @args );
 }
 

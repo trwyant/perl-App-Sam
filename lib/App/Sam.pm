@@ -187,6 +187,17 @@ sub new {
     $self->__incompat_arg( qw{ file match } );
     $self->__incompat_arg( qw{ count passthru } );
     $self->__incompat_arg( qw{ underline output } );
+    if ( $self->{ack_mode} ) {
+	if ( $self->{show_types} ) {
+	    $self->{f}
+		or $self->{g}
+		or $self->__croak(
+		$self->{die} ?
+		'--show-types can only be used with -f or -g' :
+		'show_types can only be used with f or g'
+	    );
+	}
+    }
 
     $self->{filter} //= -p STDIN;
 
@@ -1196,6 +1207,12 @@ sub __get_validator {
 		return 1;
 	    }
 	    ( my $opt_name = $_[0] ) =~ tr/_/-/;
+	    # FIXME This is a crock. The validators should raise
+	    # exceptions.
+	    $self->{ack_mode}
+		or die "Invalid value --$opt_name=$_[1]\n";
+	    $opt_name eq 'type'
+		and die "Unknown $opt_name '$_[1]'\n";
 	    die "Invalid value --$opt_name=$_[1]\n";
 	};
     }

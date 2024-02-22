@@ -103,7 +103,8 @@ sub __confess {
 	state $me = sprintf '%s: ', __me();
 	unshift @arg, $me;
     }
-    local $! = 1;	# Force exit status.
+    local $! = 0;	# Force exit status.
+    local $@ = undef;	# Force exit status.
     local $Carp::CarpLevel = $Carp::CarpLevel + 1;
     Carp::confess( _decorate_croak_args( $self, @arg ) );
 }
@@ -112,7 +113,8 @@ sub __croak {
     my ( $self, @arg ) = @_;
     @arg
 	or @arg = ( 'Died' );
-    local $! = 1;	# Force exit status.
+    local $! = 0;	# Force exit status.
+    local $@ = undef;	# Force exit status.
     if ( $self->{die} ) {
 	die _decorate_die_args( $self, @arg );
     } else {
