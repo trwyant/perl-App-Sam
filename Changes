@@ -1,2 +1,13 @@
+0.000_002	2024-02-24	T. R. Wyant
+    Add option --perldoc, which searches POD. This takes optional values
+    'all' (all POD), 'core' (core POD), 'delta' (perl*delta.pod), and
+    'faq' (perlfaq*.pod). The default is 'all'.
+
+    Add syntax support for Ada.
+
+    Add syntax filter for Lisp.
+
+    Don't report __croak() and __confess() in stack dump.
+
 0.000_001	2024-02-21	T. R. Wyant
     Initial internal release.

@@ -31,7 +31,7 @@ use Scalar::Util ();
 use Term::ANSIColor ();
 use Text::Abbrev ();
 
-our $VERSION = '0.000_001';
+our $VERSION = '0.000_002';
 
 use constant IS_WINDOWS	=> {
     MSWin32	=> 1,
