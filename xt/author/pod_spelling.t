@@ -20,6 +20,7 @@ colno
 del
 env
 ESC
+faq
 Fortran
 lexicographically
 lineno

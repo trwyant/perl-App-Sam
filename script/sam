@@ -636,6 +636,29 @@ not they match. This option is incompatible with L<--count|/--count>.
 
 This Boolean option is a synonym for L<--passthru|/--passthru>.
 
+=head2 --perldoc
+
+This option causes the Perl documentation to be searched. It takes an
+optional argument from the following list:
+
+=over
+
+=item all (the default) - all documentation is searched
+
+=item core - all core documentation is searched
+
+=item delta - the Perl delta documentation is searched
+
+=item faq - the Perl FAQ documents are searched
+
+=back
+
+The values can be abbreviated as long as that abbreviation is unique.
+
+This option is incompatible with options L<--type|/--type> and
+L<--filter|/--filter>, and it causes L<--syntax|/--syntax> to default to
+C<--syntax=documentation>.
+
 =head2 --print0
 
 If this Boolean option is asserted, lines of search output are

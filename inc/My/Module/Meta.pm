@@ -152,6 +152,7 @@ sub requires {
 ##  }
     return +{
 	'Carp'		=> 0,
+	'Config'	=> 0,
 	'Errno'		=> 0,
 	'Exporter'	=> 0,
 	'File::Basename'	=> 0,

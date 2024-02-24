@@ -13,7 +13,10 @@ use utf8;
 use App::Sam::Tplt;
 use App::Sam::Tplt::Color;
 use App::Sam::Tplt::Under;
-use App::Sam::Util qw{ :carp :case :term_ansi __syntax_types @CARP_NOT };
+use App::Sam::Util qw{
+    :carp :case :syntax :term_ansi __syntax_types @CARP_NOT
+};
+use Config;
 use File::Next ();
 use File::Basename ();
 use File::Spec;
@@ -187,6 +190,8 @@ sub new {
     $self->__incompat_arg( qw{ file match } );
     $self->__incompat_arg( qw{ count passthru } );
     $self->__incompat_arg( qw{ underline output } );
+    $self->__incompat_arg( qw{ perldoc type } );
+    $self->__incompat_arg( qw{ perldoc filter } );
     if ( $self->{ack_mode} ) {
 	if ( $self->{show_types} ) {
 	    $self->{f}
@@ -309,6 +314,27 @@ sub new {
 	my $encoding = $self->__get_encoding();
 	binmode STDIN, $encoding
 	    or $self->__croak( "Unable to set STDIN to $encoding: $!" );
+    }
+
+    if ( defined( my $perldoc = $self->{perldoc} ) ) {
+	state $type_map = {
+	    all		=> 'perl',
+	    core	=> 'perl',
+	    delta	=> 'perldelta',
+	    faq		=> 'perlfaq',
+	};
+	my $type = $type_map->{$perldoc};
+	$self->{_type_def}{$type}
+	    or $self->__croak(
+	    "--perldoc=$perldoc requires file type '$type' to be defined"
+	);
+	$self->{_syntax_def}{Perl}
+	    or $self->__croak(
+	    "--perldoc=$perldoc requires syntax type 'Perl' to be defined"
+	);
+	$self->{type}{$type} = TYPE_WANTED;
+	$self->{syntax}
+	    or $self->{syntax}{+SYNTAX_DOCUMENTATION} = 1;
     }
 
     $self->__make_munger();
@@ -927,6 +953,11 @@ sub __file_type_del {
 	    type	=> '!',
 	    alias	=> [ 'passthrough' ],
 	},
+	perldoc		=> {
+	    type	=> ':s',
+	    validate	=> '__validate_perldoc',
+	    flags	=> FLAG_FAC_SYNTAX,
+	},
 	print0		=> {
 	    type	=> '!',
 	},
@@ -1423,6 +1454,54 @@ sub __ignore {
     return 0;
 }
 
+sub __perldoc_all {
+    state $dirs = _perldoc_populate_dirs( qw{
+	archlibexp
+	privlibexp
+	sitelibexp
+	vendorlibexp
+	} );
+    return @{ $dirs };
+}
+
+sub __perldoc_core {
+    state $dirs = _perldoc_populate_dirs( qw{
+	archlibexp
+	privlibexp
+	} );
+    return @{ $dirs };
+}
+
+*__perldoc_delta = \&__perldoc_core;	# sub __perldoc_delta()
+*__perldoc_faq = \&__perldoc_core;	# sub __perldoc_faq()
+
+sub __perldoc_files_from {
+    my ( $self ) = @_;
+    defined( my $attr_val = $self->{perldoc} )
+	or return;
+    my $method = "__perldoc_$attr_val";
+    return $self->$method();
+}
+
+sub _perldoc_populate_dirs {
+    my @key_list = @_;
+    my @rslt;
+    foreach my $cfg ( @key_list ) {
+	my $key = $Config{$cfg};
+	defined $key
+	    and $key ne ''
+	    or next;
+	foreach my $dir ( qw{ pods pod } ) {
+	    my $path = File::Spec->catfile( $key, $dir );
+	    -d $path
+		or next;
+	    push @rslt, $path;
+	    last;
+	}
+    }
+    return \@rslt;
+}
+
 sub __print {
     # my ( $self ) = @_;	# Invocant unused
     my $line = join '', @_[ 1 .. $#_ ];
@@ -1434,7 +1513,8 @@ sub process {
     my ( $self, @files ) = @_;
 
     unless ( @files ) {
-	@files = $self->files_from();
+	push @files, $self->__perldoc_files_from();
+	push @files, $self->files_from();
 	if ( $self->{filter} ) {
 	    @files
 		or @files = ( \*STDIN );
@@ -1924,7 +2004,7 @@ sub _process_result {
 }
 
 sub __get_file_iterator {
-    my ( $self, $file ) = @_;
+    my ( $self, @files ) = @_;
     my $descend_filter = $self->{recurse} ? sub {
 	! $self->__ignore( directory => $File::Next::dir, $_ );
     } : sub { 0 };
@@ -1934,7 +2014,7 @@ sub __get_file_iterator {
 	    follow_symlinks	=> $self->{follow},
 	    descend_filter	=> $descend_filter,
 	    sort_files	=> $self->{sort_files},
-	}, $file );
+	}, @files );
 }
 
 sub __say {
@@ -2290,6 +2370,17 @@ sub __validate_not {
     return 1;
 }
 
+sub __validate_perldoc {
+    my ( $self, undef, undef, $attr_val ) = @_;	# $attr_spec, $attr_name unused
+    $attr_val eq ''
+	and $attr_val = 'all';
+    state $expand = { Text::Abbrev::abbrev( qw{ all core delta faq } ) };
+    defined( my $xv = $expand->{$attr_val} )
+	or return 0;
+    $self->{perldoc} = $xv;
+    return 1;
+}
+
 # This creates a group of Boolean options at most one of which can be
 # set. The {arg} contains the names of options to be reset if the main
 # one is set.
@@ -2617,6 +2708,10 @@ is a template as described in that documentation.
 =item C<passthru>
 
 See L<--passthru|sam/--passthru> in the L<sam|sam> documentation.
+
+=item C<perldoc>
+
+See L<--perldoc|sam/--perldoc> in the L<sam|sam> documentation.
 
 =item C<print0>
 

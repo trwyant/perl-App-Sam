@@ -368,6 +368,12 @@
 # Perl's Plain Old Documentation format, POD
 --type-add=pod:ext:pod
 
+# Perl FAQ; needed for --perldoc
+--type-add=perlfaq:match:/\Aperlfaq[0-9]*\.pod\z/
+
+# Perl delta; needed for --perldoc
+--type-add=perldelta:match:/\Aperl[0-9]+delta\.pod\z/
+
 # PHP
 # https://www.php.net/
 --type-add=php:ext:php,phpt,php3,php4,php5,phtml

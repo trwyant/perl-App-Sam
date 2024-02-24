@@ -7,6 +7,7 @@ use warnings;
 
 use open qw{ :std :encoding(utf-8) };
 
+use File::Basename qw{ basename };
 use Test2::V0 -target => 'App::Sam';
 use Test2::Tools::Mock;
 
@@ -505,6 +506,54 @@ EOD
 
 8: * Copyright (C) 2018-2024 by Thomas R. Wyant, III
 EOD
+}
+
+{
+    # FIXME This is an unsatisfactory test because it does not actually
+    # execute a search. This is because I have no control over the Perl
+    # source, so the search results could change unexpectedly. Fixing
+    # this requires a way to mock the relevant keys in %Config.
+
+    my $sam = CLASS->new(
+	perldoc	=> 'a',
+    );
+
+    is $sam, hash {
+	field perldoc	=> 'all';
+	field type	=> { perl => 0 };
+	field syntax	=> { documentation => 1 };
+	etc;
+    }, '--perlfaq=all was expanded';
+
+    # FIXME I would like to at least test the directories being
+    # searched, but to do that I would have to reproduce the code being
+    # tested, which seems pointless.    
+}
+
+{
+    my $sam = CLASS->new(
+	perldoc	=> 'f',
+	f	=> 1,
+    );
+
+    is $sam, hash {
+	field perldoc	=> 'faq';
+	field type	=> { perlfaq => 0 };
+	field syntax	=> { documentation => 1 };
+	etc;
+    }, '--perlfaq=f was expanded';
+
+    my $stdout = capture_stdout {
+	$sam->process();
+    };
+
+    # FIXME this is theoretically unsatisfactory for the same reasons as
+    # the previous test, but less so because I think the number of FAQ
+    # files is unlikely to change. I still do not test that I found the
+    # right files, just that I found files with the expected base names.
+    my @got = map { basename $_ } split /\n/, $stdout;
+    my @want = map { "perlfaq$_.pod" } '', 1 .. 9;
+    is \@got, \@want, 'perlfaq=f searches correct files';
 }
 
 done_testing;
