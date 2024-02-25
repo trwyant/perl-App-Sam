@@ -17,6 +17,7 @@ use App::Sam::Util qw{
     :carp :case :syntax :term_ansi __syntax_types @CARP_NOT
 };
 use Config;
+use Cwd 3.08 ();
 use File::Next ();
 use File::Basename ();
 use File::Spec;
@@ -99,89 +100,89 @@ Readonly::Scalar my $RP		=> "\N{RIGHT PARENTHESIS}";
 our %ATTR_SPEC;
 
 sub new {
-    my ( $class, @raw_arg ) = @_;
+    my ( $class, @arg ) = @_;
 
-    @raw_arg % 2
-	and __croak( (), 'Odd number of arguments to new()' );
-
-    # This rigamarole is because some of the arguments need to be
-    # processed out of order.
-    my @bad_arg;
-    my @cooked_arg;
-    my %priority_arg;
-    while ( @raw_arg ) {
-	my ( $arg_name, $arg_val ) = splice @raw_arg, 0, 2;
-	if ( ! $ATTR_SPEC{$arg_name} ||
-	    ! ( $ATTR_SPEC{$arg_name}{flags} & FLAG_IS_ATTR )
-	) {
-	    push @bad_arg, $arg_name;
-	} elsif ( $ATTR_SPEC{$arg_name}{flags} & FLAG_PROCESS_SPECIAL ) {
-	    $priority_arg{$arg_name} = $arg_val;
-	} else {
-	    push @cooked_arg, [ $arg_name, $arg_val ];
-	}
-    }
-
-    my $argv = $priority_arg{argv};
-
-    my $self = bless {
-	ignore_sam_defaults	=> $priority_arg{ignore_sam_defaults} // 0,
-	die		=> $priority_arg{die} // 0,
+    state $default = bless {
+	ignore_sam_defaults	=> 0,
+	die		=> 0,
 	color_colno	=> 'bold yellow',
 	color_filename	=> 'bold green',
 	color_lineno	=> 'bold yellow',
 	color_match	=> 'black on_yellow',
-	env		=> $priority_arg{env} // 1,
+	dump		=> 0,
+	env		=> 1,
 	flags		=> 0,
 	invert_match	=> 0,
 	recurse		=> 1,
 	sort_files	=> 1,
-    }, $class;
+    }, __PACKAGE__;
 
-    if ( REF_ARRAY eq ref $argv ) {
-	$self->{argv} = $argv;
-	$self->__get_option_parser( 1 )->getoptionsfromarray( $argv,
-	    $self, $self->__get_opt_specs( FLAG_PROCESS_EARLY ) );
-    } elsif ( defined $argv ) {
-	$self->__croak( 'Argument argv must be an ARRAY reference' );
-    }
+    my $self = bless {}, $class;
+    my %last_processed;
+    my $original_argv;
+    $default->__need_reprocess( \%last_processed );
 
-    @bad_arg
-	and $self->__croak( "Unknown new() arguments @bad_arg" );
+    # The loop is pure defensive programming. The only thing I can
+    # imagine making it go more than twice is a --samrc file specifying
+    # --samrc, and I think that is guarded against.
+    for ( 0 .. 2 ) {
+	%{ $self } = %{ $default };
+	@{ $self }{ keys %last_processed } = values %last_processed;
 
-    if ( $self->{env} ) {
-	foreach my $ele ( qw{ colno filename lineno match } ) {
-	    my $env_var_name = "SAM_COLOR_\U$ele";
-	    defined( my $attr_val = $ENV{$env_var_name} )
-		or next;
-	    my $attr_name = "color_$ele";
-	    if ( $self->__validate_color( undef, $attr_name, $attr_val ) ) {
-		$self->{$attr_name} = $attr_val;
-	    } else {
-		$self->__carp( "Environment variable $env_var_name ",
-		    "contains an imvalid value. Ignored." );
+	if ( $self->{env} ) {
+	    foreach my $ele ( qw{ colno filename lineno match } ) {
+		my $env_var_name = "SAM_COLOR_\U$ele";
+		defined( my $attr_val = $ENV{$env_var_name} )
+		    or next;
+		my $attr_name = "color_$ele";
+		if ( $self->__validate_color( undef, $attr_name, $attr_val ) ) {
+		    $self->{$attr_name} = $attr_val;
+		} else {
+		    $self->__carp( "Environment variable $env_var_name ",
+			"contains an imvalid value. Ignored." );
+		}
 	    }
 	}
-    }
 
-    foreach my $file ( $self->__get_rc_file_names() ) {
-	$self->__get_attr_from_rc( $file );
-    }
+	foreach my $file ( $self->__get_rc_file_names() ) {
+	    $self->__get_attr_from_rc( $file );
+	}
 
-    if ( my $file = $priority_arg{samrc} ) {
-	$self->__get_attr_from_rc( $file, 1 );	# Required to exist
-    }
+	for ( my $inx = 0; $inx < @arg; $inx += 2 ) {
+	    $ATTR_SPEC{$arg[$inx]}
+		or $self->__croak( "Invalid argument '$arg[$inx]' to new()" );
+	    $self->__validate_attr( $arg[$inx], $arg[$inx+1] )
+		or $self->__croak( "Invalid $arg[$inx] value '$arg[$inx+1]'" );
+	}
 
-    foreach my $argument ( @cooked_arg ) {
-	my ( $attr_name, $attr_val ) = @{ $argument };
-	$ATTR_SPEC{$attr_name}
-	    or $self->__croak( "Invalid argument '$attr_name' to new()" );
-	$self->__validate_attr( $attr_name, $attr_val )
-	    or $self->__croak( "Invalid $attr_name value '$attr_val'" );
-    }
+	$last_processed{samrc} = $self->{samrc};
 
-    $argv
-	and $self->__get_attr_from_rc( $argv );
+	$self->__get_attr_from_rc( $self->{samrc}, 1 );
+
+	{
+	    no warnings qw{ uninitialized };
+	    $self->{samrc} ne $last_processed{samrc}
+		and $self->__croak(
+		"--samrc=$last_processed{samrc} may not specify --samrc" );
+	}
+
+	if ( $original_argv ) {
+	    @{ $self->{argv} } = @{ $original_argv };
+	} else {
+	    $original_argv = [ @{ $self->{argv} || [] } ];
+	}
+
+	if ( @{ $self->{argv} || [] } ) {
+	    $self->__get_attr_from_rc( $self->{argv} );
+	} else {
+	    delete $self->{argv};
+	}
+
+	@arg % 2
+	    and $self->__croak( 'Odd number of arguments to new()' );
+
+	last unless $self->__need_reprocess( \%last_processed );
+    }
 
     $self->__incompat_arg( qw{ f match } );
     $self->__incompat_arg( qw{ f g files_with_matches
@@ -205,6 +206,8 @@ sub new {
     }
 
     $self->{filter} //= -p STDIN;
+
+    my $argv = $self->{argv};
 
     unless ( $self->{f} || defined $self->{match} ) {
 	if ( $self->{file} ) {
@@ -342,6 +345,21 @@ sub new {
     return $self;
 }
 
+sub __need_reprocess {
+    my ( $self, $last_processed ) = @_;
+    my $rslt;
+    foreach ( qw{ dump env ignore_sam_defaults } ) {
+	$rslt ||= ( $self->{$_} xor $last_processed->{$_} );
+	$last_processed->{$_} = $self->{$_};
+    }
+    foreach ( qw{ samrc } ) {
+	no warnings qw{ uninitialized };
+	$rslt ||= $self->{$_} ne $last_processed->{$_};
+	$last_processed->{$_} = $self->{$_};
+    }
+    return $rslt;
+}
+
 sub __compile_match {
     my ( $self, $attr_name, $attr_val ) = @_;
     local $@ = undef;
@@ -397,7 +415,9 @@ sub _display_opt_for_dump {
     my ( $self, $name ) = @_;
     $self->{_dump}{accum}
 	or return;
-    say $name;
+    state $dflt = $self->__get_attr_default_file_name();
+    say ref $name ? $$name :
+	$name eq $dflt ? 'Defaults' : Cwd::abs_path( $name );
     say '=' x length $name;
     say "  $_->[0]" for
 	sort { $a->[1] cmp $b->[1] } @{ $self->{_dump}{accum} };
@@ -1149,18 +1169,24 @@ sub __get_attr_default_file_name {
     # Get attributes from resource file.
     sub __get_attr_from_rc {
 	my ( $self, $file, $required ) = @_;
+	defined $file
+	    or return;
 	my $arg = $file;
 	local $self->{_dump} = {};
 	if ( REF_ARRAY eq ref $file ) {
 	    if ( $self->{dump} ) {
 		$self->_accum_opt_for_dump( $_ ) for @{ $file };
-		$self->_display_opt_for_dump( 'ARGV' );
+		$self->_display_opt_for_dump( \'ARGV' );
 	    }
 	} else {
 	    if ( not ref( $file ) and $arg = $rc_cache{$file} ) {
 		ref $arg
 		    or $self->__croak( $arg );
 		$arg = [ @{ $arg } ];	# Clone, since GetOpt modifies
+		if ( $self->{dump} ) {
+		    $self->_accum_opt_for_dump( $_ ) for @{ $arg };
+		    $self->_display_opt_for_dump( $file );
+		}
 	    } elsif ( open my $fh,	## no critic (RequireBriefOpen)
 		'<' . $self->__get_encoding( $file, 'utf-8' ),
 		$file
@@ -1178,11 +1204,8 @@ sub __get_attr_default_file_name {
 		}
 		close $fh;
 		$rc_cache{$file} = [ @{ $arg } ];
-		if ( $self->{dump} ) {
-		    state $dflt = $self->__get_attr_default_file_name();
-		    my $display = $file eq $dflt ? 'Defaults' : $file;
-		    $self->_display_opt_for_dump( $display );
-		}
+		$self->{dump}
+		    and $self->_display_opt_for_dump( $file );
 	    } elsif ( $! == ENOENT && ! $required ) {
 		$rc_cache{$file} = [];
 		return;

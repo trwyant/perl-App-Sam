@@ -67,6 +67,7 @@ load_module_ok 'App::Sam';
 	color_lineno		=> 'bold yellow',
 	color_match		=> 'black on_yellow',
 	die			=> F,
+	dump			=> F,
 	_eol			=> "\n",
 	encoding		=> 'utf-8',
 	env			=> F,
@@ -79,6 +80,7 @@ load_module_ok 'App::Sam';
 	match			=> 'foo',
 	_munger		=> validator( sub { REF_CODE eq ref } ),
 	recurse		=> T,
+	samrc		=> undef,
 	sort_files		=> T,
 	syntax_add		=> hash {	# Ensure Perl's syntax is defined.
 	    field type	=> hash {
