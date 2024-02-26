@@ -54,6 +54,7 @@ our @CARP_NOT = qw{
     App::Sam::Syntax::Java
     App::Sam::Syntax::Lisp
     App::Sam::Syntax::Make
+    App::Sam::Syntax::Pascal
     App::Sam::Syntax::Perl
     App::Sam::Syntax::Properties
     App::Sam::Syntax::Python

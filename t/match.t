@@ -28,6 +28,7 @@ t/data/json_file.json
 t/data/lisp_file.lisp
 t/data/make_file.mak
 t/data/match_file
+t/data/pascal_file.pas
 t/data/perl_file.PL
 t/data/properties_file.properties
 t/data/python_file.py
@@ -327,6 +328,7 @@ t/data/json_file.json
 t/data/lisp_file.lisp
 t/data/make_file.mak
 t/data/match_file
+t/data/pascal_file.pas
 t/data/perl_file.PL
 t/data/properties_file.properties
 t/data/python_file.py

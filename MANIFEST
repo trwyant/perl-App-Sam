@@ -16,6 +16,7 @@ lib/App/Sam/Syntax/Fortran.pm
 lib/App/Sam/Syntax/Java.pm
 lib/App/Sam/Syntax/Lisp.pm
 lib/App/Sam/Syntax/Make.pm
+lib/App/Sam/Syntax/Pascal.pm
 lib/App/Sam/Syntax/Perl.pm
 lib/App/Sam/Syntax/Properties.pm
 lib/App/Sam/Syntax/Python.pm
@@ -51,6 +52,7 @@ t/data/json_file.json
 t/data/lisp_file.lisp
 t/data/make_file.mak
 t/data/match_file
+t/data/pascal_file.pas
 t/data/perl_file.PL
 t/data/properties_file.properties
 t/data/python_file.py
@@ -73,6 +75,7 @@ t/syntax_fortran.t
 t/syntax_java.t
 t/syntax_lisp.t
 t/syntax_make.t
+t/syntax_pascal.t
 t/syntax_perl.t
 t/syntax_properties.t
 t/syntax_python.t
