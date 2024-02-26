@@ -14,13 +14,13 @@ sub new {
     my $self = bless {
 	die	=> delete $arg{die},
     }, $class;
-    $self->__init( \%arg );
+    $self->init( \%arg );
     keys %arg
 	and $self->__confess( 'Unsupported arguments to new()' );
     return $self;
 }
 
-sub __init {
+sub init {
     my ( $self ) = @_;
     $self->{in} = SYNTAX_CODE;
     return;
@@ -91,12 +91,16 @@ C<__init()> is expected to remove any arguments it uses. If there are
 any arguments left in the hash, a fatal error is declared, with stack
 dump.
 
-=head2 __init
+=head2 init
 
 This method initializes the state machine by setting C<< $self->{in} >>
-to the initial syntax. It is called by L<new()|/new> and passed a
-reference to its argument hash. It is expected to remove any arguments
-it actually uses.
+to the initial syntax.
+
+This method is called by L<new()|/new> and passed a reference to its
+argument hash. It is expected to remove any arguments it actually uses.
+
+This method can also be called to reset the object's state to the
+default. In this case the hash reference B<must not> be passed.
 
 At this level of the hierarchy C<< $self->{in} >> is set to
 C<SYNTAX_CODE>, and no arguments are removed.

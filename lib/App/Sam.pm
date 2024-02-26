@@ -1708,6 +1708,7 @@ sub _process_file {
 	    $self->{_process_file}{syntax_obj} =
 		$self->{_syntax_obj}{$class} ||=
 		"App::Sam::Syntax::$class"->new( die => $self->{die} );
+	    $self->{_process_file}{syntax_obj}->init();
 	}
 
 	# If --syntax was specified and we did not find a syntax
