@@ -49,7 +49,6 @@ use constant TPLT_MATCH	=> '$p$&';
 use enum qw{ BITMASK:FLAG_
     FAC_NO_MATCH_PROC FAC_SYNTAX FAC_TYPE
     IS_ATTR IS_OPT
-    PROCESS_EARLY PROCESS_NORMAL PROCESS_LATE
 };
 
 use enum qw{ ENUM:TYPE_ WANTED=0 NOT_WANTED };
@@ -85,11 +84,22 @@ BEGIN {
 
 =cut
 
-use constant FLAG_DEFAULT	=> FLAG_IS_ATTR | FLAG_IS_OPT |
-    FLAG_PROCESS_NORMAL;
-use constant FLAG_FACILITY	=> FLAG_FAC_NO_MATCH_PROC |
+# NOTE many of the following have (at the moment) identical values but
+# different intended semantics:
+
+# FLAG_FAC is intended for testing whether any of the FLAG_FAC_*
+# bits is set.
+use constant FLAG_FAC	=> FLAG_FAC_NO_MATCH_PROC |
     FLAG_FAC_SYNTAX | FLAG_FAC_TYPE;
-use constant FLAG_PROCESS_SPECIAL => FLAG_PROCESS_EARLY | FLAG_PROCESS_LATE;
+# FLAG_IS is intended for testing whether any of the FLAG_IS_*
+# bits is set.
+use constant FLAG_IS	=> FLAG_IS_ATTR | FLAG_IS_OPT;
+# FLAG_IS_DEFAULT is intended to be the default if none of the FLAG_IS_*
+# bits are set.
+use constant FLAG_IS_DEFAULT	=> FLAG_IS_ATTR | FLAG_IS_OPT;
+# FLAG_DEFAULT is intended to be the default if none of the FLAG_* bits
+# is set.
+use constant FLAG_DEFAULT	=> FLAG_IS_DEFAULT;
 
 Readonly::Scalar my $GT		=> "\N{GREATER-THAN SIGN}";
 Readonly::Scalar my $LP		=> "\N{LEFT PARENTHESIS}";
@@ -723,16 +733,11 @@ sub __file_type_del {
     #         value must be the bitwise OR of the following values:
     #         FLAG_IS_ATTR - The entry is an attribute
     #         FLAG_IS_OPT -- The entry is an option
-    #         FLAG_PROCESS_EARLY -- Process the attribute early.
-    #         FLAG_PROCESS_NORMAL - Process the attribute normally.
-    #         FLAG_PROCESS_LATE --- Process the attribute late.
     #         FLAG_FAC_NO_MATCH_PROC - No match processing
     #         FLAG_FAC_SYNTAX - A symtax module must be instantiated
     #         FLAG_FAC_TYPE - The file type needs to be computed
-    #         NOTE that the FLAG_PROCESS_* items only apply to
-    #         attributes, and therefore imply FLAG_IS_ATTR. Optional. If
-    #         not provided, the default is FLAG_IS_ATTR | FLAG_IS_OPT |
-    #         FLAG_PROCESS_NORMAL.
+    #         NOTE that if none of the FLAG_IS_* flags is provided,
+    #         FLAG_IS_ATTR | FLAG_IS_OPT are set.
     my %attr_spec_hash = (
 	1		=> {
 	    type	=> '',
@@ -746,7 +751,7 @@ sub __file_type_del {
 	},
 	argv	=> {
 	    type	=> '=s@',
-	    flags	=> FLAG_PROCESS_LATE
+	    flags	=> FLAG_IS_ATTR,
 	},
 	backup	=> {
 	    type	=> '=s',
@@ -812,7 +817,6 @@ sub __file_type_del {
 	},
 	dump	=> {
 	    type	=> '!',
-	    flags	=> FLAG_IS_OPT | FLAG_PROCESS_EARLY,
 	},
 	group		=> {
 	    type	=> '!',
@@ -825,7 +829,6 @@ sub __file_type_del {
 	},
 	env	=> {
 	    type	=> '!',
-	    flags	=> FLAG_IS_OPT | FLAG_PROCESS_EARLY,
 	},
 	f	=> {
 	    type	=> '!',
@@ -896,7 +899,6 @@ sub __file_type_del {
 	},
 	ignore_sam_defaults	=> {
 	    type	=> '!',
-	    flags	=> FLAG_IS_OPT | FLAG_PROCESS_EARLY,
 	},
 	invert_match	=> {
 	    type	=> '!',
@@ -916,7 +918,7 @@ sub __file_type_del {
 	},
 	match_case	=> {
 	    type	=> '=i',
-	    flags	=> FLAG_PROCESS_NORMAL,
+	    flags	=> FLAG_IS_ATTR,
 	},
 	smart_case	=> {
 	    type	=> '',
@@ -1049,7 +1051,6 @@ sub __file_type_del {
 	},
 	samrc	=> {
 	    type	=> '=s',
-	    flags	=> FLAG_IS_OPT | FLAG_PROCESS_LATE,
 	},
 	show_syntax	=> {
 	    type	=> '!',
@@ -1121,16 +1122,10 @@ sub __file_type_del {
 	defined $val->{flags}
 	    or $val->{flags} = FLAG_DEFAULT;
 
-	if ( $val->{flags} & ~ FLAG_FACILITY ) {
-	    if ( $val->{flags} & ( FLAG_PROCESS_EARLY |
-		    FLAG_PROCESS_NORMAL | FLAG_PROCESS_LATE ) ) {
-		$val->{flags} |= FLAG_IS_ATTR;
-	    }
-	} else {
-	    $val->{flags} |= FLAG_DEFAULT;
-	}
+	$val->{flags} & FLAG_IS
+	    or $val->{flags} |= FLAG_IS_DEFAULT;
 
-	if ( $val->{flags} & FLAG_FACILITY ) {
+	if ( $val->{flags} & FLAG_FAC ) {
 	    ( $val->{flags} & FLAG_FAC_SYNTAX )
 		and $val->{flags} |= FLAG_FAC_TYPE;
 	    $val->{validate} //= $val->{type} =~ m/ \A \@ \z /smx ?
@@ -1142,13 +1137,10 @@ sub __file_type_del {
 }
 
 sub __get_opt_specs {
-    my ( $self, $flags ) = @_;
+    my ( $self ) = @_;
     my @opt_spec;
     foreach ( values %ATTR_SPEC ) {
 	next unless $_->{flags} & FLAG_IS_OPT;
-	$flags
-	    and not $_->{flags} & $flags
-	    and next;
 	push @opt_spec, join( '|', $_->{name}, @{ $_->{alias} || []
 	    } ) . $_->{type}, $self->__get_validator( $_, 1 );
     }
@@ -1218,7 +1210,7 @@ sub __get_attr_default_file_name {
 	    my @warning;
 	    local $SIG{__WARN__} = sub { push @warning, @_ };
 	    $self->__get_option_parser()->getoptionsfromarray(
-		$arg, $self, $self->__get_opt_specs( ~ FLAG_PROCESS_EARLY ) )
+		$arg, $self, $self->__get_opt_specs() )
 		or do {
 		    chomp @warning;
 		    my $msg = join '; ', @warning;
@@ -1244,7 +1236,7 @@ sub __get_validator {
 	or $attr_spec = $ATTR_SPEC{$attr_spec}
 	or $self->__confess( "Undefined attribute '$_[1]'" );
     if ( my $method = $attr_spec->{validate} ) {
-	my $facility = $attr_spec->{flags} & FLAG_FACILITY;
+	my $facility = $attr_spec->{flags} & FLAG_FAC;
 	# NOTE we count on the attribute spec setup code to have
 	# provided a validator if the facility was specified
 	$die
