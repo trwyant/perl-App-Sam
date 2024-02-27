@@ -30,6 +30,7 @@ use Module::Load ();
 use Readonly;
 use Scalar::Util ();
 use Term::ANSIColor ();
+use Text::ParseWords ();
 use Text::Abbrev ();
 
 our $VERSION = '0.000_002';
@@ -421,6 +422,20 @@ sub _accum_opt_for_dump {
     return;
 }
 
+sub _format_opt {
+    my ( undef, $attr_spec, $name, $value ) = @_;	# Invocant unused
+    $name =~ tr/_/-/;
+    my $leader = length( $name ) == 1 ? '-' : '--';
+    if ( $attr_spec->{type} eq '' ) {
+    } elsif ( $attr_spec->{type} eq '!' ) {
+	$value
+	    or $leader .= length( $name ) eq 1 ? 'no' : 'no-';
+    } else {
+	$name .= length( $name ) == 1 ? $value : "=$value";
+    }
+    return "$leader$name";
+}
+
 sub _display_opt_for_dump {
     my ( $self, $name ) = @_;
     $self->{_dump}{accum}
@@ -808,6 +823,10 @@ sub __file_type_del {
 	    type	=> '',
 	    validate	=> 'create_samrc',
 	},
+	define	=> {
+	    type	=> '=s@',
+	    validate	=> '__validate_define',
+	},
 	die	=> {
 	    type	=> '!',
 	    flags	=> FLAG_IS_ATTR,
@@ -1138,13 +1157,35 @@ sub __file_type_del {
 
 sub __get_opt_specs {
     my ( $self ) = @_;
-    my @opt_spec;
+    my @opt_spec_list;
     foreach ( values %ATTR_SPEC ) {
 	next unless $_->{flags} & FLAG_IS_OPT;
-	push @opt_spec, join( '|', $_->{name}, @{ $_->{alias} || []
+	push @opt_spec_list, join( '|', $_->{name}, @{ $_->{alias} || []
 	    } ) . $_->{type}, $self->__get_validator( $_, 1 );
     }
-    return @opt_spec;
+    if ( $self->{define} ) {
+	foreach my $attr_spec ( values %{ $self->{define} } ) {
+	    push @opt_spec_list, $attr_spec->{name}, sub {
+		my ( $name, $value ) = @_;	# $name unused
+		my @def_arg = ( $value, split /,/, $value );
+		my $tplt = App::Sam::Tplt->new(
+		    die	=> $self->{die},
+		    ofs	=> ',',
+		);
+		my @expansion;
+		foreach my $expand ( @{ $attr_spec->{arg} } ) {
+		    push @expansion, $tplt->execute_template(
+			$expand,
+			capt	=> \@def_arg,
+		    );
+		}
+		$self->__get_attr_from_rc( \@expansion,
+		    $self->_format_opt( $attr_spec, $name, $value ),
+		);
+	    };
+	};
+    }
+    return @opt_spec_list;
 }
 
 # NOTE the File::Share dodge is from David Farrell's
@@ -1167,8 +1208,9 @@ sub __get_attr_default_file_name {
 	local $self->{_dump} = {};
 	if ( REF_ARRAY eq ref $file ) {
 	    if ( $self->{dump} ) {
+		$required //= 'ARGV';
 		$self->_accum_opt_for_dump( $_ ) for @{ $file };
-		$self->_display_opt_for_dump( \'ARGV' );
+		$self->_display_opt_for_dump( \$required );
 	    }
 	} else {
 	    if ( not ref( $file ) and $arg = $rc_cache{$file} ) {
@@ -2181,6 +2223,31 @@ sub __validate_color {
     return 1;
 }
 
+sub __validate_define {
+    my ( $self, undef, undef, $attr_val ) = @_;	# $attr_spec, $attr_name unused
+    ref $attr_val
+	or $attr_val = [ $attr_val ];
+    REF_ARRAY eq ref $attr_val
+	or return 0;
+    foreach ( @{ $attr_val } ) {
+	my ( $def_name, $def_val ) = split /:=/, $_, 2;
+	( my $def_key = $def_name ) =~ s/ [|:=!] .* //smx;
+	if ( defined $def_val ) {
+	    my @expansion = Text::ParseWords::shellwords( $def_val );
+	    my $type = $def_name =~ m/([:=!].*)/ ? $1 : '';
+	    $self->{define}{$def_key} = {
+		name	=> $def_name,
+		arg	=> \@expansion,
+		type	=> $type,
+	    };
+	} else {
+	    delete $self->{define}{$def_name}
+		or return 0;
+	}
+    }
+    return 1;
+}
+
 sub __validate_file_property_add {
     my ( $self, undef, $attr_name, $attr_val ) = @_;	# $attr_spec unused
     my ( $prop_name, $action ) = $attr_name =~ m/ \A ( .* ) _ ( .* ) \z /smx
@@ -2547,6 +2614,12 @@ See L<--count|sam/--count> in the L<sam|sam> documentation.
 
 See L<--create-samrc|sam/--create-samrc> in the L<sam|sam>
 documentation.
+
+=item C<define>
+
+See L<--define|sam/--define> in the L<sam|sam> documentation. You can
+pass a definition as a scalar, or multiple definitions as an array
+reference.
 
 =item C<die>
 

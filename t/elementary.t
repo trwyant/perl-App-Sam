@@ -224,6 +224,17 @@ use constant SPACE	=> ' ';
     }
 }
 
+{
+    my $tplt = App::Sam::Tplt->new(
+	ofs	=> ',',
+    );
+
+    is $tplt->execute_template(
+	'$1-$S$*',
+	capt	=> [ qw{ zero one two three four } ],
+    ), 'one-two,three,four', 'execute_template() specifying {capt} and {ofs}';
+}
+
 done_testing;
 
 1;

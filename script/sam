@@ -217,6 +217,50 @@ for each file. The default is C<--no-count>.
 This option causes a copy of the default configuration (before applying
 any resource files) to be written to F<STDOUT>. The script then exits.
 
+=head2 --define
+
+ --define manifest:=--files-from=MANIFEST --filter-files-from
+ --define ext=s:=--type-add=$1:ext:$S$*
+
+This option defines a new option in terms of existing ones. This new
+option is not available for use in the configuration file that defines
+it, only in subsequently-processed configuration files or the command
+line.
+
+The first example defines option C<--manifest>, which expands to
+C<--files-from=MANIFEST> and C<--filter-files-from>.
+
+The second example defines option C<--ext> which takes a string value.
+This expands to a corresponding C<--type-add> option where the first
+comma-delimited field of the value is the name of the type, and
+subsequent fields are the file name extensions to associate with that
+type, so
+
+ --ext=fu,bar,plugh
+
+expands to
+
+ --type-add=fu:ext:bar,plugh
+
+B<Note> that this functionality is B<experimental>. It may be changed in
+incompatible ways as I gain experience with it. 
+
+The syntax of the definition is a L<Getopt::Long|Getopt::Long> option
+specification, the delimiter C<':='>, and the options which the the
+definition expands into. These are parsed using
+L<Text::ParseWords::shellwords()|Text::ParseWords>.
+
+When the newly-defined option is encountered, it is expanded by running
+it through the L<--output|/--output> templating system, then the result
+is processed as though it were a configuration file.
+
+The templating system is configured (read: subverted) so that C<$&> is
+the value of the option as it appears on the command line, C<$1> and
+friends are comma-delimited substrings of the value, C<$F> will yield
+C<','>, C<$*> yields all substrings joined by C<$F>, and C<$S> drops the
+first substring. Other C<$>-prefixed template items are unlikely to be
+useful, and may cause the code to fail horribly.
+
 =head2 --dry-run
 
 If this Boolean option is asserted, modified files are not rewritten,
@@ -571,6 +615,15 @@ Everything on the line after the end of the current match.
 The contents of the highest-numbered capture group that was actually
 used, or the empty string if no capture groups were used.
 
+=item C<$#>
+
+The number of capture buffers captured.
+
+=item C<$*>
+
+All capture buffers, joined by the template's
+L<ofs|App::Sam::Tplt/ofs> character.
+
 =item C<$c>
 
 The column number of the beginning of the current match.
@@ -602,6 +655,11 @@ The syntax type of the current line, abbreviated to four characters. If
 L<--syntax|/--syntax> or C<--show-syntax|/--show-syntax> were not
 specified, or if the current file has no syntax classifier, this will be
 the empty string.
+
+=item C<$S>
+
+Drops the first capture buffer, shifting all the other numbers down one.
+Returns the empty string.
 
 =back
 
