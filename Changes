@@ -1,3 +1,16 @@
+0.000_003	2024-02-26	T. R. Wyant
+    Initialize syntax filter state before each file. This prevents
+    (e.g.) the Perl filter from getting stuck between 'data' and
+    'documentation' for all files after the first one with a __DATA__ or
+    __END__ directive.
+
+    Add --define.
+
+    Add syntax support for Pascal.
+
+    Redo option processing to allow (e.g.) --ignore-sam-defaults in a
+    configuration file to be effective.
+
 0.000_002	2024-02-24	T. R. Wyant
     Add option --perldoc, which searches POD. This takes optional values
     'all' (all POD), 'core' (core POD), 'delta' (perl*delta.pod), and

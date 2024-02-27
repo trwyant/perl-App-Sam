@@ -9,7 +9,7 @@ use Carp ();
 use Exporter qw{ import };
 use Term::ANSIColor ();
 
-our $VERSION = '0.000_002';
+our $VERSION = '0.000_003';
 
 our @EXPORT_OK = qw{
     __carp

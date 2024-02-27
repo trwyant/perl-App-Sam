@@ -33,7 +33,7 @@ use Term::ANSIColor ();
 use Text::ParseWords ();
 use Text::Abbrev ();
 
-our $VERSION = '0.000_002';
+our $VERSION = '0.000_003';
 
 use constant IS_WINDOWS	=> {
     MSWin32	=> 1,
