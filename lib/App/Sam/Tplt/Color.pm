@@ -51,9 +51,9 @@ sub __extra_args {
 sub __format_item_ctrl_n {
     my ( $self ) = @_;
     $self->{colored}
-	or return $self->{ors};
+	or return $self->SUPER::__format_item_ctrl_n();
     $self->{colored} = 0;
-    return "$self->{color_ors}$self->{ors}";
+    return $self->{color_ors} . $self->SUPER::__format_item_ctrl_n();
 }
 
 sub __init {

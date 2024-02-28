@@ -224,6 +224,7 @@ sub new {
 	if ( $self->{file} ) {
 	    my @pat;
 	    foreach my $file ( @{ $self->{file} } ) {
+		local $_ = undef;	# while (<>) does not localize $_
 		open my $fh, '<:encoding(utf-8)', $file
 		    or $self->__croak( "Unable to open $file: $!" );
 		while ( <$fh> ) {
@@ -369,6 +370,12 @@ sub __need_reprocess {
 	$last_processed->{$_} = $self->{$_};
     }
     return $rslt;
+}
+
+sub __chomp {
+    $_[0] =~ s/ ( \n | \r \n? ) \z //smx
+	and return "$1";
+    return undef;	## no critic (ProhibitExplicitReturnUndef)
 }
 
 sub __compile_match {
@@ -2018,8 +2025,12 @@ sub _process_unconditional_match {
 
     # NOTE that suffix 'for()' can not be used here because it clobbers
     # the topic variable
+    my $irs = __chomp( $_ );
+    $self->{ack_mode}
+	and $irs = "\n";
     foreach my $tplt ( values %{ $self->{_template} } ) {
 	$tplt->syntax( $self->{_process_file}{syntax} );
+	$tplt->irs( $irs );
 	$tplt->init();
     }
 

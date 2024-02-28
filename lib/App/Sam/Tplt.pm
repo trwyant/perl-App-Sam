@@ -15,8 +15,8 @@ sub new {
     my ( $class, %arg ) = @_;
     my $self = bless {
 	map { $_ => delete $arg{$_} } qw{
-	    die filename finalize_tplt match_tplt ofs ors prefix_tplt
-	    replace_tplt
+	    die filename finalize_tplt irs match_tplt ofs ors
+	    prefix_tplt replace_tplt
 	},
 	$class->__extra_args()
     }, $class;
@@ -32,8 +32,8 @@ sub __color {
 sub __default {
     my ( $self ) = @_;
     $self->{die} //= 0;
+    $self->{irs} //= "\n";
     $self->{ofs} //= ':';
-    $self->{ors} //= "\n";
     defined $self->{replace_tplt}
 	and $self->_validate_replace_tplt( $self->{replace_tplt} );
     $self->{match_tplt} = $self->_validate_match_tplt(
@@ -120,16 +120,12 @@ sub __format_item {
 	'$7'	=> sub { $_[0]->__format_item_dollar_number( 7 ) },
 	'$8'	=> sub { $_[0]->__format_item_dollar_number( 8 ) },
 	'$9'	=> sub { $_[0]->__format_item_dollar_number( 9 ) },
-	'$_'	=> sub { chomp( my $s = $_ ); $s },
+	'$_'	=> sub { $_ },
 	'$.'	=> sub { $_[0]->__color( lineno => $. ) },
 	'$`'	=> sub { substr $_, 0, $_[0]->{match_start}[0] },
 	'$&'	=> sub { $_[0]->__color( match =>
 		$_[0]->__format_item_dollar_number( 0 ) ) },
-	'$\''	=> sub {
-	    my $s = substr $_, $_[0]->{match_end}[0];
-	    chomp $s;
-	    return $s;
-	},
+	'$\''	=> sub { substr $_, $_[0]->{match_end}[0] },
 	'$+'	=> sub { $_[0]{paren_match} },
 	'$#'	=> '__format_item_dollar_hash',
 	'$*'	=> '__format_item_dollar_splat',
@@ -144,10 +140,8 @@ sub __format_item {
 	'$F'	=> sub { length $_[0]{prev_field} ?
 	    $_[0]{matched} ? $_[0]{ofs} : '-' : '' },
 	'$p'	=> sub {
-	    my $s = substr $_, $_[0]{last_pos},
+	    substr $_, $_[0]{last_pos},
 		$_[0]{match_start}[0] - $_[0]{last_pos};
-	    chomp $s;
-	    return $s; 
 	},
 	'$r'	=> '__format_item_dollar_r',
 	'$s'	=> sub { substr $_[0]{syntax} // '', 0, 4 },
@@ -165,7 +159,7 @@ sub __format_item {
 
 sub __format_item_ctrl_n {
     my ( $self ) = @_;
-    return $self->{ors};
+    return $self->{ors} // $self->{irs} // "\n";
 }
 
 sub __format_item_dollar_hash {
@@ -253,8 +247,8 @@ BEGIN {
     *_validate_finalize_tplt = \&_validate_match_tplt;
 
     foreach my $attr ( qw{
-	filename match_tplt prefix_tplt finalize_tplt ofs ors replace_tplt
-	syntax }
+	filename irs match_tplt prefix_tplt finalize_tplt ofs ors
+	replace_tplt syntax }
     ) {
 	__PACKAGE__->can( $attr )
 	    and next;
@@ -405,6 +399,19 @@ This method B<must> be called after C<$_> has been modified, but before
 L<match()|/match> or L<finalize()|/finalize> is called, to initialize
 the object for processing the current line of input.
 
+=head2 irs
+
+ my $ors = $tplt->irs();
+ $tplt->irs( "\n" );
+
+This method acts as both accessor and mutator for the input record
+separator used by the C<\n> format item. If called as a mutator, the
+previous record separator is returned.
+
+The intended use of this attribute is to record the line ending actually
+encountered in the input file. The C<\n> format item returns this if the
+L<ors|/ors> is C<undef>.
+
 =head2 line
 
  say $tplt->line();
@@ -467,6 +474,10 @@ item. If called as a mutator, the previous field separator is returned.
 This method acts as both accessor and mutator for the output record
 separator used by the C<\n> format item. If called as a mutator, the
 previous record separator is returned.
+
+The intended use of this attribute is to override the line ending actually
+encountered in the input file. The C<\n> format item returns this if it
+is defined, otherwise it returns L<irs|/irs>.
 
 =head2 prefix_tplt
 

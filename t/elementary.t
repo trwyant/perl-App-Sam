@@ -23,7 +23,7 @@ use constant SPACE	=> ' ';
     );
 
 
-    local $_ = "Able was I ere I saw Elba.\n";
+    local $_ = 'Able was I ere I saw Elba.';
     local $. = 42;
 
     while ( m/ \b ( was ) \b /smxgc ) {
@@ -95,7 +95,7 @@ use constant SPACE	=> ' ';
     );
 
 
-    local $_ = "Able was I ere I saw Elba.\n";
+    local $_ = 'Able was I ere I saw Elba.';
     local $. = 42;
 
     while ( m/ \b ( was ) \b /smxgc ) {
@@ -133,7 +133,7 @@ use constant SPACE	=> ' ';
 	replace_tplt	=> '<$&>',
     );
 
-    local $_ = "Able was I ere I saw Elba.\n";
+    local $_ = 'Able was I ere I saw Elba.';
     local $. = 42;
     $tplt->init();
 
@@ -197,7 +197,7 @@ use constant SPACE	=> ' ';
     );
 
 
-    local $_ = "Able was I ere I saw Elba.\n";
+    local $_ = 'Able was I ere I saw Elba.';
     local $. = 42;
     $tplt->init();
 
