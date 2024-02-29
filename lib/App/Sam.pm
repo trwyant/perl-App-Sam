@@ -1170,6 +1170,14 @@ sub __get_opt_specs {
 	push @opt_spec_list, join( '|', $_->{name}, @{ $_->{alias} || []
 	    } ) . $_->{type}, $self->__get_validator( $_, 1 );
     }
+    foreach ( keys %{ $self->{_type_def} } ) {
+	push @opt_spec_list, "$_!", sub {
+	    my ( $name, $value ) = @_;
+	    $self->{type}{$name} = $value ? TYPE_WANTED :
+	    TYPE_NOT_WANTED;
+	    return;
+	};
+    }
     if ( $self->{define} ) {
 	foreach my $attr_spec ( values %{ $self->{define} } ) {
 	    push @opt_spec_list, $attr_spec->{name}, sub {

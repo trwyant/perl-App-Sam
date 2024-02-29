@@ -908,6 +908,10 @@ than once. The type can be prefixed with C<'no'> or C<'no-'> to reject
 the type. In the case of files with more than one type, rejection takes
 precedence over selection.
 
+File types can also be specified as options as well as option values --
+that is, C<--perl> instead of C<--type=perl>. But L<ack|ack> deprecates
+this usage, and therefore so does C<sam>.
+
 =head2 --type-add
 
 This option defines a file type. It can be specified more than once. The
