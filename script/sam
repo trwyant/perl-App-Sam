@@ -102,6 +102,10 @@ arguments or the single file argument is a directory. Otherwise
 --line is asserted by default if --with-filename is asserted, and
 negated by default if --no-filename is asserted.
 
+--type=TYPE --type=noTYPE (or equivalent) causes no files at all to be
+selected. Believe it or not, L<ack|ack> test F<t/ack-type.t> tests for
+this.
+
 All the above defaults are overridden by an explicit specification of
 the option.
 

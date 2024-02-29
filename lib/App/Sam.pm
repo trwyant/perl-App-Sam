@@ -315,6 +315,7 @@ sub new {
 	    exists $self->{type}{$type}
 		or $self->{type}{$type} = TYPE_WANTED;
 	}
+	$self->{_type_wanted} = 1;
     }
 
     if ( $self->{max_count} && ( $self->{f} || $self->{g} ||
@@ -351,6 +352,11 @@ sub new {
 	$self->{syntax}
 	    or $self->{syntax}{+SYNTAX_DOCUMENTATION} = 1;
     }
+
+    not $self->{ack_mode}
+	and $self->{type}
+	and $self->{_type_wanted} = List::Util::any
+	    { $_ == TYPE_WANTED } values %{ $self->{type} };
 
     $self->__make_munger();
 
@@ -1173,9 +1179,12 @@ sub __get_opt_specs {
     foreach ( keys %{ $self->{_type_def} } ) {
 	push @opt_spec_list, "$_!", sub {
 	    my ( $name, $value ) = @_;
-	    $self->{type}{$name} = $value ? TYPE_WANTED :
-	    TYPE_NOT_WANTED;
-	    return;
+	    if ( $value ) {
+		$self->{type}{$name} = TYPE_WANTED;
+		$self->{_type_wanted} = 1;
+	    } else {
+		$self->{type}{$name} = TYPE_NOT_WANTED;
+	    }
 	};
     }
     if ( $self->{define} ) {
@@ -1521,7 +1530,8 @@ sub __ignore {
 		and return 1;
 	    $want_type //= $skip;
 	}
-	return ! defined $want_type;
+	$self->{_type_wanted}
+	    and return( ! defined $want_type );
     }
     return 0;
 }
@@ -2520,6 +2530,8 @@ sub __validate_type {
 	} else {
 	    return 0;
 	}
+	$self->{type}{$type} == TYPE_WANTED
+	    and $self->{_type_wanted} = 1;
     }
     return 1;
 }
