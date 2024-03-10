@@ -37,6 +37,13 @@ sub __format_item {
     return $rslt;
 }
 
+sub __format_item_dollar_p {
+    my ( $self ) = @_;
+    $self->{finalize}
+	and return '';
+    return $self->SUPER::__format_item_dollar_p()
+}
+
 sub line {
     my ( $self ) = @_;
     $self->{line} =~ m/ \S /smx

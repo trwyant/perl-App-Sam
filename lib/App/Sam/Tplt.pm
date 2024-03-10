@@ -83,6 +83,7 @@ sub finalize {
     $self->{paren_match} = '';
     $self->{last_pos} = $self->{curr_pos};
     $self->{curr_pos} = length;
+    local $self->{finalize} = 1;
     return $self->__format_line( $self->{finalize_tplt} );
 }
 
@@ -139,10 +140,7 @@ sub __format_item {
 	},
 	'$F'	=> sub { length $_[0]{prev_field} ?
 	    $_[0]{matched} ? $_[0]{ofs} : '-' : '' },
-	'$p'	=> sub {
-	    substr $_, $_[0]{last_pos},
-		$_[0]{match_start}[0] - $_[0]{last_pos};
-	},
+	'$p'	=> '__format_item_dollar_p',
 	'$r'	=> '__format_item_dollar_r',
 	'$s'	=> sub { substr $_[0]{syntax} // '', 0, 4 },
 	'$S'	=> sub {
@@ -173,6 +171,12 @@ sub __format_item_dollar_number {
     return $self->{capt}[$number] // substr $_,
 	$self->{match_start}[$number],
 	$self->{match_end}[$number] - $self->{match_start}[$number]
+}
+
+sub __format_item_dollar_p {
+    my ( $self ) = @_;
+    return substr $_, $self->{last_pos},
+	$self->{match_start}[0] - $self->{last_pos};
 }
 
 sub __format_item_dollar_r {
