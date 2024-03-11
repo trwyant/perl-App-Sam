@@ -378,6 +378,36 @@ sub __need_reprocess {
     return $rslt;
 }
 
+# Perform the ack (or at least ack-like) check on a regex before
+# wrapping it in \b assertions. Returns true if the check passes, and
+# false if it fails.
+sub _check_word_regexp {
+    ( local $_ ) = @_;
+
+    # Can start with \w, \d, a word character, open parens or square
+    # brackets, or a dot.
+    m/ \A (?: \\ [wd] | [\w([.] ) /smx
+	or return 0;
+    {	# Single-iteration loop
+	# Can end with a word character, provided it is not escaped
+	m/ ( \\* ) \w \z /smx
+	    and not length( $1 ) % 2
+	    and last;
+	# Can end with w or d privided it IS escaped.
+	m/ ( \\* ) [wd] \z /smx
+	    and length( $1 ) % 2
+	    and last;
+	# Can end with close parens, square brackets, or
+	# braces, or +, ?, *, or . provided it is not escaped. {
+	m/ ( \\* ) ( [])}+?*.] ) /smx
+	    and not length( $1 ) % 2
+	    and last;
+	# Out of options.
+	return 0;
+    }
+    return 1;
+}
+
 sub __chomp {
     $_[0] =~ s/ ( \n | \r \n? ) \z //smx
 	and return "$1";
@@ -1273,7 +1303,7 @@ sub __get_attr_default_file_name {
 		return;
 	    } else {
 		$self->__croak( $rc_cache{$file} =
-		    "Unablw to open resource file $file: $!" );
+		    "Unable to open $file: $!" );
 	    }
 	}
 	{
@@ -1456,10 +1486,40 @@ sub __make_munger {
 
     $self->{literal}
 	and $match = quotemeta $match;
-    if ( $self->{word_regexp} ) {
-	$match =~ s/ \A (?= \w ) /\\b/smx;
-	$match =~ s/ (?<= \w ) \z /\\b/smx;
+
+    # OK, I give up. We do a trial here for the purpose of reporting the
+    # error if any.
+
+    {
+	local $@ = undef;
+	unless ( eval { qr/$match/ } ) {
+	    my ( $error, $re ) = split / <-- HERE /, $@, 3;
+	    $error =~ s/; marked by\z//;
+	    my $leader = ' ' x ( 1 + length $re );
+	    $self->__croak( <<"EOD" );
+Invalid regex '$match'
+Regex: $match
+$leader^---HERE $error
+EOD
+	}
     }
+
+    if ( $self->{word_regexp} ) {
+	if ( $match =~ m/ \W /smx ) {
+	    # NOTE that my perhaps not-so-humble opinion is that ack
+	    # overvalidates here. But I reserve the option to change my
+	    # mind.
+	    not $self->{ack_mode}
+		or _check_word_regexp( $match )
+		or $self->__croak(
+		'-w will not do the right thing if your regex does not begin and end with a word character.' );
+
+	    $match = "\\b(?:$match)\\b";
+	} else {
+	    $match = "\\b$match\\b";
+	}
+    }
+
     my $str;
     $str = "m($match)$modifier";
     if ( $self->{flags} & FLAG_FAC_NO_MATCH_PROC ) {
@@ -1476,21 +1536,9 @@ sub __make_munger {
     my $code;
     local $@;
     unless ( $code = eval "sub { $str }" ) {	## no critic (ProhibitStringyEval)
-	$self->{ack_mode}
-	    or $self->__croak( "Invalid regex m($match)$modifier: $@" );
-	# Is this more trouble than it is worth?
-	# The following eval is because if $match is '(' then $@ is not
-	# compatible with ack.
-	eval { qr/$match/ };	## no critic (RequireCheckingReturnValueOfEval)
-	my ( $error, $re ) = split / <-- HERE /, $@, 3;
-	$error =~ s/; marked by\z//;
-	my $leader = ' ' x ( 1 + length $re );
-	$self->__croak( <<"EOD" );
-Invalid regex '$match'
-Regex: $match
-$leader^---HERE $error
-EOD
+	$self->__croak( "Invalid regex m($match)$modifier: $@" );
     }
+
     $self->{_munger} = $code;
     return;
 }

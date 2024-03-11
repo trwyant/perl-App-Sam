@@ -66,6 +66,7 @@ t/elementary.t
 t/match.t
 t/misc.t
 t/replace.t
+t/sam-w.t
 t/syntax_ada.t
 t/syntax_batch.t
 t/syntax_cc.t
