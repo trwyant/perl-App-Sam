@@ -133,10 +133,10 @@ sub new {
     my $original_argv;
     $default->__need_reprocess( \%last_processed );
 
-    # The loop is pure defensive programming. The only thing I can
-    # imagine making it go more than twice is a --samrc file specifying
-    # --samrc, and I think that is guarded against.
+    # The loop is pure defensive programming. I can't imagine going
+    # around more than twice.
     for ( 0 .. 2 ) {
+
 	%{ $self } = %{ $default };
 	@{ $self }{ keys %last_processed } = values %last_processed;
 
@@ -166,17 +166,6 @@ sub new {
 		or $self->__croak( "Invalid $arg[$inx] value '$arg[$inx+1]'" );
 	}
 
-	$last_processed{samrc} = $self->{samrc};
-
-	$self->__get_attr_from_rc( $self->{samrc}, 1 );
-
-	{
-	    no warnings qw{ uninitialized };
-	    $self->{samrc} ne $last_processed{samrc}
-		and $self->__croak(
-		"--samrc=$last_processed{samrc} may not specify --samrc" );
-	}
-
 	if ( $original_argv ) {
 	    @{ $self->{argv} } = @{ $original_argv };
 	} else {
@@ -194,6 +183,8 @@ sub new {
 
 	last unless $self->__need_reprocess( \%last_processed );
     }
+
+    delete $self->{_already_loaded};
 
     $self->__incompat_arg( qw{ f match } );
     $self->__incompat_arg( qw{ f g files_with_matches
@@ -370,11 +361,6 @@ sub __need_reprocess {
 	$rslt ||= ( $self->{$_} xor $last_processed->{$_} );
 	$last_processed->{$_} = $self->{$_};
     }
-    foreach ( qw{ samrc } ) {
-	no warnings qw{ uninitialized };
-	$rslt ||= $self->{$_} ne $last_processed->{$_};
-	$last_processed->{$_} = $self->{$_};
-    }
     return $rslt;
 }
 
@@ -458,6 +444,7 @@ sub _accum_opt_for_dump {
 	    and return;
 	my $attr_spec = $ATTR_SPEC{$key}
 	    or return;
+	# FIXME if the type begins with a colon the value is optional.
 	$attr_spec->{type} =~ m/ \A = /smx
 	    or return;
 	$self->{_dump}{want_arg} = 1;
@@ -484,8 +471,7 @@ sub _display_opt_for_dump {
     $self->{_dump}{accum}
 	or return;
     state $dflt = $self->__get_attr_default_file_name();
-    say ref $name ? $$name :
-	$name eq $dflt ? 'Defaults' : Cwd::abs_path( $name );
+    say $name eq $dflt ? 'Defaults' : $name;
     say '=' x length $name;
     say "  $_->[0]" for
 	sort { $a->[1] cmp $b->[1] } @{ $self->{_dump}{accum} };
@@ -1117,6 +1103,7 @@ sub __file_type_del {
 	},
 	samrc	=> {
 	    type	=> '=s',
+	    validate	=> '__validate_samrc',
 	},
 	show_syntax	=> {
 	    type	=> '!',
@@ -1237,7 +1224,7 @@ sub __get_opt_specs {
 			capt	=> \@def_arg,
 		    );
 		}
-		$self->__get_attr_from_rc( \@expansion,
+		$self->__get_attr_from_rc( \@expansion, name =>
 		    $self->_format_opt( $attr_spec, $name, $value ),
 		);
 	    };
@@ -1259,16 +1246,42 @@ sub __get_attr_default_file_name {
 
     # Get attributes from resource file.
     sub __get_attr_from_rc {
-	my ( $self, $file, $required ) = @_;
+	my ( $self, $file, %opt ) = @_;
+
 	defined $file
 	    or return;
+
+	ref $file
+	    or $file = Cwd::abs_path( $file );
+
+	if ( $self->{_already_loaded}{$file}++ ) {
+	    my $msg = "Resource $file already loaded";
+	    exists $opt{from}
+		and $msg .= " from $opt{from}";
+	    # In case we're called recursively via Getopt::Long
+	    local $SIG{__WARN__} = 'DEFAULT';
+	    $self->__carp( $msg );
+	    return;
+	}
+
+	state $dflt = $self->__get_attr_default_file_name();
+	if ( defined $opt{name} ) {
+	} elsif ( REF_ARRAY eq ref $file ) {
+	    $opt{name} = 'ARGV';
+	} elsif ( $file eq $dflt ) {
+	    $opt{name} = 'Defaults';
+	} else {
+	    $opt{name} = $file;
+	}
+
+	local $self->{_rc_name} = $opt{name};
+
 	my $arg = $file;
 	local $self->{_dump} = {};
 	if ( REF_ARRAY eq ref $file ) {
 	    if ( $self->{dump} ) {
-		$required //= 'ARGV';
 		$self->_accum_opt_for_dump( $_ ) for @{ $file };
-		$self->_display_opt_for_dump( \$required );
+		$self->_display_opt_for_dump( $opt{name} );
 	    }
 	} else {
 	    if ( not ref( $file ) and $arg = $rc_cache{$file} ) {
@@ -1298,7 +1311,7 @@ sub __get_attr_default_file_name {
 		$rc_cache{$file} = [ @{ $arg } ];
 		$self->{dump}
 		    and $self->_display_opt_for_dump( $file );
-	    } elsif ( $! == ENOENT && ! $required ) {
+	    } elsif ( $! == ENOENT && ! $opt{required} ) {
 		$rc_cache{$file} = [];
 		return;
 	    } else {
@@ -2569,6 +2582,15 @@ sub __validate_radio {
 	delete $self->{$_} for @{ $attr_spec->{arg} };
     }
     $self->{$attr_name} = $attr_val;
+    return 1;
+}
+
+sub __validate_samrc {
+    my ( $self, undef, undef, $attr_val ) = @_;	# $attr_spec, $attr_name unused
+    $self->__get_attr_from_rc( $attr_val,
+	required	=> 1,
+	from		=> $self->{_rc_name},
+    );
     return 1;
 }
 

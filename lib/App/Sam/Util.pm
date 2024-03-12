@@ -142,7 +142,13 @@ sub _decorate_die_args {
     $arg[-1] =~ s/ (?<! [.?!] ) \z /./smx;
     $arg[-1] .= $/;
     state $me = sprintf '%s: ', __me();
-    unshift @arg, $me;
+
+    # NOTE that this guard is needed because the exception may get
+    # caught and re-thrown multiple times. This is probably an argument
+    # for an exception argument.
+    @arg
+	and index( $arg[0], $me ) == 0
+	or unshift @arg, $me;
     return @arg;
 }
 

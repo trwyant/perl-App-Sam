@@ -805,8 +805,11 @@ This option is a synonym for L<--smart-case|/--smart-case>.
 =head2 --samrc
 
 This option specifies the name of a resource file to read. This is read
-after all the default resource files, and even if L<--no-env|/--env> is
-specified. The file must exist.
+recursively at the point where the option is encountered, and even if
+L<--no-env|/--env> is specified. The file must exist.
+
+Yes, the file specified by C<--samrc> can itself contain one or more
+C<--samrc> specifications.
 
 =head2 --show-syntax
 
