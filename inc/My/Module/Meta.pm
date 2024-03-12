@@ -157,6 +157,7 @@ sub requires {
 	'Errno'		=> 0,
 	'Exporter'	=> 0,
 	'File::Basename'	=> 0,
+	'File::Glob'	=> 0,
 	'File::Next'	=> 0,
 	'File::ShareDir'	=> 1.00,
 	'File::Spec'	=> 0,

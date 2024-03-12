@@ -7,6 +7,7 @@ use warnings;
 
 use Carp ();
 use Exporter qw{ import };
+use File::Glob qw{ GLOB_ERR GLOB_TILDE };
 use Term::ANSIColor ();
 
 our $VERSION = '0.000_003';
@@ -15,6 +16,7 @@ our @EXPORT_OK = qw{
     __carp
     __confess
     __croak
+    __expand_tilde
     __fold_case
     __match_shebang
     __me
@@ -152,6 +154,20 @@ sub _decorate_die_args {
     return @arg;
 }
 
+sub __expand_tilde {
+    my ( $path ) = @_;
+    index( $path, '~' ) == 0
+	or return $path;
+    my $rslt = File::Glob::bsd_glob( $path, GLOB_TILDE );
+    File::Glob::GLOB_ERROR()
+	or return $rslt;
+    my ( $first, $rest ) = split /\//, $path, 2;
+    $rslt = File::Glob::bsd_glob( $first, GLOB_TILDE );
+    File::Glob::GLOB_ERROR()
+	or return "$rslt/$rest";
+    return $path;
+}
+
 if ( "$]" >= 5.015008 ) {
     *__fold_case = sub { CORE::fc( $_[0] ) };
 } else {
@@ -224,6 +240,14 @@ This mixin calls displays the given message using either C<die()> if
 the invocant's C<die> attribute is true, or C<croak()> if not.
 
 It can be imported by name or using the C<:carp> tag.
+
+=head2 __expand_tilde
+
+ say 'Home dir: ', __expand_tilde( '~' );
+
+This subroutine expands a leading tilde in a POSIX file spec, if any.
+The expansion is returned. If there was no leading tilde or if the
+expansion failed, the original argument is returned.
 
 =head2 __fold_case
 

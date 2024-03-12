@@ -14,7 +14,7 @@ use App::Sam::Tplt;
 use App::Sam::Tplt::Color;
 use App::Sam::Tplt::Under;
 use App::Sam::Util qw{
-    :carp :case :syntax :term_ansi __syntax_types @CARP_NOT
+    :carp :case :syntax :term_ansi __expand_tilde __syntax_types @CARP_NOT
 };
 use Config;
 use Cwd 3.08 ();
@@ -1252,7 +1252,7 @@ sub __get_attr_default_file_name {
 	    or return;
 
 	ref $file
-	    or $file = Cwd::abs_path( $file );
+	    or $file = Cwd::abs_path( __expand_tilde( $file ) );
 
 	if ( $self->{_already_loaded}{$file}++ ) {
 	    my $msg = "Resource $file already loaded";
@@ -1430,7 +1430,7 @@ sub __get_rc_file_names {
 	if ( IS_WINDOWS ) {
 	    $self->__croak( 'TODO - Windows resource files' );
 	} else {
-	    push @rslt, '/etc/samrc', $ENV{SAMRC} // "$ENV{HOME}/.samrc";
+	    push @rslt, '/etc/samrc', $ENV{SAMRC} // '~/.samrc';
 	    # TODO Ack semantics for project file
 	    push @rslt, '.samrc';
 	}
@@ -1482,7 +1482,6 @@ sub _get_re_modifiers {
     $self->__confess( 'RE undefined' ) unless defined $re;
     return $RE_CASE[ $self->{match_case} // RE_CASE_SENSITIVE ]->( $re );
 }
-
 
 sub __make_munger {
     my ( $self ) = @_;

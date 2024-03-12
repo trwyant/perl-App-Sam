@@ -192,7 +192,7 @@ EOD
 	    is [ $sam->__get_rc_file_names() ],
 		[
 		    $sam->__get_attr_default_file_name(),
-		    '/etc/samrc', "$ENV{HOME}/.samrc", '.samrc',
+		    '/etc/samrc', '~/.samrc', '.samrc',
 		],
 		'Resource file names under anything but Windows';
 	}
