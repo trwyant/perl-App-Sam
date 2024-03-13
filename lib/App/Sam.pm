@@ -2367,6 +2367,12 @@ sub __validate_file_property_add {
     foreach ( ref $attr_val ? @{ $attr_val } : $attr_val ) {
 	my ( $prop_val, $kind, $data ) = split /:/, $_, 3;
 
+	# Handle old-style ack file type definitions.
+	unless( defined $kind ) {
+	    ( $prop_val, $data ) = split /=\./, $_, 2;
+	    $kind = 'ext';
+	}
+
 	$validate_prop_val->( $self, $prop_val )
 	    or return 0;
 
