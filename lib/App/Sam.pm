@@ -471,9 +471,11 @@ sub _display_opt_for_dump {
     $self->{_dump}{accum}
 	or return;
     state $dflt = $self->__get_attr_default_file_name();
-    say $name eq $dflt ? 'Defaults' : $name;
-    say '=' x length $name;
-    say "  $_->[0]" for
+    $name eq $dflt
+	and $name = 'Defaults';
+    say "$self->{_dump_indent}$name";
+    say $self->{_dump_indent}, '=' x length $name;
+    say "$self->{_dump_indent}  $_->[0]" for
 	sort { $a->[1] cmp $b->[1] } @{ $self->{_dump}{accum} };
     return;
 }
@@ -1250,6 +1252,9 @@ sub __get_attr_default_file_name {
 
 	defined $file
 	    or return;
+
+	local $self->{_dump_indent} = defined $self->{_dump_indent} ?
+	    "$self->{_dump_indent}  " : '';
 
 	ref $file
 	    or $file = Cwd::abs_path( __expand_tilde( $file ) );
