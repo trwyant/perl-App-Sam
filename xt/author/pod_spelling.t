@@ -22,6 +22,7 @@ env
 ESC
 faq
 Fortran
+getopt
 irs
 lexicographically
 lineno
@@ -29,6 +30,8 @@ matcher
 merchantability
 NL
 nobackup
+ort
+orts
 NUL
 ors
 passthrough

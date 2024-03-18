@@ -21,6 +21,7 @@ our @EXPORT_OK = qw{
     __match_shebang
     __me
     __syntax_types
+    __todo
     RE_CASE_BLIND
     RE_CASE_SMART
     RE_CASE_SENSITIVE
@@ -37,7 +38,8 @@ our @EXPORT_OK = qw{
 };
 
 our %EXPORT_TAGS = (
-    carp	=> [ qw{ __carp __confess __croak } ],
+    all		=> \@EXPORT_OK,
+    carp	=> [ qw{ __carp __confess __croak __todo } ],
     case	=> [ qw{ __fold_case }, grep { m/ \A RE_CASE_ /smx }
 	@EXPORT_OK ],
     syntax	=> [ grep { m/ \A SYNTAX_ /smx } @EXPORT_OK ],
@@ -46,6 +48,7 @@ our %EXPORT_TAGS = (
 
 our @CARP_NOT = qw{
     App::Sam
+    App::Sam::Resource
     App::Sam::Syntax
     App::Sam::Syntax::Ada
     App::Sam::Syntax::Batch
@@ -129,7 +132,7 @@ sub __croak {
 }
 
 # NOTE that when this has been called, $! has already been set to 1 to
-# force that as an exit status. So it's value is useless, and it MUST
+# force that as an exit status. So its value is useless, and it MUST
 # NOT be changed.
 sub _decorate_croak_args {
     my ( undef, @arg ) = @_;	# $self unused
@@ -188,6 +191,19 @@ sub __syntax_types {
     return @{ $types };
 }
 
+sub __todo {
+    my ( $self, @arg ) = @_;
+    unshift @arg, @arg ? 'Bug - ' : 'Bug';
+    local $! = 0;	# Force exit status.
+    local $@ = undef;	# Force exit status.
+    if ( ref( $self ) && $self->{die} ) {
+	die _decorate_die_args( $self, @arg );
+    } else {
+	local $Carp::CarpLevel = $Carp::CarpLevel + 1;
+	Carp::croak( _decorate_croak_args( $self, @arg ) );
+    }
+}
+
 1;
 
 __END__
@@ -219,7 +235,7 @@ This module provides the following package-private subroutines:
 
  $self->__carp( 'Something may have gone wrong' );
 
-This mixin calls displays the given message using either C<warn()> if
+This mixin displays the given message using either C<warn()> if
 the invocant's C<die> attribute is true, or C<carp()> if not.
 
 It can be imported by name or using the C<:carp> tag.
@@ -228,7 +244,7 @@ It can be imported by name or using the C<:carp> tag.
 
  $self->__confess( 'Something went horribly wrong' );
 
-This mixin calls displays the given message using C<confess()>.
+This mixin displays the given message using C<confess()>.
 
 It can be imported by name or using the C<:carp> tag.
 
@@ -236,7 +252,7 @@ It can be imported by name or using the C<:carp> tag.
 
  $self->__croak( 'Something definitely went wrong' );
 
-This mixin calls displays the given message using either C<die()> if
+This mixin displays the given message using either C<die()> if
 the invocant's C<die> attribute is true, or C<croak()> if not.
 
 It can be imported by name or using the C<:carp> tag.
@@ -272,6 +288,18 @@ This subroutine returns the names of all syntax types as defined by
 C<SYNTAX_*> L<MANIFEST CONSTANTS|/MANIFEST CONSTANTS> (see below).
 
 It can be imported by name.
+
+=head2 __todo
+
+ $self->__todo( 'This needs doing' );
+
+This mixin displays the given message using either C<die()> if
+the invocant's C<die> attribute is true, or C<croak()> if not. It can be
+called as a static method, in which case it will call C<croak()>.
+
+The message is prefaced with C<'TODO - '>.
+
+It can be imported by name or using the C<:carp> tag.
 
 =head1 ARRAYS
 
@@ -358,6 +386,30 @@ This manifest constant represents the ANSI escape sequence to clear
 reset character and background color to the default.
 
 It can be imported by name or using the C<:term_ansi> tag.
+
+=head1 EXPORT TAGS
+
+The following export tags are supported:
+
+=head2 all
+
+This imports everything.
+
+=head2 carp
+
+This imports __carp(), __confess(), __croak(), and __todo().
+
+=head2 case
+
+This imports __fold_case() and the C<RE_CASE_*> manifest constants.
+
+=head2 syntax
+
+This imports the C<SYNTAX_*> manifest constants.
+
+=head2 term_ansi
+
+This imports the C<TERM_ANSI_*> manifest constants.
 
 =head1 SEE ALSO
 

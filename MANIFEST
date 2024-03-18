@@ -5,6 +5,7 @@ inc/My/Module/Build.pm
 inc/My/Module/Meta.pm
 inc/My/Module/Test.pm
 lib/App/Sam.pm
+lib/App/Sam/Resource.pm
 lib/App/Sam/Syntax.pm
 lib/App/Sam/Syntax/_cc_like.pm
 lib/App/Sam/Syntax/Ada.pm

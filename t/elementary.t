@@ -5,6 +5,7 @@ use 5.010001;
 use strict;
 use warnings;
 
+use App::Sam::Resource;
 use App::Sam::Tplt;
 use App::Sam::Tplt::Color;
 use App::Sam::Tplt::Under;
@@ -13,9 +14,177 @@ use Test2::V0 -target => 'App::Sam';
 use Test2::Tools::Mock;
 use Term::ANSIColor;
 
+use lib 'inc';
+
+use My::Module::Test qw{ fake_rsrc };
+
+use constant RSRC	=> 'App::Sam::Resource';
+
 use constant CARET	=> '^';
 use constant EMPTY	=> '';
 use constant SPACE	=> ' ';
+
+{
+    my $mock = mock CLASS, (
+	override	=> [
+	    new		=> sub {
+		my ( $class, %self ) = @_;
+		$self{env} //= 1;
+		return bless \%self, $class;
+	    },
+	],
+    );
+
+    delete local $ENV{SAMRC};
+
+    my $default_resource = fake_rsrc(
+	name	=> CLASS->__get_default_resource_name(),
+    );
+
+    is CLASS->__get_default_resource(),
+	$default_resource,
+	'__get_default_resource()';
+
+    is [ CLASS->new()->__get_resources( [] ) ], [
+	$default_resource,
+	fake_rsrc( name	=> '/etc/samrc' ),
+	fake_rsrc( name	=> '~/.samrc' ),
+	fake_rsrc( name	=> '.samrc' ),
+	fake_rsrc( name	=> 'new()', data => [], getopt => 0 ),
+    ], '__get_resources( [] )';
+
+    is [ CLASS->new()->__get_resources( [ argv => [] ] ) ], [
+	$default_resource,
+	fake_rsrc( name	=> '/etc/samrc' ),
+	fake_rsrc( name	=> '~/.samrc' ),
+	fake_rsrc( name	=> '.samrc' ),
+	fake_rsrc( name	=> 'new()', data => [ argv => [] ], getopt => 0 ),
+    ], '__get_resources( [ argv => [] ] )';
+
+    is [ CLASS->new( ignore_sam_defaults => 1 )->__get_resources( [] ) ], [
+	fake_rsrc( name	=> '/etc/samrc' ),
+	fake_rsrc( name	=> '~/.samrc' ),
+	fake_rsrc( name	=> '.samrc' ),
+	fake_rsrc( name	=> 'new()', data => [], getopt => 0 ),
+    ], '__get_resources( [] ) with ignore_sam_defaults => 1';
+
+    is [ CLASS->new( env => 0 )->__get_resources( [] ) ], [
+	$default_resource,
+	fake_rsrc( name	=> 'new()', data => [], getopt => 0 ),
+    ], '__get_resources( [] ) with env => 0';
+}
+
+{
+    my $defaults;
+    my $mock = mock CLASS, (
+	override	=> [
+	    new		=> sub {
+		my ( $class, %self ) = @_;
+		$self{env} //= 0;
+		return bless \%self, $class;
+	    },
+	    __get_default_resource	=> sub {
+		return App::Sam::Resource->new(
+		    name	=> CLASS->__get_default_resource_name(),
+		    data	=> $defaults,
+		);
+	    },
+	],
+    );
+
+    delete local $ENV{SAMRC};
+
+    is CLASS->new()->__get_attr_from_resource(
+	fake_rsrc(
+	    name	=> 'new()',
+	    data	=> [
+	    ],
+	    getopt	=> 0,
+	),
+    ), { env => 0 }, '__get_attr_from_resource() empty args';
+
+    is CLASS->new()->__get_attr_from_resource(
+	fake_rsrc(
+	    name	=> 'new()',
+	    data	=> [
+		env	=> 1,
+		count	=> 1,
+	    ],
+	    getopt	=> 0,
+	),
+    ), {
+	count => 1,
+	env => 1,
+    }, '__get_attr_from_resource() override env';
+
+    is CLASS->new()->__get_attr_from_resource(
+	fake_rsrc(
+	    name	=> 'samrc',
+	    data	=> \<<'EOD',
+--color-match=magenta on_black
+--ignore-sam-defaults
+EOD
+	),
+    ), {
+	color_match	=> 'magenta on_black',
+	env		=> 0,
+	flags		=> 0,
+	ignore_sam_defaults	=> 1,
+    }, '__get_attr_from_resource() parse file';
+
+    is CLASS->new()->__get_attr_from_resource(
+	fake_rsrc(
+	    name	=> 'new()',
+	    data	=> [
+		argv	=> [ qw{ --color } ],
+	    ],
+	    getopt	=> 0,
+	),
+    ), {
+	color	=> 1,
+	env	=> 0,
+	flags	=> 0,
+    }, '__get_attr_from_resource() argv';
+
+    is CLASS->new()->__get_attr_from_resource(
+	fake_rsrc(
+	    name	=> CLASS->__get_default_resource_name(),
+	    data	=> \<<'EOD'
+# This is a comment
+--color
+--color-match=black on_magenta
+EOD
+	), fake_rsrc(
+	    name	=> 't/data/no-such-file',
+	), fake_rsrc(
+	    name	=> 'new()',
+	    data	=> [ color => 0 ],
+	    getopt	=> 0,
+	),
+    ), {
+	color		=> 0,
+	color_match	=> 'black on_magenta',
+	env		=> 0,
+	flags		=> 0,
+    }, '__get_attr_from_resource() multiple resources';
+
+    $defaults = \<<'EOD';
+# This is a comment
+--color
+EOD
+    my $sam = CLASS->new();
+
+    is $sam->__get_attr_from_resource( $sam->__get_resources( [
+		context => 1,
+	    ] ) ),
+    {
+	after_context	=> 1,
+	before_context	=> 1,
+	color	=> 1,
+	env	=> 0,
+	flags	=> 0,
+    }, '__get_attr_from_resource( __get_resources() )';
+}
 
 {
     my $tplt = App::Sam::Tplt->new(

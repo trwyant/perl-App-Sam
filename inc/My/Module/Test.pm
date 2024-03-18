@@ -5,17 +5,22 @@ use 5.010001;
 use strict;
 use warnings;
 
+use App::Sam::Util qw{ __expand_tilde };
+use Cwd 3.08 ();
 use Exporter qw{ import };
 use Test2::Util::Table qw{ table };
 
 use Carp;
 
 our @EXPORT_OK = qw{
-    capture_stdout dependencies_table slurp_syntax stdin_from_file
+    capture_stdout dependencies_table fake_rsrc realpath slurp_syntax
+    stdin_from_file
 };
 our @EXPORT = @EXPORT_OK;
 
 our $VERSION = '0.000_003';
+
+use constant RSRC	=> 'App::Sam::Resource';
 
 sub capture_stdout (&) {
     my ( $code ) = @_;
@@ -88,6 +93,25 @@ sub dependencies_table {
     return @tables;
 }
 
+sub fake_rsrc {
+    my @arg = @_;
+    my @rslt;
+    while ( @arg ) {
+	my ( $name, $val ) = splice @arg, 0, 2;
+	$name = "RC_\U$name";
+	$rslt[ RSRC->$name() ] = $val;
+    }
+    $rslt[ RSRC->RC_GETOPT() ] //= 1;
+    not defined $rslt[ RSRC->RC_DATA() ]
+	and $rslt[ RSRC->RC_NAME() ] = realpath( $rslt[ RSRC->RC_NAME() ] );
+    return bless \@rslt, 'App::Sam::Resource';
+}
+
+sub realpath {
+    my ( $file ) = @_;
+    return Cwd::abs_path( __expand_tilde( $file ) );
+}
+
 sub slurp_syntax {
     my ( $file ) = @_;
     my $caller = caller;
@@ -154,6 +178,17 @@ F<STDOUT> is returned.
 This subroutine builds and returns a text table describing the
 dependencies of the package. L<Test2::Util::Table|Test2::Util::Table>
 does the heavy lifting.
+
+=head2 fake_rsrc
+
+This subroutine creates a fake L<App::Sam::Resource|App::Sam::Resource>
+object. What is actually missing is the validation.
+
+=head2 realpath
+
+This subroutine takes a path name as argument, tilde-expands it, and
+then calls C<Cwd::abs_path()> on the expansion. The result of all this
+is returned.
 
 =head2 slurp_syntax
 

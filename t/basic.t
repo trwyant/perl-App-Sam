@@ -3,6 +3,7 @@ package main;
 use strict;
 use warnings;
 
+use Cwd 3.08 ();
 use Test2::V0;
 use Test2::Plugin::BailOnFail;
 use Test2::Tools::LoadModule;
@@ -20,6 +21,8 @@ diag $_ for dependencies_table;
 load_module_ok 'App::Sam::Util';
 
 is App::Sam::Util::__me(), 'basic.t', '__me() returns base name of script';
+
+load_module_ok 'App::Sam::Resource';
 
 load_module_ok 'App::Sam::Tplt';
 
@@ -189,10 +192,13 @@ EOD
 	if ( $sam->IS_WINDOWS ) {
 	    # TODO Windows code
 	} else {
-	    is [ $sam->__get_rc_file_names() ],
+	    is [ $sam->__get_resources() ],
 		[
-		    $sam->__get_attr_default_file_name(),
-		    '/etc/samrc', '~/.samrc', '.samrc',
+		    $sam->__get_default_resource(),
+		    fake_rsrc( name => Cwd::abs_path( '/etc/samrc' ) ),
+		    fake_rsrc( name => Cwd::abs_path(
+			    App::Sam::Util::__expand_tilde( '~/.samrc' ) ) ),
+		    fake_rsrc( name => Cwd::abs_path( '.samrc' ) ),
 		],
 		'Resource file names under anything but Windows';
 	}
@@ -326,8 +332,8 @@ EOD
 	    },
 	],
 	override => [
-	    __get_rc_file_names	=> sub {
-		return $_[0]->__get_attr_default_file_name();
+	    __get_resources => sub {
+		return $_[0]->__get_default_resource();
 	    },
 	],
     );

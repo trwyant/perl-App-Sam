@@ -10,6 +10,7 @@ use if charnames->VERSION >= 1.30, charnames => ':loose';
 
 use utf8;
 
+use App::Sam::Resource;
 use App::Sam::Tplt;
 use App::Sam::Tplt::Color;
 use App::Sam::Tplt::Under;
@@ -17,7 +18,6 @@ use App::Sam::Util qw{
     :carp :case :syntax :term_ansi __expand_tilde __syntax_types @CARP_NOT
 };
 use Config;
-use Cwd 3.08 ();
 use File::Next ();
 use File::Basename ();
 use File::Spec;
@@ -38,6 +38,8 @@ our $VERSION = '0.000_003';
 use constant IS_WINDOWS	=> {
     MSWin32	=> 1,
 }->{$^O} || 0;
+
+use constant TOOD_WIN_RSRC	=> 'Windows resource files';
 
 use constant REF_ARRAY	=> ref [];
 use constant REF_SCALAR	=> ref \0;
@@ -121,7 +123,7 @@ sub new {
 	color_lineno	=> 'bold yellow',
 	color_match	=> 'black on_yellow',
 	dump		=> 0,
-	env		=> 1,
+	env		=> __default_env(),
 	flags		=> 0,
 	invert_match	=> 0,
 	recurse		=> 1,
@@ -130,7 +132,6 @@ sub new {
 
     my $self = bless {}, $class;
     my %last_processed;
-    my $original_argv;
     $default->__need_reprocess( \%last_processed );
 
     # The loop is pure defensive programming. I can't imagine going
@@ -155,31 +156,8 @@ sub new {
 	    }
 	}
 
-	foreach my $file ( $self->__get_rc_file_names() ) {
-	    $self->__get_attr_from_rc( $file );
-	}
-
-	for ( my $inx = 0; $inx < @arg; $inx += 2 ) {
-	    $ATTR_SPEC{$arg[$inx]}
-		or $self->__croak( "Invalid argument '$arg[$inx]' to new()" );
-	    $self->__validate_attr( $arg[$inx], $arg[$inx+1] )
-		or $self->__croak( "Invalid $arg[$inx] value '$arg[$inx+1]'" );
-	}
-
-	if ( $original_argv ) {
-	    @{ $self->{argv} } = @{ $original_argv };
-	} else {
-	    $original_argv = [ @{ $self->{argv} || [] } ];
-	}
-
-	if ( @{ $self->{argv} || [] } ) {
-	    $self->__get_attr_from_rc( $self->{argv} );
-	} else {
-	    delete $self->{argv};
-	}
-
-	@arg % 2
-	    and $self->__croak( 'Odd number of arguments to new()' );
+	$self->__get_attr_from_resource(
+	    $self->__get_resources( [ @arg ] ) );
 
 	last unless $self->__need_reprocess( \%last_processed );
     }
@@ -415,7 +393,7 @@ sub __compile_match {
 sub create_samrc {
     my ( $self, $exit ) = @_;
     $exit //= caller eq __PACKAGE__;
-    my $default_file = $self->__get_attr_default_file_name();
+    my $default_file = $self->__get_default_resource_name();
     local $_ = undef;	# while (<>) does not localize $_
     open my $fh, '<:encoding(utf-8)', $default_file
 	or $self->__croak( "Unable to open $default_file: $!" );
@@ -428,6 +406,10 @@ sub create_samrc {
     $exit and exit;
     return;
 }
+
+=begin comment
+
+FIXME these are no longer called, and need to be rewritten anyway.
 
 sub _accum_opt_for_dump {
     my ( $self, $line ) = @_;
@@ -452,6 +434,24 @@ sub _accum_opt_for_dump {
     return;
 }
 
+sub _display_opt_for_dump {
+    my ( $self, $name ) = @_;
+    $self->{_dump}{accum}
+	or return;
+    state $dflt = $self->__get_default_resource_name();
+    $name eq $dflt
+	and $name = 'Defaults';
+    say "$self->{_dump_indent}$name";
+    say $self->{_dump_indent}, '=' x length $name;
+    say "$self->{_dump_indent}  $_->[0]" for
+	sort { $a->[1] cmp $b->[1] } @{ $self->{_dump}{accum} };
+    return;
+}
+
+=end comment
+
+=cut
+
 sub _format_opt {
     my ( undef, $attr_spec, $name, $value ) = @_;	# Invocant unused
     $name =~ tr/_/-/;
@@ -466,18 +466,10 @@ sub _format_opt {
     return "$leader$name";
 }
 
-sub _display_opt_for_dump {
-    my ( $self, $name ) = @_;
-    $self->{_dump}{accum}
-	or return;
-    state $dflt = $self->__get_attr_default_file_name();
-    $name eq $dflt
-	and $name = 'Defaults';
-    say "$self->{_dump_indent}$name";
-    say $self->{_dump_indent}, '=' x length $name;
-    say "$self->{_dump_indent}  $_->[0]" for
-	sort { $a->[1] cmp $b->[1] } @{ $self->{_dump}{accum} };
-    return;
+# FIXME this is a crock, but gives me a convenient hook for fiddling
+# with this during testing.
+sub __default_env {
+    return 1;
 }
 
 {
@@ -800,6 +792,7 @@ sub __file_type_del {
 	argv	=> {
 	    type	=> '=s@',
 	    flags	=> FLAG_IS_ATTR,
+	    validate	=> '__validate_argv',
 	},
 	backup	=> {
 	    type	=> '=s',
@@ -1199,17 +1192,23 @@ sub __get_opt_specs {
 	push @opt_spec_list, join( '|', $_->{name}, @{ $_->{alias} || []
 	    } ) . $_->{type}, $self->__get_validator( $_, 1 );
     }
-    foreach ( keys %{ $self->{_type_def} } ) {
-	push @opt_spec_list, "$_!", sub {
-	    my ( $name, $value ) = @_;
-	    if ( $value ) {
-		$self->{type}{$name} = TYPE_WANTED;
-		$self->{_type_wanted} = 1;
-	    } else {
-		$self->{type}{$name} = TYPE_NOT_WANTED;
-	    }
-	};
+
+    # Prevent autovivification
+    if ( $self->{_type_def} ) {
+	foreach ( keys %{ $self->{_type_def} } ) {
+	    push @opt_spec_list, "$_!", sub {
+		my ( $name, $value ) = @_;
+		if ( $value ) {
+		    $self->{type}{$name} = TYPE_WANTED;
+		    $self->{_type_wanted} = 1;
+		} else {
+		    $self->{type}{$name} = TYPE_NOT_WANTED;
+		}
+	    };
+	}
     }
+
+    # Prevent autovivification
     if ( $self->{define} ) {
 	foreach my $attr_spec ( values %{ $self->{define} } ) {
 	    push @opt_spec_list, $attr_spec->{name}, sub {
@@ -1226,8 +1225,13 @@ sub __get_opt_specs {
 			capt	=> \@def_arg,
 		    );
 		}
-		$self->__get_attr_from_rc( \@expansion, name =>
-		    $self->_format_opt( $attr_spec, $name, $value ),
+
+		$self->__get_attr_from_resource(
+		    App::Sam::Resource->new(
+			name	=> $self->_format_opt(
+			    $attr_spec, $name, $value ),
+			data	=> \@expansion,
+		    ),
 		);
 	    };
 	};
@@ -1235,116 +1239,176 @@ sub __get_opt_specs {
     return @opt_spec_list;
 }
 
+sub __get_default_resource {
+    my ( $invocant ) = @_;
+    ref $invocant
+	and $invocant->{ignore_sam_defaults}
+	and return;
+    return App::Sam::Resource->new(
+	name	=> $invocant->__get_default_resource_name(),
+    );
+}
+
 # NOTE the File::Share dodge is from David Farrell's
 # https://www.perl.com/article/66/2014/2/7/3-ways-to-include-data-with-your-Perl-distribution/
-sub __get_attr_default_file_name {
+sub __get_default_resource_name {
     return File::ShareDir::dist_file( 'App-Sam', 'default_samrc' );
 }
 
+sub __get_global_resource {
+    my ( $invocant ) = @_;
+    ref $invocant
+	and not $invocant->{env}
+	and return;
+    return App::Sam::Resource->new(
+	name	=> $invocant->__get_global_resource_name(),
+    );
+}
+
+sub __get_global_resource_name {
+    my ( $invocant ) = @_;
+    IS_WINDOWS
+	and $invocant->__todo( TODO_WIN_RSRC );
+    return '/etc/samrc';
+}
+
+sub __get_project_resource {
+    my ( $invocant ) = @_;
+    ref $invocant
+	and not $invocant->{env}
+	and return;
+    return App::Sam::Resource->new(
+	name	=> $invocant->__get_project_resource_name(),
+    );
+}
+
+sub __get_project_resource_name {
+    my ( $invocant ) = @_;
+    IS_WINDOWS
+	and $invocant->__todo( TODO_WIN_RSRC );
+    # TODO ack's search semantics.
+    return '.samrc';
+}
+
+sub __get_user_resource {
+    my ( $invocant ) = @_;
+    ref $invocant
+	and not $invocant->{env}
+	and return;
+    return App::Sam::Resource->new(
+	name	=> $invocant->__get_user_resource_name(),
+    );
+}
+
+sub __get_user_resource_name {
+    my ( $invocant ) = @_;
+    defined $ENV{SAMRC}
+	and $ENV{SAMRC} != ''
+	and return $ENV{SAMRC};
+    IS_WINDOWS
+	and $invocant->__todo( TODO_WIN_RSRC );
+    return '~/.samrc';
+}
+
 {
-    my %rc_cache;
+    my %resource_cache;
 
-    # TODO __clear_rc_cache()
+    # TODO __clear_resource_cache()
 
-    # Get attributes from resource file.
-    sub __get_attr_from_rc {
-	my ( $self, $file, %opt ) = @_;
+    sub __get_attr_from_resource {
+	my ( $self, @arg_array ) = @_;
 
-	defined $file
-	    or return;
+	local $self->{_already_loaded} = {};
 
-	local $self->{_dump_indent} = defined $self->{_dump_indent} ?
-	    "$self->{_dump_indent}  " : '';
+	foreach my $arg ( @arg_array ) {
 
-	ref $file
-	    or $file = Cwd::abs_path( __expand_tilde( $file ) );
+	    Scalar::Util::blessed( $arg )
+		or $self->__confess( 'Not a resource' );
 
-	if ( $self->{_already_loaded}{$file}++ ) {
-	    my $msg = "Resource $file already loaded";
-	    exists $opt{from}
-		and $msg .= " from $opt{from}";
-	    # In case we're called recursively via Getopt::Long
-	    local $SIG{__WARN__} = 'DEFAULT';
-	    $self->__carp( $msg );
-	    return;
-	}
-
-	state $dflt = $self->__get_attr_default_file_name();
-	if ( defined $opt{name} ) {
-	} elsif ( REF_ARRAY eq ref $file ) {
-	    $opt{name} = 'ARGV';
-	} elsif ( $file eq $dflt ) {
-	    $opt{name} = 'Defaults';
-	} else {
-	    $opt{name} = $file;
-	}
-
-	local $self->{_rc_name} = $opt{name};
-
-	my $arg = $file;
-	local $self->{_dump} = {};
-	if ( REF_ARRAY eq ref $file ) {
-	    if ( $self->{dump} ) {
-		$self->_accum_opt_for_dump( $_ ) for @{ $file };
-		$self->_display_opt_for_dump( $opt{name} );
+	    if ( ! $arg->data() && $self->{_already_loaded}{$arg->name()}++ ) {
+		my $msg = "Resource @{[ $arg->name() ]} already loaded";
+		defined $arg->from()
+		    and $msg .= ' from ' . $arg->from();
+		# In case we're called recursively via Getopt::Long
+		local $SIG{__WARN__} = 'DEFAULT';
+		$self->__carp( $msg );
+		return;
 	    }
-	} else {
-	    if ( not ref( $file ) and $arg = $rc_cache{$file} ) {
-		ref $arg
-		    or $self->__croak( $arg );
-		$arg = [ @{ $arg } ];	# Clone, since GetOpt modifies
-		if ( $self->{dump} ) {
-		    $self->_accum_opt_for_dump( $_ ) for @{ $arg };
-		    $self->_display_opt_for_dump( $file );
+
+	    my @data;
+	    $self->{dump}
+		and local $self->{_dump} = {};
+
+	    my $cache;
+	    unless ( defined $arg->data() ) {
+		if ( my $cached = $resource_cache{$arg->name()} ) {
+		    ref $cached
+			or $self->__croak( $cached );
+		    @data = @{ $cached };
+		} else {
+		    $cache = 1;
 		}
-	    } elsif ( open my $fh,	## no critic (RequireBriefOpen)
-		'<' . $self->__get_encoding( $file, 'utf-8' ),
-		$file
-	    ) {
-		local $_ = undef;	# while (<>) does not localize $_
-		$arg = [];
+	    }
+
+	    if ( REF_ARRAY eq ref $arg->data() ) {
+		@data = @{ $arg->data() };
+	    } else {
+		my $fn = $arg->data() // $arg->name();
+		open my $fh, '<' . $self->__get_encoding( $fn, 'utf-8' ), $fn	## no critic (RequireBriefOpen)
+		    or do {
+		    if ( $! == ENOENT && ! $arg->required() ) {
+			$resource_cache{$fn} = [];
+			next;
+		    } else {
+			$self->__croak( $resource_cache{$fn} =
+			    "Unable to open $fn: $!" );
+		    }
+		};
+		local $_ = undef;	# while (<>) does not localize
 		while ( <$fh> ) {
-		    m/ \A \s* (?: \z | \# ) /smx
+		    m/ \A \s* (?: \# | \z ) /smx
 			and next;
 		    chomp;
-		    s/ \A \s+ //smx;
-		    push @{ $arg }, $_;
-		    $self->{dump}
-			and $self->_accum_opt_for_dump( $_ );
+		    push @data, $_;
 		}
 		close $fh;
-		$rc_cache{$file} = [ @{ $arg } ];
-		$self->{dump}
-		    and $self->_display_opt_for_dump( $file );
-	    } elsif ( $! == ENOENT && ! $opt{required} ) {
-		$rc_cache{$file} = [];
-		return;
-	    } else {
-		$self->__croak( $rc_cache{$file} =
-		    "Unable to open $file: $!" );
+		$cache
+		    and $resource_cache{$arg->name()} = [ @data ];
 	    }
+
+	    local $self->{_rc_name} = $arg->name();
+
+	    if ( $arg->getopt() ) {
+		my @warning;
+		local $SIG{__WARN__} = sub { push @warning, @_ };
+		$self->__get_option_parser()->getoptionsfromarray(
+		    \@data, $self, $self->__get_opt_specs() )
+		    or do {
+			chomp @warning;
+			my $msg = join '; ', @warning;
+			# $msg =~ s/ [?!.] \z //smx;
+			# $msg .= ' in ' . $arg->name();
+			$cache
+			    and $resource_cache{$arg->name()} = $msg;
+			$self->__croak( $msg );
+		};
+		$arg->set_orts( @data )
+		    or $self->__croak( 'Non-option arguments in ',
+		    $arg->name() );
+	    } else {
+		for ( my $inx = 0; $inx < @data; $inx += 2 ) {
+		    $ATTR_SPEC{$data[$inx]}
+			or $self->__croak( "Invalid argument '$data[$inx]'" );
+		    $self->__validate_attr( $data[$inx], $data[$inx+1] )
+			or $self->__croak( "Invalid $data[$inx] value '$data[$inx+1]'" );
+		}
+	    }
+
 	}
-	{
-	    my @warning;
-	    local $SIG{__WARN__} = sub { push @warning, @_ };
-	    $self->__get_option_parser()->getoptionsfromarray(
-		$arg, $self, $self->__get_opt_specs() )
-		or do {
-		    chomp @warning;
-		    my $msg = join '; ', @warning;
-		    ref $file
-			or $msg .= " in $file";
-		    REF_ARRAY eq ref $file
-			or $rc_cache{$file} = $msg;
-		    $self->__croak( $msg );
-	    };
-	}
-	@{ $arg }
-	    and not REF_ARRAY eq ref $file
-	    and $self->__croak( $rc_cache{$file} =
-	    "Non-option content in $file" );
-	return;
+
+	return $self;
     }
+
 }
 
 # Given an argument spec, return code to validate it.
@@ -1425,21 +1489,20 @@ sub __get_encoding {
     return ":encoding($encoding)";
 }
 
-sub __get_rc_file_names {
-    my ( $self ) = @_;
-    my @rslt;
-    unless ( $self->{ignore_sam_defaults} ) {
-	push @rslt, $self->__get_attr_default_file_name();
-    }
-    if ( $self->{env} ) {
-	if ( IS_WINDOWS ) {
-	    $self->__croak( 'TODO - Windows resource files' );
-	} else {
-	    push @rslt, '/etc/samrc', $ENV{SAMRC} // '~/.samrc';
-	    # TODO Ack semantics for project file
-	    push @rslt, '.samrc';
-	}
-    }
+sub __get_resources {
+    my ( $self, $new_arg ) = @_;
+    my @rslt = (
+	$self->__get_default_resource(),
+	$self->__get_global_resource(),
+	$self->__get_user_resource(),
+	$self->__get_project_resource(),
+    );
+    $new_arg
+	and push @rslt, App::Sam::Resource->new(
+	data	=> $new_arg,
+	getopt	=> 0,
+	name	=> 'new()',
+    );
     return @rslt;
 }
 
@@ -2320,6 +2383,24 @@ sub __validate_fixed_value {
     }
 }
 
+sub __validate_argv {
+    my ( $self, undef, undef, $attr_val ) = @_;	# $attr_spec, $attr_name unused
+    my @orts;
+    REF_ARRAY eq ref $attr_val
+	or $attr_val = [ $attr_val ];
+    $self->__get_attr_from_resource( App::Sam::Resource->new(
+	    name	=> 'ARGV',
+	    data	=> $attr_val,
+	    from	=> $self->{_rc_name},
+	    # getopt	=> 0,
+	    orts	=> \@orts,
+	),
+    );
+    @orts
+	and $self->{argv} = \@orts;
+    return 1;
+}
+
 sub __validate_color {
     my ( $self, undef, $attr_name, $attr_val ) = @_;	# $attr_spec unused
     Term::ANSIColor::colorvalid( $attr_val )
@@ -2597,10 +2678,18 @@ sub __validate_radio {
 
 sub __validate_samrc {
     my ( $self, undef, undef, $attr_val ) = @_;	# $attr_spec, $attr_name unused
-    $self->__get_attr_from_rc( $attr_val,
-	required	=> 1,
-	from		=> $self->{_rc_name},
+    my @argz = ref $attr_val ? (
+	name	=> 'samrc',
+	data	=> $attr_val,
+    ) : (
+	name	=> $attr_val,
     );
+    defined $self->{_rc_name}
+	and push @argz, from => $self->{_rc_name};
+    $self->__get_attr_from_resource( App::Sam::Resource->new(
+	    @argz,
+	    required	=> 1,
+	) );
     return 1;
 }
 
