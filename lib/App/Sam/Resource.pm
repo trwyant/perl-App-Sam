@@ -12,11 +12,12 @@ use App::Sam::Util qw{ __expand_tilde @CARP_NOT };
 
 use Carp ();
 use Cwd 3.08 ();
+use Exporter qw{ import };
 use Readonly;
 
 our $VERSION = '0.000_003';
 
-use enum qw{ ENUM:RC_ DATA FROM GETOPT NAME ORTS REQUIRED };
+use enum qw{ ENUM:RC_ ALIAS DATA FROM GETOPT INDENT NAME ORTS REQUIRED };
 
 use constant REF_ARRAY	=> ref [];
 use constant REF_SCALAR	=> ref \0;
@@ -30,6 +31,15 @@ Readonly::Array my @valid_attr => do {
     }
     @rslt;
 };
+
+# NOTE that the exports are private to this package and can be changed
+# or revoked without notice.
+our @EXPORT_OK = (
+    ( map { "RC_\U$_" } @valid_attr ),
+);
+our %EXPORT_TAGS = (
+    rc	=> [ grep { m/ \A RC_ /smx } @EXPORT_OK ],
+);
 
 sub new {
     my ( $class, %arg ) = @_;
@@ -46,6 +56,8 @@ sub new {
     $arg{getopt} //= 1;
     defined $arg{data}
 	or $arg{name} = Cwd::abs_path( __expand_tilde( $arg{name} ) );
+    $arg{alias} //= $arg{name};
+    $arg{indent} //= 1;
     foreach my $attr_name ( keys %arg ) {
 	my $code = $class->can( "RC_\U$attr_name" )
 	    or Carp::confess( "Bug - bad attribute '$attr_name'" );
@@ -60,6 +72,15 @@ foreach my $attr_name ( @valid_attr ) {
     my $sub = "sub $attr_name { return \$_[0][RC_\U$attr_name\E] }";
     eval "$sub 1"	## no critic (ProhibitStringyEval)
 	or Carp::confess( "Bug - '$sub' failed to compile: $@ " );
+}
+
+sub dump_alias {
+    my ( $self, $leader ) = @_;
+    $leader //= '';
+    my $alias = $self->alias();
+    say $leader, $alias;
+    say $leader, '=' x length $alias;
+    return;
 }
 
 sub set_orts {
@@ -110,10 +131,23 @@ This static method instantiates the resource. Arguments are passed as
 name/value pairs. Attributes are as described below under their
 accessors. The C<name> attribute is required. All others are optional.
 
+=head2 alias
+
+This accessor returns the value of the C<alias> argument, which is
+provided for the benefit of the dump subsystem.
+
+The default is the value of L<name|/name>.
+
 =head2 data
 
 This accessor returns the value of the C<data> argument. If specified,
 this must be C<undef>, a scalar reference, or an array reference.
+
+=head2 dump_alias
+
+This method supports the dump subsystem. It takes an optional leading
+string (defaulting to C<''>) and prints the alias and a double
+underline, preceded by the leader.
 
 =head2 from
 
@@ -125,6 +159,13 @@ name of the resource that invoked this one.
 If true, the data in the resource should be processed with
 L<Getopt::Long|Getopt::Long>. If not, they are to be processed as
 name/value pairs.
+
+The default is true.
+
+=head2 indent
+
+This accessor returns the value of the C<indent> argument, which is
+provided for the benefit of the dump subsystem.
 
 The default is true.
 

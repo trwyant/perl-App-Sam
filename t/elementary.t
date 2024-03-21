@@ -39,32 +39,57 @@ use constant SPACE	=> ' ';
 
     my $default_resource = fake_rsrc(
 	name	=> CLASS->__get_default_resource_name(),
+	alias	=> 'Defaults',
     );
 
     is CLASS->__get_default_resource(),
 	$default_resource,
 	'__get_default_resource()';
 
+    my $global_resource = fake_rsrc(
+	name	=> CLASS->__get_global_resource_name(),
+    );
+
+    is CLASS->__get_global_resource(),
+	$global_resource,
+	'__get_global_resource()';
+
+    my $user_resource = fake_rsrc(
+	name	=> CLASS->__get_user_resource_name(),
+    );
+
+    is CLASS->__get_user_resource(),
+	$user_resource,
+	'__get_user_resource()';
+
+    my $project_resource = fake_rsrc(
+	name	=> CLASS->__get_project_resource_name(),
+    );
+
+    is CLASS->__get_project_resource(),
+	$project_resource,
+	'__get_project_resource()';
+
     is [ CLASS->new()->__get_resources( [] ) ], [
 	$default_resource,
-	fake_rsrc( name	=> '/etc/samrc' ),
-	fake_rsrc( name	=> '~/.samrc' ),
-	fake_rsrc( name	=> '.samrc' ),
+	$global_resource,
+	$user_resource,
+	$project_resource,
 	fake_rsrc( name	=> 'new()', data => [], getopt => 0 ),
     ], '__get_resources( [] )';
 
     is [ CLASS->new()->__get_resources( [ argv => [] ] ) ], [
 	$default_resource,
-	fake_rsrc( name	=> '/etc/samrc' ),
-	fake_rsrc( name	=> '~/.samrc' ),
-	fake_rsrc( name	=> '.samrc' ),
+	$global_resource,
+	$user_resource,
+	$project_resource,
 	fake_rsrc( name	=> 'new()', data => [ argv => [] ], getopt => 0 ),
     ], '__get_resources( [ argv => [] ] )';
 
     is [ CLASS->new( ignore_sam_defaults => 1 )->__get_resources( [] ) ], [
-	fake_rsrc( name	=> '/etc/samrc' ),
-	fake_rsrc( name	=> '~/.samrc' ),
-	fake_rsrc( name	=> '.samrc' ),
+	$global_resource,
+	$user_resource,
+	$project_resource,
 	fake_rsrc( name	=> 'new()', data => [], getopt => 0 ),
     ], '__get_resources( [] ) with ignore_sam_defaults => 1';
 

@@ -52,6 +52,7 @@ use constant TPLT_MATCH	=> '$p$&';
 use enum qw{ BITMASK:FLAG_
     FAC_NO_MATCH_PROC FAC_SYNTAX FAC_TYPE
     IS_ATTR IS_OPT
+    DMP_FLUSH DMP_NOT
 };
 
 use enum qw{ ENUM:TYPE_ WANTED=0 NOT_WANTED };
@@ -407,50 +408,112 @@ sub create_samrc {
     return;
 }
 
-=begin comment
+sub __dump_data {
+    my ( $self, $attr_spec, $attr_name, $attr_val ) = @_;
+    $self->{_dump}
+	or return;
 
-FIXME these are no longer called, and need to be rewritten anyway.
+    # FIXME the fact that this does not fire means that the attribute
+    # name is redundant. Remove it, and this check.
+    $attr_spec->{name} ne $attr_name
+	and $self->__confess( "Attrib '$attr_name' spec has name '$attr_spec->{name}'" );
 
-sub _accum_opt_for_dump {
-    my ( $self, $line ) = @_;
-    chomp $line;
-    if ( delete $self->{_dump}{want_arg} ) {
-	$self->{_dump}{accum}[-1][0] .= " $line";
+    $attr_spec->{flags} & FLAG_DMP_NOT
+	and return;
+
+    if ( $self->{_dump}{title} ) {
+	$self->{_dump}{rsrc}[-1]->dump_alias( ' ' x (
+		$self->{_dump}{nest} * 2 - 2 ) );
+	$self->{_dump}{title} = 0;
+    }
+
+    my $leader = $self->{_dump}{indent};
+    my $type = $attr_spec->{type};
+
+    if ( $self->{_dump}{rsrc}[-1]->getopt() ) {
+	( my $dump_name = $attr_name ) =~ tr/_/-/;
+	$leader .= length( $attr_name ) > 1 ? '--' : '-';
+
+	if ( $type eq '' ) {
+	    say $leader, $dump_name;
+	} elsif ( $type eq '!' ) {
+	    $attr_val
+		or $leader .= length( $dump_name ) > 1 ? 'no-' : 'no';
+	    say $leader, $dump_name;
+	} else {
+	    say $leader, "$dump_name=$_"
+		for ref $attr_val ? @{ $attr_val } : $attr_val;
+	}
     } else {
-	$line =~ s/ \A \s+ //smx;
-	$line =~ m/ \A --? ( [\w-]+ ) /smx
-	    or return;
-	( my $key = $1 ) =~ tr/-/_/;
-	push @{ $self->{_dump}{accum} }, [ $line, $key ];
-	$line =~ m/ = /smx
-	    and return;
-	my $attr_spec = $ATTR_SPEC{$key}
-	    or return;
-	# FIXME if the type begins with a colon the value is optional.
-	$attr_spec->{type} =~ m/ \A = /smx
-	    or return;
-	$self->{_dump}{want_arg} = 1;
+	say "$leader$attr_name => ", _dump_format(
+	    $attr_val );
+    }
+
+    unless ( defined $attr_spec->{validate} ) {
+	if ( $type =~ m/ \@ /smx ) {
+	    defined $self->{$attr_name}
+		and REF_ARRAY ne ref $self->{$attr_name}
+		and $self->__confess( "attr $attr_name is $self->{$attr_name}" );
+	    push @{ $self->{$attr_name} }, ref $attr_val ?
+		@{ $attr_val } : $attr_val;
+	} else {
+	    $self->{$attr_name} = $attr_val;
+	}
     }
     return;
 }
 
-sub _display_opt_for_dump {
-    my ( $self, $name ) = @_;
-    $self->{_dump}{accum}
+sub _dump_format {
+    my ( $arg ) = @_;
+    if ( REF_ARRAY eq ref $arg ) {
+	return sprintf '[ %s ]',
+	    join ', ', map { _dump_format( $_ ) } @{ $arg };
+    } elsif ( ! defined $arg ) {
+	return 'undef';
+    } elsif ( Scalar::Util::looks_like_number( $arg ) ) {
+	return "$arg";
+    } else {
+	$arg =~ s/ (?= [\\'] ) /\\/smxg;
+	return "'$arg'";
+    }
+}
+
+sub __dump_start {
+    my ( $self, $rsrc ) = @_;
+    $self->{dump}
 	or return;
-    state $dflt = $self->__get_default_resource_name();
-    $name eq $dflt
-	and $name = 'Defaults';
-    say "$self->{_dump_indent}$name";
-    say $self->{_dump_indent}, '=' x length $name;
-    say "$self->{_dump_indent}  $_->[0]" for
-	sort { $a->[1] cmp $b->[1] } @{ $self->{_dump}{accum} };
+
+    $self->{_dump} ||= {
+	rsrc	=> [],
+	indent	=> '',
+	nest	=> 0,
+    };
+
+    $self->{_dump}{title} = 1;
+
+    if ( $rsrc->indent() ) {
+	$self->{_dump}{nest}++;
+	$self->{_dump}{indent} = ' ' x ( $self->{_dump}{nest} * 2 );
+    }
+
+    push @{ $self->{_dump}{rsrc} }, $rsrc;
+
     return;
 }
 
-=end comment
-
-=cut
+sub __dump_end {
+    my ( $self ) = @_;
+    $self->{_dump}
+	or return;
+    my $rsrc = pop @{ $self->{_dump}{rsrc} };
+    if ( $rsrc->indent() ) {
+	--$self->{_dump}{nest};
+	$self->{_dump}{indent} = ' ' x ( $self->{_dump}{nest} * 2 );
+    } else {
+	$self->{_dump}{title} = 1;
+    }
+    return;
+}
 
 sub _format_opt {
     my ( undef, $attr_spec, $name, $value ) = @_;	# Invocant unused
@@ -588,32 +651,6 @@ EOD
     $exit and exit;
     return;
 }
-
-=begin comment
-
-sub __color {
-    my ( $self, $kind, $text ) = @_;
-    $self->{color}
-	or return $text;
-    state $color_unconditionally = { map { $_ => 1 } qw{ filename lineno } };
-    unless ( $self->{flags} & FLAG_FAC_NO_MATCH_PROC ||
-	$color_unconditionally->{$kind} ) {
-	$self->{_match}
-	    and $self->{_match}{matched}
-	    or return $text;
-    }
-    state $uncolored = { map { $_ => 1 } '', "\n" };
-    $uncolored->{$text}
-	and return $text;
-    defined( my $color = $self->{"color_$kind"} )
-	or $self->__confess( "Invalid color kind '$kind'" );
-    $self->{_process_file}{colored} = 1;
-    return Term::ANSIColor::colored( $text, $color );
-}
-
-=end comment
-
-=cut
 
 sub dumped {
     my ( $self ) = @_;
@@ -791,7 +828,7 @@ sub __file_type_del {
 	},
 	argv	=> {
 	    type	=> '=s@',
-	    flags	=> FLAG_IS_ATTR,
+	    flags	=> FLAG_IS_ATTR | FLAG_DMP_FLUSH | FLAG_DMP_NOT,
 	    validate	=> '__validate_argv',
 	},
 	backup	=> {
@@ -1204,6 +1241,15 @@ sub __get_opt_specs {
 		} else {
 		    $self->{type}{$name} = TYPE_NOT_WANTED;
 		}
+		$self->__dump_data(
+		    {
+			name	=> $name,
+			type	=> '!',
+			flags	=> 0,
+		    },
+		    $name, $value,
+		);
+		return;
 	    };
 	}
     }
@@ -1226,6 +1272,8 @@ sub __get_opt_specs {
 		    );
 		}
 
+		$self->__dump_data( $attr_spec, $name, $value );
+
 		$self->__get_attr_from_resource(
 		    App::Sam::Resource->new(
 			name	=> $self->_format_opt(
@@ -1236,6 +1284,7 @@ sub __get_opt_specs {
 	    };
 	};
     }
+
     return @opt_spec_list;
 }
 
@@ -1246,6 +1295,7 @@ sub __get_default_resource {
 	and return;
     return App::Sam::Resource->new(
 	name	=> $invocant->__get_default_resource_name(),
+	alias	=> 'Defaults',
     );
 }
 
@@ -1336,12 +1386,11 @@ sub __get_user_resource_name {
 	    }
 
 	    my @data;
-	    $self->{dump}
-		and local $self->{_dump} = {};
 
 	    my $cache;
+	    my $cached;
 	    unless ( defined $arg->data() ) {
-		if ( my $cached = $resource_cache{$arg->name()} ) {
+		if ( $cached = $resource_cache{$arg->name()} ) {
 		    ref $cached
 			or $self->__croak( $cached );
 		    @data = @{ $cached };
@@ -1352,7 +1401,7 @@ sub __get_user_resource_name {
 
 	    if ( REF_ARRAY eq ref $arg->data() ) {
 		@data = @{ $arg->data() };
-	    } else {
+	    } elsif ( ! $cached ) {
 		my $fn = $arg->data() // $arg->name();
 		open my $fh, '<' . $self->__get_encoding( $fn, 'utf-8' ), $fn	## no critic (RequireBriefOpen)
 		    or do {
@@ -1376,35 +1425,45 @@ sub __get_user_resource_name {
 		    and $resource_cache{$arg->name()} = [ @data ];
 	    }
 
-	    local $self->{_rc_name} = $arg->name();
+	    if ( @data ) {
 
-	    if ( $arg->getopt() ) {
-		my @warning;
-		local $SIG{__WARN__} = sub { push @warning, @_ };
-		$self->__get_option_parser()->getoptionsfromarray(
-		    \@data, $self, $self->__get_opt_specs() )
-		    or do {
-			chomp @warning;
-			my $msg = join '; ', @warning;
-			# $msg =~ s/ [?!.] \z //smx;
-			# $msg .= ' in ' . $arg->name();
-			$cache
-			    and $resource_cache{$arg->name()} = $msg;
-			$self->__croak( $msg );
-		};
-		$arg->set_orts( @data )
-		    or $self->__croak( 'Non-option arguments in ',
-		    $arg->name() );
-	    } else {
-		for ( my $inx = 0; $inx < @data; $inx += 2 ) {
-		    $ATTR_SPEC{$data[$inx]}
-			or $self->__croak( "Invalid argument '$data[$inx]'" );
-		    $self->__validate_attr( $data[$inx], $data[$inx+1] )
-			or $self->__croak( "Invalid $data[$inx] value '$data[$inx+1]'" );
+		local $self->{_rc_name} = $arg->name();
+
+		$self->__dump_start( $arg );
+
+		if ( $arg->getopt() ) {
+
+		    my @warning;
+		    local $SIG{__WARN__} = sub { push @warning, @_ };
+		    $self->__get_option_parser()->getoptionsfromarray(
+			\@data, $self, $self->__get_opt_specs() )
+			or do {
+			    chomp @warning;
+			    my $msg = join '; ', @warning;
+			    # $msg =~ s/ [?!.] \z //smx;
+			    # $msg .= ' in ' . $arg->name();
+			    $cache
+				and $resource_cache{$arg->name()} = $msg;
+			    $self->__croak( $msg );
+		    };
+
+		    $arg->set_orts( @data )
+			or $self->__croak( 'Non-option arguments in ',
+			$arg->name() );
+		} else {
+		    for ( my $inx = 0; $inx < @data; $inx += 2 ) {
+			$ATTR_SPEC{$data[$inx]}
+			    or $self->__croak( "Invalid argument '$data[$inx]'" );
+			$self->__validate_attr( $data[$inx], $data[$inx+1] )
+			    or $self->__croak( "Invalid $data[$inx] value '$data[$inx+1]'" );
+		    }
 		}
+
+		$self->__dump_end();
 	    }
 
 	}
+
 
 	return $self;
     }
@@ -1423,6 +1482,7 @@ sub __get_validator {
 	# provided a validator if the facility was specified
 	$die
 	    or return sub {
+		$self->__dump_data( $attr_spec, @_ );
 		if ( $self->$method( $attr_spec, @_ ) ) {
 		    $self->{flags} |= $facility;
 		    return 1;
@@ -1430,6 +1490,7 @@ sub __get_validator {
 		return 0;
 	    };
 	return sub {
+	    $self->__dump_data( $attr_spec, @_ );
 	    if ( $self->$method( $attr_spec, @_ ) ) {
 		$self->{flags} |= $facility;
 		return 1;
@@ -1442,6 +1503,11 @@ sub __get_validator {
 	    $opt_name eq 'type'
 		and die "Unknown $opt_name '$_[1]'\n";
 	    die "Invalid value --$opt_name=$_[1]\n";
+	};
+    } elsif ( $self->{_dump} ) {
+	return sub {
+	    $self->__dump_data( $attr_spec, @_ );
+	    return 1;
 	};
     }
     return;
@@ -2122,17 +2188,6 @@ sub _process_display_p {
 sub _process_get_filename_for_output {
     my ( $self ) = @_;	# $ignore_coloring unused
 
-=begin comment
-
-    $self->{color}
-	and not $ignore_coloring
-	and $self->{_process_file}{colored} = 1;
-    return $self->{_process_file}{filename_colored};
-
-=end comment
-
-=cut
-
     return $self->{_process_file}{filename_colored} //= do {
 	$self->{_template}{out}->execute_template( '$f' );
     };
@@ -2393,6 +2448,7 @@ sub __validate_argv {
 	    data	=> $attr_val,
 	    from	=> $self->{_rc_name},
 	    # getopt	=> 0,
+	    indent	=> 0,
 	    orts	=> \@orts,
 	),
     );
@@ -2425,6 +2481,7 @@ sub __validate_define {
 		name	=> $def_name,
 		arg	=> \@expansion,
 		type	=> $type,
+		flags	=> 0,
 	    };
 	} else {
 	    delete $self->{define}{$def_name}

@@ -6,6 +6,7 @@ use strict;
 use warnings;
 
 use App::Sam::Util qw{ __expand_tilde };
+use App::Sam::Resource qw{ :rc };
 use Cwd 3.08 ();
 use Exporter qw{ import };
 use Test2::Util::Table qw{ table };
@@ -19,8 +20,6 @@ our @EXPORT_OK = qw{
 our @EXPORT = @EXPORT_OK;
 
 our $VERSION = '0.000_003';
-
-use constant RSRC	=> 'App::Sam::Resource';
 
 sub capture_stdout (&) {
     my ( $code ) = @_;
@@ -99,11 +98,15 @@ sub fake_rsrc {
     while ( @arg ) {
 	my ( $name, $val ) = splice @arg, 0, 2;
 	$name = "RC_\U$name";
-	$rslt[ RSRC->$name() ] = $val;
+	$rslt[ __PACKAGE__->$name() ] = $val;
     }
-    $rslt[ RSRC->RC_GETOPT() ] //= 1;
-    not defined $rslt[ RSRC->RC_DATA() ]
-	and $rslt[ RSRC->RC_NAME() ] = realpath( $rslt[ RSRC->RC_NAME() ] );
+    $rslt[ RC_DATA ]
+	or $rslt[ RC_NAME ] = realpath( $rslt[ RC_NAME ] );
+    $rslt[ RC_GETOPT ] //= 1;
+    $rslt[ RC_ALIAS ] //= $rslt[ RC_NAME ];
+    $rslt[ RC_INDENT ] //= 1;
+    not defined $rslt[ RC_DATA ]
+	and $rslt[ RC_NAME ] = realpath( $rslt[ RC_NAME ] );
     return bless \@rslt, 'App::Sam::Resource';
 }
 
