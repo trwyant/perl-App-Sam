@@ -821,10 +821,8 @@ sub __file_type_del {
 	    type	=> '!',
 	},
 	after_context	=> {
-	    type	=> ':-1',
+	    type	=> ':2',
 	    alias	=> [ 'A' ],
-	    validate	=> '__validate_optional_number',
-	    arg		=> [ -1, 2 ],
 	},
 	argv	=> {
 	    type	=> '=s@',
@@ -842,10 +840,8 @@ sub __file_type_del {
 	    arg		=> [ 'backup' ],
 	},
 	before_context	=> {
-	    type	=> ':-1',
+	    type	=> ':2',
 	    alias	=> [ 'B' ],
-	    validate	=> '__validate_optional_number',
-	    arg		=> [ -1, 2 ],
 	},
 	break	=> {
 	    type	=> '!',
@@ -874,7 +870,7 @@ sub __file_type_del {
 	    type	=> '!',
 	},
 	context		=> {
-	    type	=> ':-1',
+	    type	=> ':2',
 	    alias	=> [ 'C' ],
 	    flags	=> FLAG_IS_OPT,
 	    validate	=> '__validate_gang_set',
@@ -2699,14 +2695,6 @@ sub __validate_not {
 	# code that processes ignore_directory and ignore_file.
 	push @{ $self->{$attr_name}{match} }, "($_)";
     }
-    return 1;
-}
-
-sub __validate_optional_number {
-    my ( $self, $attr_spec, $attr_name, $attr_val ) = @_;
-    $attr_val == $attr_spec->{arg}[0]
-	and $attr_val = $attr_spec->{arg}[1];
-    $self->{$attr_name} = $attr_val;
     return 1;
 }
 
