@@ -47,13 +47,9 @@ load_module_ok 'App::Sam';
 
 {
     my $mock = mock 'App::Sam' => (
-	around	=> [
-	    new	=> sub {
-		my ( $orig, $self, @arg ) = @_;
-		splice @arg, 0, 0, env => 0, match => 'foo';
-		return $self->$orig( @arg );
-	    },
-	]
+	override	=> [
+	    __default_env	=> sub { 0 },
+	],
     );
 
     my $sam;
@@ -80,7 +76,6 @@ load_module_ok 'App::Sam';
 	ignore_directory	=> hash { etc },
 	ignore_file		=> hash { etc },
 	invert_match		=> F,
-	match			=> 'foo',
 	_munger		=> validator( sub { REF_CODE eq ref } ),
 	recurse		=> T,
 	sort_files		=> T,
@@ -324,19 +319,13 @@ EOD
 
 {
     my $mock = mock 'App::Sam' => (
-	around	=> [
-	    new	=> sub {
-		my ( $orig, $self, @arg ) = @_;
-		splice @arg, 0, 0, match => 'foo';
-		return $self->$orig( @arg );
-	    },
-	],
 	override => [
 	    __get_resources => sub {
 		return $_[0]->__get_default_resource();
 	    },
 	],
     );
+
     local $ENV{SAM_COLOR_COLNO} = 'bold red on_yellow';
     local $ENV{SAM_COLOR_FILENAME} = 'bold green on_yellow';
     local $ENV{SAM_COLOR_LINENO} = 'dark red on_yellow';

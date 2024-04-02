@@ -138,8 +138,12 @@ use constant SPACE	=> ' ';
 	    getopt	=> 0,
 	),
     ), {
-	count => 1,
-	env => 1,
+	count	=> 1,
+	env	=> 0,
+	flags	=> 0,
+	_defer	=> {
+	    env	=> 1,
+	},
     }, '__get_attr_from_resource() override env';
 
     is CLASS->new()->__get_attr_from_resource(
@@ -153,8 +157,10 @@ EOD
     ), {
 	color_match	=> 'magenta on_black',
 	env		=> 0,
+	_defer	=> {
+	    ignore_sam_defaults	=> 1,
+	},
 	flags		=> 0,
-	ignore_sam_defaults	=> 1,
     }, '__get_attr_from_resource() parse file';
 
     is CLASS->new()->__get_attr_from_resource(

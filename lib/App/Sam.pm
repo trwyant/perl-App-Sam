@@ -124,7 +124,6 @@ sub new {
 	color_lineno	=> 'bold yellow',
 	color_match	=> 'black on_yellow',
 	dump		=> 0,
-	env		=> __default_env(),
 	flags		=> 0,
 	invert_match	=> 0,
 	recurse		=> 1,
@@ -132,15 +131,16 @@ sub new {
     }, __PACKAGE__;
 
     my $self = bless {}, $class;
-    my %last_processed;
-    $default->__need_reprocess( \%last_processed );
 
     # The loop is pure defensive programming. I can't imagine going
     # around more than twice.
+    my $deferred;
     for ( 0 .. 2 ) {
 
 	%{ $self } = %{ $default };
-	@{ $self }{ keys %last_processed } = values %last_processed;
+	$self->{env} = __default_env();
+	$deferred
+	    and @{ $self }{ keys %{ $deferred } } = values %{ $deferred };
 
 	if ( $self->{env} ) {
 	    foreach my $ele ( qw{ colno filename lineno match } ) {
@@ -160,7 +160,8 @@ sub new {
 	$self->__get_attr_from_resource(
 	    $self->__get_resources( [ @arg ] ) );
 
-	last unless $self->__need_reprocess( \%last_processed );
+	$deferred = delete $self->{_defer}
+	    or last;
     }
 
     delete $self->{_already_loaded};
@@ -331,16 +332,6 @@ sub new {
     $self->__make_munger();
 
     return $self;
-}
-
-sub __need_reprocess {
-    my ( $self, $last_processed ) = @_;
-    my $rslt;
-    foreach ( qw{ dump env ignore_sam_defaults } ) {
-	$rslt ||= ( $self->{$_} xor $last_processed->{$_} );
-	$last_processed->{$_} = $self->{$_};
-    }
-    return $rslt;
 }
 
 # Perform the ack (or at least ack-like) check on a regex before
@@ -897,6 +888,7 @@ sub __file_type_del {
 	},
 	dump	=> {
 	    type	=> '!',
+	    validate	=> '__validate_defer_boolean'
 	},
 	group		=> {
 	    type	=> '!',
@@ -909,6 +901,7 @@ sub __file_type_del {
 	},
 	env	=> {
 	    type	=> '!',
+	    validate	=> '__validate_defer_boolean'
 	},
 	f	=> {
 	    type	=> '!',
@@ -979,6 +972,7 @@ sub __file_type_del {
 	},
 	ignore_sam_defaults	=> {
 	    type	=> '!',
+	    validate	=> '__validate_defer_boolean'
 	},
 	invert_match	=> {
 	    type	=> '!',
@@ -2468,6 +2462,22 @@ sub __validate_color {
     Term::ANSIColor::colorvalid( $attr_val )
 	or return 0;
     $self->{$attr_name} = $attr_val;
+    return 1;
+}
+
+sub __validate_defer_boolean {
+    my ( $self, undef, $attr_name, $attr_val ) = @_;	# $attr_spec unused
+
+    if ( $self->{$attr_name} xor $attr_val ) {
+	$self->{_defer}{$attr_name} = $attr_val;
+    # NOTE that the double test is to avoid auto-vivifying
+    # $self->{_defer}.
+    } elsif ( exists $self->{_defer} && exists $self->{_defer}{$attr_name} ) {
+	delete $self->{_defer}{$attr_name};
+	keys %{ $self->{_defer} }
+	    or delete $self->{_defer};
+    }
+
     return 1;
 }
 
