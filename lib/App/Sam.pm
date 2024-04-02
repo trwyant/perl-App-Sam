@@ -2028,6 +2028,10 @@ sub _process_file {
     my $lines_matched = 0;
     local $_ = undef;	# while (<>) does not localize $_
     my @before_context;
+    my $last_printed_line;
+    my $want_context_break = $self->{before_context} ||
+	$self->{after_context};
+
     while ( <$fh> ) {
 
 	delete $self->{_process_file}{colored};
@@ -2084,6 +2088,12 @@ sub _process_file {
 		and $. - @before_context - $self->{_process_file}{last_printed} >
 		    $self->{proximate}
 		and $self->__say( '' );
+
+	    $want_context_break
+		and defined $last_printed_line
+		and $last_printed_line < $. - @before_context - 1
+		and $self->__say( '--' );
+	    $last_printed_line = $.;
 
 	    $self->__print( $_ ) for @before_context;
 	    $self->{_process_file}{last_printed} = $.;
