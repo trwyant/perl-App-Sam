@@ -256,7 +256,9 @@ L<Text::ParseWords::shellwords()|Text::ParseWords>.
 
 When the newly-defined option is encountered, it is expanded by running
 it through the L<--output|/--output> templating system, then the result
-is processed as though it were a configuration file.
+is processed as though it were a configuration file. Unlike
+configuration files, though, non-option arguments are allowed, and are
+appended to the command line.
 
 The templating system is configured (read: subverted) so that C<$&> is
 the value of the option as it appears on the command line, C<$1> and

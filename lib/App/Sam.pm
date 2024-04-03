@@ -1264,13 +1264,19 @@ sub __get_opt_specs {
 
 		$self->__dump_data( $attr_spec, $name, $value );
 
+		my @orts;
 		$self->__get_attr_from_resource(
 		    App::Sam::Resource->new(
 			name	=> $self->_format_opt(
 			    $attr_spec, $name, $value ),
 			data	=> \@expansion,
+			orts	=> \@orts,
 		    ),
 		);
+		@orts
+		    and push @{ $self->{argv} }, @orts;
+
+		return;
 	    };
 	};
     }
@@ -2453,7 +2459,7 @@ sub __validate_argv {
 	),
     );
     @orts
-	and $self->{argv} = \@orts;
+	and push @{ $self->{argv} }, @orts;
     return 1;
 }
 
