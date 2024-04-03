@@ -15,7 +15,7 @@ use Cwd 3.08 ();
 use Exporter qw{ import };
 use Readonly;
 
-our $VERSION = '0.000_003';
+our $VERSION = '0.000_004';
 
 use enum qw{ ENUM:RC_ ALIAS DATA FROM GETOPT INDENT NAME ORTS REQUIRED };
 

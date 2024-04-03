@@ -10,7 +10,7 @@ use parent qw{ App::Sam::Syntax };
 use App::Sam::Util qw{ :syntax __match_shebang @CARP_NOT };
 use Readonly;
 
-our $VERSION = '0.000_003';
+our $VERSION = '0.000_004';
 
 Readonly::Scalar my $open_brkt => join '',
     "\N{U+0028}",	# Left parenthesis
