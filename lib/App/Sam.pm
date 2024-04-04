@@ -52,7 +52,7 @@ use constant TPLT_MATCH	=> '$p$&';
 use enum qw{ BITMASK:FLAG_
     FAC_NO_MATCH_PROC FAC_SYNTAX FAC_TYPE
     IS_ATTR IS_OPT
-    DMP_FLUSH DMP_NOT
+    DMP_FLUSH DMP_NON_OPT DMP_NOT
 };
 
 use enum qw{ ENUM:TYPE_ WANTED=0 NOT_WANTED };
@@ -411,16 +411,16 @@ sub __dump_data {
     $attr_spec->{flags} & FLAG_DMP_NOT
 	and return;
 
-    if ( $self->{_dump}{title} ) {
-	$self->{_dump}{rsrc}[-1]->dump_alias( ' ' x (
-		$self->{_dump}{nest} * 2 - 2 ) );
-	$self->{_dump}{title} = 0;
-    }
+    $self->_dump_title();
 
     my $leader = $self->{_dump}{indent};
     my $type = $attr_spec->{type};
 
-    if ( $self->{_dump}{rsrc}[-1]->getopt() ) {
+    if ( $attr_spec->{flags} & FLAG_DMP_NON_OPT ) {
+	foreach ( ref $attr_val ? @{ $attr_val } : $attr_val ) {
+	    say $leader, $_;
+	}
+    } elsif ( $self->{_dump}{rsrc}[-1]->getopt() ) {
 	( my $dump_name = $attr_name ) =~ tr/_/-/;
 	$leader .= length( $attr_name ) > 1 ? '--' : '-';
 
@@ -449,6 +449,17 @@ sub __dump_data {
 	} else {
 	    $self->{$attr_name} = $attr_val;
 	}
+    }
+    return;
+}
+
+# NOTE -- DO NOT call this unless you already know you are dumping
+sub _dump_title {
+    my ( $self ) = @_;
+    if ( $self->{_dump}{title} ) {
+	$self->{_dump}{rsrc}[-1]->dump_alias( ' ' x (
+		$self->{_dump}{nest} * 2 - 2 ) );
+	$self->{_dump}{title} = 0;
     }
     return;
 }
@@ -495,6 +506,9 @@ sub __dump_end {
     my ( $self ) = @_;
     $self->{_dump}
 	or return;
+    # Not sure I like the below, as it gives me an extra 'new()' after
+    # the 'ARGV' dump.
+    # $self->_dump_title();	# The dump may be empty
     my $rsrc = pop @{ $self->{_dump}{rsrc} };
     if ( $rsrc->indent() ) {
 	--$self->{_dump}{nest};
@@ -796,11 +810,16 @@ sub __file_type_del {
     # {arg} - Available for use by the {validate} code.
     # {flags} - This is a bit mask specifying special processing. The
     #         value must be the bitwise OR of the following values:
+    #         FLAG_DMP_FLUSH - FIXME unused -- remove.
+    #         FLAG_DMP_NON_OPT - Dump as non-pption value. This is for
+    #                 the use of the dump system; setting it on option
+    #                 definitions is unsupported.
+    #         FLAG_DMP_NOT - Do not dump this value.
     #         FLAG_IS_ATTR - The entry is an attribute
     #         FLAG_IS_OPT -- The entry is an option
-    #         FLAG_FAC_NO_MATCH_PROC - No match processing
-    #         FLAG_FAC_SYNTAX - A symtax module must be instantiated
-    #         FLAG_FAC_TYPE - The file type needs to be computed
+    #         FLAG_FAC_NO_MATCH_PROC - No match processing.
+    #         FLAG_FAC_SYNTAX - A symtax module must be instantiated.
+    #         FLAG_FAC_TYPE - The file type needs to be computed.
     #         NOTE that if none of the FLAG_IS_* flags is provided,
     #         FLAG_IS_ATTR | FLAG_IS_OPT are set.
     my %attr_spec_hash = (
@@ -1446,9 +1465,17 @@ sub __get_user_resource_name {
 			    $self->__croak( $msg );
 		    };
 
-		    $arg->set_orts( @data )
-			or $self->__croak( 'Non-option arguments in ',
-			$arg->name() );
+		    if ( $arg->set_orts( @data ) ) {
+			$self->__dump_data( {
+				flags	=> FLAG_DMP_NON_OPT,
+			    },
+			    undef,	# $attr_name unused
+			    \@data,
+			);
+		    } else {
+			$self->__croak( 'Non-option arguments in ',
+			    $arg->name() );
+		    }
 		} else {
 		    for ( my $inx = 0; $inx < @data; $inx += 2 ) {
 			$ATTR_SPEC{$data[$inx]}
