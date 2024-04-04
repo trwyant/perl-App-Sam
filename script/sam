@@ -502,6 +502,11 @@ When this number is reached the search is abandoned.
 
 This Boolean option is a synonym for L<--no-recurse|/--recurse>.
 
+=head2 --no-encoding
+
+This option specifies no explicit encoding for files to be searched. The
+default system encoding is used.
+
 =head2 --no-filename
 
 This option is an antonym for L<--with-filename|/--with-filename>. That

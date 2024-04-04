@@ -899,6 +899,13 @@ sub __file_type_del {
 	encoding	=> {
 	    type	=> '=s',
 	},
+	no_encoding	=> {
+	    type	=> '',
+	    alias	=> [ 'noencoding' ],
+	    flags	=> FLAG_IS_OPT,
+	    validate	=> '__validate_fixed_value',
+	    arg		=> [ encoding	=> '' ],
+	},
 	env	=> {
 	    type	=> '!',
 	    validate	=> '__validate_defer_boolean'
@@ -1548,6 +1555,9 @@ sub __get_encoding {
     if ( defined $file ) {
 	# TODO file-specific
     }
+    defined $encoding
+	and $encoding ne ''
+	or return '';
     return ":encoding($encoding)";
 }
 
@@ -2932,6 +2942,9 @@ means you get an exception when you call L<process()|/process>.
 =item C<encoding>
 
 See L<--encoding|sam/--encoding> in the L<sam|sam> documentation.
+
+A value of C<''> or C<undef> specifies no encoding (i.e. use the system
+encoding). This is equivalent to L<--no-encoding|sam/--no-encoding>.
 
 =item C<env>
 
