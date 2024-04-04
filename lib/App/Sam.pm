@@ -117,14 +117,15 @@ sub new {
     my ( $class, @arg ) = @_;
 
     state $default = bless {
-	ignore_sam_defaults	=> 0,
-	die		=> 0,
+	argv		=> [],
 	color_colno	=> 'bold yellow',
 	color_filename	=> 'bold green',
 	color_lineno	=> 'bold yellow',
 	color_match	=> 'black on_yellow',
+	die		=> 0,
 	dump		=> 0,
 	flags		=> 0,
+	ignore_sam_defaults	=> 0,
 	invert_match	=> 0,
 	recurse		=> 1,
 	sort_files	=> 1,
@@ -189,8 +190,6 @@ sub new {
 
     $self->{filter} //= -p STDIN;
 
-    my $argv = $self->{argv};
-
     unless ( $self->{f} || defined $self->{match} ) {
 	if ( $self->{file} ) {
 	    my @pat;
@@ -213,8 +212,8 @@ sub new {
 	    } elsif ( @pat == 1 ) {
 		$self->{match} = $pat[0];
 	    }
-	} elsif ( $argv && @{ $argv } ) {
-	    $self->{match} = shift @{ $argv };
+	} elsif ( @{ $self->{argv} } ) {
+	    $self->{match} = shift @{ $self->{argv} };
 	}
     }
 
@@ -1271,17 +1270,14 @@ sub __get_opt_specs {
 
 		$self->__dump_data( $attr_spec, $name, $value );
 
-		my @orts;
 		$self->__get_attr_from_resource(
 		    App::Sam::Resource->new(
 			name	=> $self->_format_opt(
 			    $attr_spec, $name, $value ),
 			data	=> \@expansion,
-			orts	=> \@orts,
+			orts	=> $self->{argv},
 		    ),
 		);
-		@orts
-		    and push @{ $self->{argv} }, @orts;
 
 		return;
 	    };
@@ -2456,7 +2452,6 @@ sub __validate_fixed_value {
 
 sub __validate_argv {
     my ( $self, undef, undef, $attr_val ) = @_;	# $attr_spec, $attr_name unused
-    my @orts;
     REF_ARRAY eq ref $attr_val
 	or $attr_val = [ $attr_val ];
     $self->__get_attr_from_resource( App::Sam::Resource->new(
@@ -2465,11 +2460,9 @@ sub __validate_argv {
 	    from	=> $self->{_rc_name},
 	    # getopt	=> 0,
 	    indent	=> 0,
-	    orts	=> \@orts,
+	    orts	=> $self->{argv},
 	),
     );
-    @orts
-	and push @{ $self->{argv} }, @orts;
     return 1;
 }
 
