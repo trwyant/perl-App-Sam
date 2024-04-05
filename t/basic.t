@@ -69,7 +69,7 @@ load_module_ok 'App::Sam';
 	die			=> F,
 	dump			=> F,
 	_eol			=> "\n",
-	encoding		=> 'utf-8',
+	encoding		=> '',
 	env			=> F,
 	filter			=> F,
 	flags			=> 0,

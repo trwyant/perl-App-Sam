@@ -280,8 +280,10 @@ dumped to F<STDOUT>, along with their source. No matches will be done.
 
 =head2 --encoding
 
+ --encoding=utf-8
+
 This Boolean option specifies the encoding to use to read and write
-files. The default is C<--encoding=utf-8>.
+files. The default is L<--no-encoding|/--no-encoding>.
 
 =head2 --env
 

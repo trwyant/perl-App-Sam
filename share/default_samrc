@@ -539,5 +539,5 @@
 
 ### Encoding
 
-# --no-encoding
---encoding=utf-8
+--no-encoding
+# --encoding=utf-8
