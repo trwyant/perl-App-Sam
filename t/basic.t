@@ -13,6 +13,7 @@ use lib qw{ inc };
 
 use My::Module::Test;
 
+use constant CWD	=> Cwd::getcwd();
 use constant REF_ARRAY	=> ref [];
 use constant REF_CODE	=> ref sub {};
 
@@ -183,6 +184,7 @@ t/data/limerick.t
 EOD
 
     {
+	chdir 't/data';
 	delete local $ENV{SAMRC};
 	local $sam->{env} = 1;
 	if ( $sam->IS_WINDOWS ) {
@@ -199,6 +201,7 @@ EOD
 		'Resource file names under anything but Windows';
 	}
     }
+    chdir CWD;
 
     like capture_stdout {
 	$sam->help_types()

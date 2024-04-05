@@ -1050,9 +1050,17 @@ This is the file pointed to by environment variable C<SAMRC> if that
 exists. Otherwise it is F<~/.samrc> on Unix systems. It is ignored if
 L<--no-env|/--env> was specified. This file need not exist.
 
+=item * The project configuration file
+
+This is F<.samrc> on Unix systems, in the current directory or any
+directory above it, but not including any of above-named configuration
+files.
+
 =item * The file specified by the L<--samrc|/--samrc> option.
 
-This file must exist.
+This file must exist. Note that this option can be specified multiple
+times, or recursively. A given configuration file will be processed only
+once no matter how many times it is encountered.
 
 =item * Configuration given by command-line options
 

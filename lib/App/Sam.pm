@@ -18,6 +18,7 @@ use App::Sam::Util qw{
     :carp :case :syntax :term_ansi __expand_tilde __syntax_types @CARP_NOT
 };
 use Config;
+use Cwd ();
 use File::Next ();
 use File::Basename ();
 use File::Spec;
@@ -1340,14 +1341,23 @@ sub __get_global_resource_name {
     return '/etc/samrc';
 }
 
+# NOTE that this MAY return a duplicate resource.
 sub __get_project_resource {
     my ( $invocant ) = @_;
     ref $invocant
 	and not $invocant->{env}
 	and return;
-    return App::Sam::Resource->new(
-	name	=> $invocant->__get_project_resource_name(),
-    );
+    my $name = $invocant->__get_project_resource_name();
+    my @dirs = File::Spec->splitdir( Cwd::getcwd() );
+    while ( @dirs ) {
+	my $path = File::Spec->catfile( @dirs, $name );
+	-e $path
+	    and return App::Sam::Resource->new(
+	    name	=> $path,
+	);
+	pop @dirs;
+    }
+    return;
 }
 
 sub __get_project_resource_name {
@@ -1584,9 +1594,12 @@ sub __get_encoding {
     return ":encoding($encoding)";
 }
 
+# Manufacture all our resources. Optional argument $new_arg is an array
+# reference to the arguments of new().
 sub __get_resources {
     my ( $self, $new_arg ) = @_;
-    my @rslt = (
+    my %uniq;
+    my @rslt = grep { ! $uniq{ $_->name() }++ } (
 	$self->__get_default_resource(),
 	$self->__get_global_resource(),
 	$self->__get_user_resource(),

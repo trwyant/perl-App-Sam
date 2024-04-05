@@ -41,6 +41,7 @@ README
 script/sam
 share/default_samrc
 t/basic.t
+t/data/.samrc
 t/data/ada_file.adb
 t/data/batch_file.bat
 t/data/bright.txt

@@ -16,6 +16,7 @@ use lib qw{ inc };
 use My::Module::Test;
 
 use constant ALL_FILES		=> <<'EOD';
+t/data/.samrc
 t/data/ada_file.adb
 t/data/batch_file.bat
 t/data/bright.txt
@@ -41,7 +42,7 @@ t/data/yaml_file.yml
 EOD
 use constant ALL_FILES_COUNT	=> ALL_FILES =~ tr/\n/\n/;
 use constant KNOWN_FILES	=> do {
-    my %unknown = map {; "t/data/$_\n" => 1 } qw{ bright.txt files_from
+    my %unknown = map {; "t/data/$_\n" => 1 } qw{ .samrc bright.txt files_from
     match_file };
     join '', grep { ! $unknown{$_} } split /(?<=\n)/, ALL_FILES;
 };
@@ -314,6 +315,7 @@ EOD
 	$sam->process( 't/data/' );
     };
     is $stdout, <<'EOD', q(--files-without-matches);
+t/data/.samrc
 t/data/ada_file.adb
 t/data/batch_file.bat
 t/data/bright.txt

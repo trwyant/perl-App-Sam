@@ -10,6 +10,7 @@ use App::Sam::Tplt;
 use App::Sam::Tplt::Color;
 use App::Sam::Tplt::Under;
 use B qw{ perlstring };
+use Cwd ();
 use Test2::V0 -target => 'App::Sam';
 use Test2::Tools::Mock;
 use Term::ANSIColor;
@@ -17,6 +18,8 @@ use Term::ANSIColor;
 use lib 'inc';
 
 use My::Module::Test qw{ fake_rsrc };
+
+use constant CWD	=> Cwd::getcwd();
 
 use constant RSRC	=> 'App::Sam::Resource';
 
@@ -62,36 +65,45 @@ use constant SPACE	=> ' ';
 	$user_resource,
 	'__get_user_resource()';
 
-    my $project_resource = fake_rsrc(
-	name	=> CLASS->__get_project_resource_name(),
-    );
+    {
+	chdir 't/data';
 
-    is CLASS->__get_project_resource(),
-	$project_resource,
-	'__get_project_resource()';
+	my $project_resource = fake_rsrc(
+	    name	=> CLASS->__get_project_resource_name(),
+	);
 
-    is [ CLASS->new()->__get_resources( [] ) ], [
-	$default_resource,
-	$global_resource,
-	$user_resource,
-	$project_resource,
-	fake_rsrc( name	=> 'new()', data => [], getopt => 0 ),
-    ], '__get_resources( [] )';
+	is CLASS->__get_project_resource(),
+	    $project_resource,
+	    '__get_project_resource()';
 
-    is [ CLASS->new()->__get_resources( [ argv => [] ] ) ], [
-	$default_resource,
-	$global_resource,
-	$user_resource,
-	$project_resource,
-	fake_rsrc( name	=> 'new()', data => [ argv => [] ], getopt => 0 ),
-    ], '__get_resources( [ argv => [] ] )';
+	is [ CLASS->new()->__get_resources( [] ) ], [
+	    $default_resource,
+	    $global_resource,
+	    $user_resource,
+	    $project_resource,
+	    fake_rsrc( name	=> 'new()', data => [], getopt => 0 ),
+	], '__get_resources( [] )';
 
-    is [ CLASS->new( ignore_sam_defaults => 1 )->__get_resources( [] ) ], [
-	$global_resource,
-	$user_resource,
-	$project_resource,
-	fake_rsrc( name	=> 'new()', data => [], getopt => 0 ),
-    ], '__get_resources( [] ) with ignore_sam_defaults => 1';
+	is [ CLASS->new()->__get_resources( [ argv => [] ] ) ], [
+	    $default_resource,
+	    $global_resource,
+	    $user_resource,
+	    $project_resource,
+	    fake_rsrc(
+		name	=> 'new()',
+		data	=> [ argv => [] ],
+		getopt => 0,
+	    ),
+	], '__get_resources( [ argv => [] ] )';
+
+	is [ CLASS->new( ignore_sam_defaults => 1 )->__get_resources( [] ) ], [
+	    $global_resource,
+	    $user_resource,
+	    $project_resource,
+	    fake_rsrc( name	=> 'new()', data => [], getopt => 0 ),
+	], '__get_resources( [] ) with ignore_sam_defaults => 1';
+    }
+    chdir CWD;
 
     is [ CLASS->new( env => 0 )->__get_resources( [] ) ], [
 	$default_resource,

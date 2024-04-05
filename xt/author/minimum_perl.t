@@ -53,6 +53,8 @@ sub is_perl {
 	or return 0;
     local $_ = <$fh>;
     close $fh;
+    defined
+	or return 0;
     return m/ perl /smx;
 }
 
