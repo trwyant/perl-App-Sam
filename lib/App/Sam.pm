@@ -386,6 +386,7 @@ sub create_samrc {
     my ( $self, $exit ) = @_;
     $exit //= caller eq __PACKAGE__;
     my $default_file = $self->__get_default_resource_name();
+    say '--ignore-sam-defaults';
     local $_ = undef;	# while (<>) does not localize $_
     open my $fh, '<:encoding(utf-8)', $default_file
 	or $self->__croak( "Unable to open $default_file: $!" );
