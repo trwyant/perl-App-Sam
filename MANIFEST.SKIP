@@ -17,6 +17,7 @@ CVS/
 \.old$
 ^pod2htm.\.tmp$
 \.svn/
+^\.samrc$
 \.swp$
 ^tools/
 ^TODO$
