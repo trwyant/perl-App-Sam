@@ -676,6 +676,11 @@ Returns the empty string.
 
 =back
 
+=head2 --no-pager
+
+This option specifies no pager be used. Output goes directly to
+F<STDOUT>.
+
 =head2 --no-replace
 
 This option specifies that replacement is not to be done. This is the
@@ -697,6 +702,14 @@ This option is a synonym for L<--proximate|/--proximate>.
 =head2 -P
 
 This option is equivalent to L<--proximate=0|/--proximate>.
+
+=head2 --pager
+
+ --pager='less -R'
+
+This option specifies the command line of a program to pipe the output
+into. It will be ignored unless F<STDOUT> is a terminal. The default is
+L<--no-pager|/--no-pager>.
 
 =head2 --passthru
 

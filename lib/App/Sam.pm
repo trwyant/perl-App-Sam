@@ -1078,6 +1078,16 @@ sub __file_type_del {
 	output		=> {
 	    type	=> '=s',
 	},
+	pager	=> {
+	    type	=> '=s',
+	},
+	no_pager	=> {
+	    type	=> '',
+	    alias	=> [ 'nopager' ],
+	    flags	=> FLAG_IS_OPT,
+	    validate	=> '__validate_fixed_value',
+	    arg		=> [ pager	=> undef ],
+	},
 	passthru	=> {
 	    type	=> '!',
 	    alias	=> [ 'passthrough' ],
@@ -1935,6 +1945,17 @@ sub process {
 
     my $files_matched;
 
+    # Thanks to David Farrell for the algorithm. Specifically:
+    # https://www.perl.com/article/45/2013/10/27/How-to-redirect-and-restore-STDOUT/
+    my $pager = -t *STDOUT ? $self->{pager} : undef;
+    defined $pager
+	and local *STDOUT;
+    if ( defined $pager ) {
+	my $encoding = $self->__get_encoding();
+	open STDOUT, "|-$encoding", $pager
+	    or $self->__croak( qq/Unable to pipe to pager "$pager": $!/ );
+    }
+
     foreach my $file ( @files ) {
 
 	my $rslt = ( ref( $file ) || ! -d $file ) ?
@@ -1951,6 +1972,7 @@ sub process {
     $self->{count}
 	and not $self->{with_filename}
 	and $self->__say( $self->{_total_count} // 0 );
+
     return $files_matched;
 }
 
@@ -3136,6 +3158,13 @@ reference to an array.
 
 See L<--output|sam/--output> in the L<sam|sam> documentation. The value
 is a template as described in that documentation.
+
+=item C<pager>
+
+See L<--pager|sam/--pager> in the L<sam|sam> documentation.
+
+A value of C<undef> specifies no pager. This is equivalent to
+L<--no-pager|sam/--no-pager>.
 
 =item C<passthru>
 
