@@ -19,7 +19,7 @@ our @EXPORT_OK = qw{
 };
 our @EXPORT = @EXPORT_OK;
 
-our $VERSION = '0.000_004';
+our $VERSION = '0.000_005';
 
 sub capture_stdout (&) {
     my ( $code ) = @_;

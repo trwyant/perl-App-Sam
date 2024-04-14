@@ -15,7 +15,7 @@ use Cwd 3.08 ();
 use Exporter qw{ import };
 use Readonly;
 
-our $VERSION = '0.000_004';
+our $VERSION = '0.000_005';
 
 use enum qw{ ENUM:
     RC_ALIAS
