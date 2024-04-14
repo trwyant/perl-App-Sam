@@ -53,7 +53,7 @@ use constant TPLT_MATCH	=> '$p$&';
 use enum qw{ BITMASK:FLAG_
     FAC_NO_MATCH_PROC FAC_SYNTAX FAC_TYPE
     IS_ATTR IS_OPT
-    DMP_FLUSH DMP_NON_OPT DMP_NOT
+    DMP_NON_OPT DMP_NOT
 };
 
 use enum qw{ ENUM:TYPE_ WANTED=0 NOT_WANTED };
@@ -812,7 +812,6 @@ sub __file_type_del {
     # {arg} - Available for use by the {validate} code.
     # {flags} - This is a bit mask specifying special processing. The
     #         value must be the bitwise OR of the following values:
-    #         FLAG_DMP_FLUSH - FIXME unused -- remove.
     #         FLAG_DMP_NON_OPT - Dump as non-pption value. This is for
     #                 the use of the dump system; setting it on option
     #                 definitions is unsupported.
@@ -837,7 +836,7 @@ sub __file_type_del {
 	},
 	argv	=> {
 	    type	=> '=s@',
-	    flags	=> FLAG_IS_ATTR | FLAG_DMP_FLUSH | FLAG_DMP_NOT,
+	    flags	=> FLAG_IS_ATTR | FLAG_DMP_NOT,
 	    validate	=> '__validate_argv',
 	},
 	backup	=> {
