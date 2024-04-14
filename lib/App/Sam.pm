@@ -1872,7 +1872,7 @@ sub process {
 	    $self->{with_filename} : 1;
     my $t_stdout = -t STDOUT;
     defined $self->{color}
-	or local $self->{color} = $t_stdout;
+	or local $self->{color} = $self->{g} ? 0 : $t_stdout;
     defined $self->{heading}
 	or local $self->{heading} = $self->{ack_mode} ? $t_stdout : 1;
 

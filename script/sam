@@ -31,7 +31,6 @@ sub run {
 
     my $sam = App::Sam->new(
 	break	=> IS_TTY,
-	color	=> IS_TTY,
 	die	=> 1,
 	argv	=> \@ARGV,
     );
