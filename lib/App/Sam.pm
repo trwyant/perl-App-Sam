@@ -50,13 +50,20 @@ use constant STOP	=> 'STOP';
 use constant TPLT_FLUSH	=> '$p\\n';
 use constant TPLT_MATCH	=> '$p$&';
 
-use enum qw{ BITMASK:FLAG_
-    FAC_NO_MATCH_PROC FAC_SYNTAX FAC_TYPE
-    IS_ATTR IS_OPT
-    DMP_NON_OPT DMP_NOT
+use enum qw{ BITMASK:
+    FLAG_FAC_NO_MATCH_PROC
+    FLAG_FAC_SYNTAX
+    FLAG_FAC_TYPE
+    FLAG_IS_ATTR
+    FLAG_IS_OPT
+    FLAG_DMP_NON_OPT
+    FLAG_DMP_NOT
 };
 
-use enum qw{ ENUM:TYPE_ WANTED=0 NOT_WANTED };
+use enum qw{ ENUM:
+    TYPE_WANTED=0
+    TYPE_NOT_WANTED
+};
 
 Readonly::Scalar my $DIR_SEP => IS_WINDOWS ? "\\/" : File::Spec->catfile(
     '', '' );

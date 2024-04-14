@@ -17,7 +17,16 @@ use Readonly;
 
 our $VERSION = '0.000_004';
 
-use enum qw{ ENUM:RC_ ALIAS DATA FROM GETOPT INDENT NAME ORTS REQUIRED };
+use enum qw{ ENUM:
+    RC_ALIAS
+    RC_DATA
+    RC_FROM
+    RC_GETOPT
+    RC_INDENT
+    RC_NAME
+    RC_ORTS
+    RC_REQUIRED
+};
 
 use constant REF_ARRAY	=> ref [];
 use constant REF_SCALAR	=> ref \0;

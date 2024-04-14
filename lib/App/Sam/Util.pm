@@ -78,7 +78,11 @@ our @CARP_NOT = qw{
 
 # NOTE that RE_CASE_SENSITIVE must be false, and the others must be
 # true.
-use enum qw{ ENUM:RE_CASE_ SENSITIVE=0 BLIND SMART };
+use enum qw{ ENUM:
+    RE_CASE_SENSITIVE=0
+    RE_CASE_BLIND
+    RE_CASE_SMART
+};
 
 use constant SYNTAX_CODE		=> 'code';
 use constant SYNTAX_COMMENT		=> 'comment';
