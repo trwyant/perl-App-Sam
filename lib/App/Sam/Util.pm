@@ -165,13 +165,12 @@ sub __expand_tilde {
     my ( $path ) = @_;
     index( $path, '~' ) == 0
 	or return $path;
-    my $rslt = File::Glob::bsd_glob( $path, GLOB_TILDE );
-    File::Glob::GLOB_ERROR()
-	or return $rslt;
+    my $rslt;
+    defined( $rslt = File::Glob::bsd_glob( $path, GLOB_TILDE ) )
+	and return $rslt;
     my ( $first, $rest ) = split /\//, $path, 2;
-    $rslt = File::Glob::bsd_glob( $first, GLOB_TILDE );
-    File::Glob::GLOB_ERROR()
-	or return "$rslt/$rest";
+    defined( $rslt = File::Glob::bsd_glob( $first, GLOB_TILDE ) )
+	and return "$rslt/$rest";
     return $path;
 }
 
