@@ -10,7 +10,7 @@ use Exporter qw{ import };
 use File::Glob qw{ GLOB_ERR GLOB_TILDE };
 use Term::ANSIColor ();
 
-our $VERSION = '0.000_005';
+our $VERSION = '0.000_006';
 
 our @EXPORT_OK = qw{
     __carp

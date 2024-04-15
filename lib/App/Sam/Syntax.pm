@@ -7,7 +7,7 @@ use warnings;
 
 use App::Sam::Util qw{ :carp :syntax @CARP_NOT };
 
-our $VERSION = '0.000_005';
+our $VERSION = '0.000_006';
 
 sub new {
     my ( $class, %arg ) = @_;

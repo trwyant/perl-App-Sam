@@ -9,7 +9,7 @@ use parent qw{ App::Sam::Syntax };
 
 use App::Sam::Util qw{ :syntax @CARP_NOT };
 
-our $VERSION = '0.000_005';
+our $VERSION = '0.000_006';
 
 sub __classify_code {
     my ( $self ) = @_;

@@ -1,3 +1,8 @@
+0.000_006	2024-04-14	T. R. Wyant
+    Fix problem in __expand_tilde when file did not exist. This broke
+    stuff involving the user resource file. Don't really know if the fix
+    is correct, but at least tests path both with and without ~/.samrc.
+
 0.000_005	2024-04-14	T. R. Wyant
     Add support for --pager
 
