@@ -114,7 +114,7 @@ jobs:
         ${{ env.MY_MAKE }} test
 
     - name: Run Module::Build tests
-      if: ${{ hashFiles( 'Build.PL ) != '' }}
+      if: ${{ hashFiles( 'Build.PL' ) != '' }}
       run: |
         perl Build.PL
         ./Build
