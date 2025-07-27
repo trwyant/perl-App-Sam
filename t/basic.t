@@ -72,7 +72,7 @@ load_module_ok 'App::Sam';
 	_eol			=> "\n",
 	encoding		=> '',
 	env			=> F,
-	filter			=> F,
+	filter			=> E,	# Default depends on environment
 	flags			=> 0,
 	ignore_sam_defaults	=> F,
 	ignore_directory	=> hash { etc },
