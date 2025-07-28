@@ -306,8 +306,10 @@ sub new {
 
     if ( $self->{filter} ) {
 	my $encoding = $self->__get_encoding();
-	binmode STDIN, $encoding
-	    or $self->__croak( "Unable to set STDIN to $encoding: $!" );
+	if ( defined( $encoding ) && $encoding ne '' ) {
+	    binmode STDIN, $encoding
+		or $self->__croak( "Unable to set STDIN to $encoding: $!" );
+	}
     }
 
     if ( defined( my $perldoc = $self->{perldoc} ) ) {
@@ -2086,17 +2088,22 @@ sub _process_file {
 	};
     }
 
+    my $accumulate = sub {};
     my $mod_fh;
     if ( defined $self->{replace} ) {
 	if ( REF_SCALAR eq ref $self->{dry_run} ) {
-	    open $mod_fh, '>:raw', $self->{dry_run}	## no critic (RequireBriefOpen)
-		or $self->__confess( "Unable to open scalar ref: $!" );
+	    $accumulate = sub {
+		${ $self->{dry_run} } .= $_[0]->{_template}{repl}->line();
+	    };
 	} elsif ( $self->{dry_run} || ref $file ) {
 	    # Do nothing
 	} else {
 	    $mod_fh = File::Temp->new(
 		DIR	=> File::Basename::dirname( $file ),
 	    );
+	    $accumulate = sub {
+		print { $mod_fh } $_[0]->{_template}{repl}->line();
+	    };
 	}
     }
 
@@ -2126,8 +2133,7 @@ sub _process_file {
 	    $lines_matched++;
 	}
 
-	$mod_fh
-	    and print { $mod_fh } $self->{_template}{repl}->line();
+	$accumulate->( $self );
 
 	if ( $self->_process_display_p() ) {
 
@@ -2197,6 +2203,8 @@ sub _process_file {
 	    and last;
     }
     close $fh;
+    $mod_fh
+	and close $mod_fh;
 
     if ( $self->{files_without_matches} && ! $lines_matched ) {
 	$self->__say( join ' => ', $file, @show_types );

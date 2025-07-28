@@ -404,13 +404,12 @@ EOD
 }
 
 {
-    my $sam = CLASS->new(
-	filter		=> 1,
-	match		=> 'Wyant',
-	with_filename	=> 0,
-    );
-
     my $stdout = capture_stdout {
+	my $sam = CLASS->new(
+	    filter		=> 1,
+	    match		=> 'Wyant',
+	    with_filename	=> 0,
+	);
 	stdin_from_file {
 	    $sam->process();
 	} 't/data/sql_file.sql';

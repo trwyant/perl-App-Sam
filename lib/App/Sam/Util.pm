@@ -115,8 +115,8 @@ sub __confess {
 	state $me = sprintf '%s: ', __me();
 	unshift @arg, $me;
     }
-    local $! = 0;	# Force exit status.
-    local $@ = undef;	# Force exit status.
+    # local $! = 0;	# Force exit status.
+    # local $@ = undef;	# Force exit status.
     local $Carp::CarpLevel = $Carp::CarpLevel + 1;
     Carp::confess( _decorate_croak_args( $self, @arg ) );
 }
@@ -125,8 +125,8 @@ sub __croak {
     my ( $self, @arg ) = @_;
     @arg
 	or @arg = ( 'Died' );
-    local $! = 0;	# Force exit status.
-    local $@ = undef;	# Force exit status.
+    # local $! = 0;	# Force exit status.
+    # local $@ = undef;	# Force exit status.
     if ( $self->{die} ) {
 	die _decorate_die_args( $self, @arg );
     } else {
@@ -174,10 +174,12 @@ sub __expand_tilde {
     return $path;
 }
 
+# NOTE that I have to use this dodge under 5.10.1, because even though
+# the 'CORE::fc' branch is not taken,
 if ( "$]" >= 5.015008 ) {
-    *__fold_case = sub { CORE::fc( $_[0] ) };
+    eval 'sub __fold_case { CORE::fc( $_[0] ) }'; ## no critic (ProhibitStringyEval, RequireCheckingReturnValueOfEval)
 } else {
-    *__fold_case = sub { lc( $_[0] ) };
+    eval 'sub __fold_case { lc( $_[0] ) }'; ## no critic (ProhibitStringyEval, RequireCheckingReturnValueOfEval)
 }
 
 sub __match_shebang {

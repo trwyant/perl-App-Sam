@@ -52,8 +52,9 @@ sub execute_template {
 	REF_ARRAY ne ref $arg{capt}
 	    and $self->__confess( 'argument {capt} must be an ARRAY ref' );
 	$self->{capt} = delete $arg{capt};
-	$self->{match_start} = [ length ];
-	$self->{match_end} = [ length ];
+	my $length = defined $_ ? length : undef;	# We want the 5.12 behavior
+	$self->{match_start} = [ $length ];
+	$self->{match_end} = [ $length ];
 	$self->{paren_match} = '';
     }
     exists $arg{filename}
@@ -78,8 +79,9 @@ sub __extra_args {
 sub finalize {
     my ( $self ) = @_;
     $self->{capt} = [];
-    $self->{match_start} = [ length ];
-    $self->{match_end} = [ length ];
+    my $length = defined $_ ? length : undef;	# We want the 5.12 behavior
+    $self->{match_start} = [ $length ];
+    $self->{match_end} = [ $length ];
     $self->{paren_match} = '';
     $self->{last_pos} = $self->{curr_pos};
     $self->{curr_pos} = length;
