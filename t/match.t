@@ -388,7 +388,7 @@ EOD
 
 SKIP: {
     $ENV{MY_IS_GITHUB_ACTION}
-	or skip q/Fails as a GitHub action. I don't know why./, 2;
+	and skip q/Fails as a GitHub action. I don't know why./, 2;
     my $stdout = capture_stdout {
 	my $sam = CLASS->new(
 	    1	=> 1,
