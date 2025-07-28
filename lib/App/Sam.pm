@@ -25,7 +25,7 @@ use File::Spec;
 use Errno qw{ :POSIX };
 use File::ShareDir;
 use File::Temp ();
-use Getopt::Long 2.33 ();	# for O-O interface, auto_version
+use Getopt::Long 2.39 ();	# for getoptionsfromarray, auto_version
 use List::Util 1.45;	# for uniqstr()
 use Module::Load ();
 use Readonly;
@@ -40,7 +40,9 @@ use constant IS_WINDOWS	=> {
     MSWin32	=> 1,
 }->{$^O} || 0;
 
-use constant TOOD_WIN_RSRC	=> 'Windows resource files';
+# TODO Scavenge File::HomeDir (since it's not a dependency) and/or see
+# https://www.onwebsecurity.com/configuration/git-on-windows-location-of-global-configuration-file.html
+use constant TODO_WIN_RSRC	=> 'TODO Windows resource files';
 
 use constant REF_ARRAY	=> ref [];
 use constant REF_SCALAR	=> ref \0;

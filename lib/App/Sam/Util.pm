@@ -175,7 +175,7 @@ sub __expand_tilde {
 }
 
 # NOTE that I have to use this dodge under 5.10.1, because even though
-# the 'CORE::fc' branch is not taken,
+# the 'CORE::fc' branch is not taken, the code gets compiled.
 if ( "$]" >= 5.015008 ) {
     eval 'sub __fold_case { CORE::fc( $_[0] ) }'; ## no critic (ProhibitStringyEval, RequireCheckingReturnValueOfEval)
 } else {
