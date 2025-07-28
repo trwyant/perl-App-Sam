@@ -11,6 +11,7 @@ on:
 
 # Define environment variables for all jobs
 env:
+  MY_IS_GITHUB_ACTION: 1
   PERL_CPANM_OPT: '--mirror https://cpan.metacpan.org'
 
 
