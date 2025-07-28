@@ -8,7 +8,7 @@ use warnings;
 use Carp ();
 use Exporter qw{ import };
 use File::Glob qw{ GLOB_ERR GLOB_TILDE };
-use Term::ANSIColor ();
+use Term::ANSIColor 4.03 ();	# for colorvalid
 
 our $VERSION = '0.000_006';
 
@@ -22,6 +22,7 @@ our @EXPORT_OK = qw{
     __me
     __syntax_types
     __todo
+    IS_WINDOWS
     RE_CASE_BLIND
     RE_CASE_SMART
     RE_CASE_SENSITIVE
@@ -75,6 +76,11 @@ our @CARP_NOT = qw{
     App::Sam::Tplt::Under
     App::Sam::Util
 };
+
+use constant IS_WINDOWS	=> {
+    MSWin32	=> 1,
+    dos		=> 1,
+}->{$^O} || 0;
 
 # NOTE that RE_CASE_SENSITIVE must be false, and the others must be
 # true.

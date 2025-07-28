@@ -13,7 +13,7 @@ use B qw{ perlstring };
 use Cwd ();
 use Test2::V0 -target => 'App::Sam';
 use Test2::Tools::Mock;
-use Term::ANSIColor;
+use Term::ANSIColor 4.03;	# for colorvalid
 
 use lib 'inc';
 

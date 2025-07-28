@@ -15,7 +15,10 @@ use App::Sam::Tplt;
 use App::Sam::Tplt::Color;
 use App::Sam::Tplt::Under;
 use App::Sam::Util qw{
-    :carp :case :syntax :term_ansi __expand_tilde __syntax_types @CARP_NOT
+    :carp :case :syntax :term_ansi
+    __expand_tilde __syntax_types
+    IS_WINDOWS
+    @CARP_NOT
 };
 use Config;
 use Cwd ();
@@ -30,19 +33,15 @@ use List::Util 1.45;	# for uniqstr()
 use Module::Load ();
 use Readonly;
 use Scalar::Util ();
-use Term::ANSIColor ();
+use Term::ANSIColor 4.03 ();	# for colorvalid
 use Text::ParseWords ();
 use Text::Abbrev ();
 
 our $VERSION = '0.000_006';
 
-use constant IS_WINDOWS	=> {
-    MSWin32	=> 1,
-}->{$^O} || 0;
-
 # TODO Scavenge File::HomeDir (since it's not a dependency) and/or see
 # https://www.onwebsecurity.com/configuration/git-on-windows-location-of-global-configuration-file.html
-use constant TODO_WIN_RSRC	=> 'TODO Windows resource files';
+# use constant TODO_WIN_RSRC	=> 'TODO Windows resource files';
 
 use constant REF_ARRAY	=> ref [];
 use constant REF_SCALAR	=> ref \0;
@@ -1356,9 +1355,9 @@ sub __get_global_resource {
 }
 
 sub __get_global_resource_name {
-    my ( $invocant ) = @_;
+    # my ( $invocant ) = @_;	# Invocant is unused
     IS_WINDOWS
-	and $invocant->__todo( TODO_WIN_RSRC );
+	and return "$ENV{ProgramFiles}/Sam/samrc";
     return '/etc/samrc';
 }
 
@@ -1382,9 +1381,7 @@ sub __get_project_resource {
 }
 
 sub __get_project_resource_name {
-    my ( $invocant ) = @_;
-    IS_WINDOWS
-	and $invocant->__todo( TODO_WIN_RSRC );
+    # my ( $invocant ) = @_;	# Invocant is unused
     # TODO ack's search semantics.
     return '.samrc';
 }
@@ -1400,12 +1397,10 @@ sub __get_user_resource {
 }
 
 sub __get_user_resource_name {
-    my ( $invocant ) = @_;
+    # my ( $invocant ) = @_;	# Invocant is unused
     defined $ENV{SAMRC}
 	and $ENV{SAMRC} != ''
 	and return $ENV{SAMRC};
-    IS_WINDOWS
-	and $invocant->__todo( TODO_WIN_RSRC );
     return '~/.samrc';
 }
 
@@ -2005,6 +2000,9 @@ sub _process_dir {
 # NOTE: Call this ONLY from inside process().
 sub _process_file {
     my ( $self, $file ) = @_;
+
+    IS_WINDOWS
+	and $file =~ tr|\\|/|;
 
     local $self->{_process_file} = {
 	filename	=> $file,

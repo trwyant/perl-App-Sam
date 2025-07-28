@@ -168,7 +168,7 @@ sub requires {
 	'Pod::Usage'	=> 0,
 	'Readonly'	=> 0,
 	'Scalar::Util'	=> 0,
-	'Term::ANSIColor'	=> 0,
+	'Term::ANSIColor'	=> 4.03,	# for colorvalid
 	'Text::Abbrev'		=> 0,
 	'Text::ParseWords'	=> 0,
 	charnames	=> 0,

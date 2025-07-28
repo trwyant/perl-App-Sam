@@ -8,7 +8,7 @@ use warnings;
 use parent qw{ App::Sam::Tplt };
 
 use App::Sam::Util qw{ :carp :term_ansi @CARP_NOT };
-use Term::ANSIColor ();
+use Term::ANSIColor 4.03 ();	# for colorvalid
 
 our $VERSION = '0.000_006';
 
