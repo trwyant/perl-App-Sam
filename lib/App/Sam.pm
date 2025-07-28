@@ -2002,6 +2002,7 @@ sub _process_file {
     my ( $self, $file ) = @_;
 
     IS_WINDOWS
+	and not ref $file
 	and $file =~ tr|\\|/|;
 
     local $self->{_process_file} = {
