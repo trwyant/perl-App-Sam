@@ -387,13 +387,13 @@ EOD
 }
 
 {
-    my $sam = CLASS->new(
-	1	=> 1,
-	match	=> 'Wyant',
-	argv	=> [ 't/data' ]
-    );
 
     my $stdout = capture_stdout {
+	my $sam = CLASS->new(
+	    1	=> 1,
+	    match	=> 'Wyant',
+	    argv	=> [ 't/data' ]
+	);
 	is $sam->process(), 1, '-1 quit after first match';
     };
 

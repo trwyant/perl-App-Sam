@@ -25,7 +25,7 @@ use File::Spec;
 use Errno qw{ :POSIX };
 use File::ShareDir;
 use File::Temp ();
-use Getopt::Long ();
+use Getopt::Long 2.33 ();	# for O-O interface, auto_version
 use List::Util 1.45;	# for uniqstr()
 use Module::Load ();
 use Readonly;
@@ -196,7 +196,7 @@ sub new {
 	}
     }
 
-    $self->{filter} //= -p STDIN;
+    $self->{filter} //= Scalar::Util::openhandle( *STDIN ) ? -p STDIN : !1;
 
     unless ( $self->{f} || defined $self->{match} ) {
 	if ( $self->{file} ) {
