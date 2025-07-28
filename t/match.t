@@ -552,7 +552,7 @@ EOD
     # right files, just that I found files with the expected base names.
     my @got = map { basename $_ } split /\n/, $stdout;
     my @want = map { "perlfaq$_.pod" } '', 1 .. 9;
-    is \@got, \@want, 'perlfaq=f searches correct files'
+    is \@got, \@want, 'perldoc=f searches correct files'
 	or diag "Actual output:\n$stdout";
 }
 

@@ -1824,11 +1824,16 @@ sub __perldoc_files_from {
 sub _perldoc_populate_dirs {
     my @key_list = @_;
     my @rslt;
+    my %uniq;
     foreach my $cfg ( @key_list ) {
 	my $key = $Config{$cfg};
 	defined $key
 	    and $key ne ''
 	    or next;
+	# Looks like Windows duplicates directories -- at any rate
+	# --perldoc=f -f gets two of everything.
+	$uniq{$key}++
+	    and next;
 	foreach my $dir ( qw{ pods pod } ) {
 	    my $path = File::Spec->catfile( $key, $dir );
 	    -d $path
