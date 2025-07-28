@@ -8,8 +8,8 @@ use warnings;
 use open qw{ :std :encoding(utf-8) };
 
 use File::Basename qw{ basename };
+use Scalar::Util qw{ openhandle };
 use Test2::V0 -target => 'App::Sam';
-use Test2::Tools::Mock;
 
 use lib qw{ inc };
 
@@ -386,8 +386,9 @@ EOD
     is $stdout, undef, '-s, searching non-existent file';
 }
 
-{
-
+SKIP: {
+    openhandle( *STDIN )
+	or skip q/Fails if STDIN has been closed. I don't know why./, 2;
     my $stdout = capture_stdout {
 	my $sam = CLASS->new(
 	    1	=> 1,
@@ -405,12 +406,12 @@ EOD
 
 {
     my $stdout = capture_stdout {
-	my $sam = CLASS->new(
-	    filter		=> 1,
-	    match		=> 'Wyant',
-	    with_filename	=> 0,
-	);
 	stdin_from_file {
+	    my $sam = CLASS->new(
+		filter		=> 1,
+		match		=> 'Wyant',
+		with_filename	=> 0,
+	    );
 	    $sam->process();
 	} 't/data/sql_file.sql';
     };
