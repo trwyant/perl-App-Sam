@@ -8,6 +8,7 @@ use warnings;
 use Carp ();
 use Exporter qw{ import };
 use File::Glob qw{ GLOB_ERR GLOB_TILDE };
+use File::Spec;
 use Term::ANSIColor 4.03 ();	# for colorvalid
 
 our $VERSION = '0.000_006';
@@ -20,6 +21,7 @@ our @EXPORT_OK = qw{
     __fold_case
     __match_shebang
     __me
+    __real_path
     __syntax_types
     __todo
     IS_WINDOWS
@@ -197,6 +199,21 @@ sub __me {
     return $me;
 }
 
+sub __real_path {
+    my ( $file ) = @_;
+    my $abs_path = File::Spec->rel2abs( __expand_tilde( $file ) );
+    # NOTE that I do not know if the eval() is strictly necessary here,
+    # but Cwd::abs_path( __expand_tilde() ) on the Windows global
+    # configuration (no tilde) blew up, so I'm assuming the Windows
+    # implementation of Cwd::abs_path() threw the exceptoin. The macOS
+    # implementation simply returns undef in this situation.
+    local $@ = undef;
+    my $real_path = eval {
+	Cwd::abs_path( $abs_path );
+    } or return $abs_path;
+    return $real_path;
+}
+
 sub __syntax_types {
     state $types = [ map { __PACKAGE__->$_() } @{ $EXPORT_TAGS{syntax} } ];
     return @{ $types };
@@ -205,8 +222,8 @@ sub __syntax_types {
 sub __todo {
     my ( $self, @arg ) = @_;
     unshift @arg, @arg ? 'Bug - ' : 'Bug';
-    local $! = 0;	# Force exit status.
-    local $@ = undef;	# Force exit status.
+    # local $! = 0;	# Force exit status.
+    # local $@ = undef;	# Force exit status.
     if ( ref( $self ) && $self->{die} ) {
 	die _decorate_die_args( $self, @arg );
     } else {
@@ -292,6 +309,14 @@ starts with C<'#!'>.
 
 This returns the base name of the currently-running script, as
 determined from C<$0> at the time it is first called.
+
+=head2 __real_path
+
+ say __real_path( '~/Foo/bar' );
+
+This subroutine attempts to determine and return the actual absolute
+path to the given file. If the file does not exist, you may get back
+just a cleaned-up theoretical absolute path.
 
 =head2 __syntax_types
 

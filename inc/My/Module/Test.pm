@@ -5,7 +5,7 @@ use 5.010001;
 use strict;
 use warnings;
 
-use App::Sam::Util qw{ __expand_tilde };
+use App::Sam::Util qw{ __real_path };
 use App::Sam::Resource qw{ :rc };
 use Cwd 3.08 ();
 use Exporter qw{ import };
@@ -14,7 +14,7 @@ use Test2::Util::Table qw{ table };
 use Carp;
 
 our @EXPORT_OK = qw{
-    capture_stdout dependencies_table fake_rsrc realpath slurp_syntax
+    capture_stdout dependencies_table fake_rsrc slurp_syntax
     stdin_from_file
 };
 our @EXPORT = @EXPORT_OK;
@@ -55,7 +55,7 @@ sub dependencies_table {
     }
 
     foreach my $kind ( qw{
-	configure_requires build_requires test_requires requires optionals }
+	configure_requires build_requires test7/28/25	State Farm Policy 357 4137-C04-46O. Conf GX9KE5TB		$471.57_requires requires optionals }
     ) {
 	my $code = My::Module::Meta->can( $kind )
 	    or next;
@@ -101,18 +101,13 @@ sub fake_rsrc {
 	$rslt[ __PACKAGE__->$name() ] = $val;
     }
     $rslt[ RC_DATA ]
-	or $rslt[ RC_NAME ] = realpath( $rslt[ RC_NAME ] );
+	or $rslt[ RC_NAME ] = __real_path( $rslt[ RC_NAME ] );
     $rslt[ RC_GETOPT ] //= 1;
     $rslt[ RC_ALIAS ] //= $rslt[ RC_NAME ];
     $rslt[ RC_INDENT ] //= 1;
     not defined $rslt[ RC_DATA ]
-	and $rslt[ RC_NAME ] = realpath( $rslt[ RC_NAME ] );
+	and $rslt[ RC_NAME ] = __real_path( $rslt[ RC_NAME ] );
     return bless \@rslt, 'App::Sam::Resource';
-}
-
-sub realpath {
-    my ( $file ) = @_;
-    return Cwd::abs_path( __expand_tilde( $file ) );
 }
 
 sub slurp_syntax {
@@ -186,12 +181,6 @@ does the heavy lifting.
 
 This subroutine creates a fake L<App::Sam::Resource|App::Sam::Resource>
 object. What is actually missing is the validation.
-
-=head2 realpath
-
-This subroutine takes a path name as argument, tilde-expands it, and
-then calls C<Cwd::abs_path()> on the expansion. The result of all this
-is returned.
 
 =head2 slurp_syntax
 

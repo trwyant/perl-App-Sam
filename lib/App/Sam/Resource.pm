@@ -5,13 +5,12 @@ use 5.010001;
 use strict;
 use warnings;
 
-use App::Sam::Util qw{ __expand_tilde @CARP_NOT };
+use App::Sam::Util qw{ __real_path @CARP_NOT };
 #
 # NOTE that we're using Carp directly because this code is buried so
 # deeply that any error counts as a bug.
 
 use Carp ();
-use Cwd 3.08 ();
 use Exporter qw{ import };
 use Readonly;
 
@@ -64,7 +63,7 @@ sub new {
 	or Carp::confess( "Bug - Attribute 'orts' must be undef or array ref, not $arg{orts}" );
     $arg{getopt} //= 1;
     defined $arg{data}
-	or $arg{name} = Cwd::abs_path( __expand_tilde( $arg{name} ) );
+	or $arg{name} = __real_path( $arg{name} );
     $arg{alias} //= $arg{name};
     $arg{indent} //= 1;
     foreach my $attr_name ( keys %arg ) {
