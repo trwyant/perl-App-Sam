@@ -418,7 +418,7 @@ EOD
 
     is $stdout, <<'EOD', '--filter';
 6: * Author: Thomas R. Wyant, III F<wyant at cpan dot org>
-8: * Copyright (C) 2018-2024 by Thomas R. Wyant, III
+8: * Copyright (C) 2018-2025 by Thomas R. Wyant, III
 EOD
 }
 
@@ -503,7 +503,7 @@ EOD
     is $stdout, <<'EOD', '--proximate';
 6: * Author: Thomas R. Wyant, III F<wyant at cpan dot org>
 
-8: * Copyright (C) 2018-2024 by Thomas R. Wyant, III
+8: * Copyright (C) 2018-2025 by Thomas R. Wyant, III
 EOD
 }
 
