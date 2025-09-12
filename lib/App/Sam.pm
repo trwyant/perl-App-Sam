@@ -196,6 +196,13 @@ sub new {
 	    );
 	}
     }
+    $self->{confirm}
+	and not defined $self->{replace}
+	and $self->__croak(
+	$self->{die} ?
+	'--confirm can only be used with --replace' :
+	'confirm can only be used with replace'
+    );
 
     $self->{filter} //= Scalar::Util::openhandle( *STDIN ) ? -p STDIN : !1;
 
@@ -822,7 +829,7 @@ sub __file_type_del {
     # {arg} - Available for use by the {validate} code.
     # {flags} - This is a bit mask specifying special processing. The
     #         value must be the bitwise OR of the following values:
-    #         FLAG_DMP_NON_OPT - Dump as non-pption value. This is for
+    #         FLAG_DMP_NON_OPT - Dump as non-option value. This is for
     #                 the use of the dump system; setting it on option
     #                 definitions is unsupported.
     #         FLAG_DMP_NOT - Do not dump this value.
@@ -887,6 +894,9 @@ sub __file_type_del {
 	    validate	=> '__validate_color',
 	},
 	column	=> {
+	    type	=> '!',
+	},
+	confirm	=> {
 	    type	=> '!',
 	},
 	context		=> {
@@ -1852,6 +1862,16 @@ sub __print {
     return;
 }
 
+sub __print_line {
+    my ( $self ) = @_;
+    foreach ( qw{ out under } ) {
+	my $tplt = $self->{_template}{$_}
+	    or next;
+	$self->__print( $tplt->line() );
+    }
+    return;
+}
+
 sub process {
     my ( $self, @files ) = @_;
 
@@ -1937,13 +1957,23 @@ sub process {
 		    TERM_ANSI_CLR_EOL,
 	    ) : App::Sam::Tplt->new( %usual ) ),
     };
+    if ( defined $self->{replace} ) {
+	$self->{_template}{repl} = App::Sam::Tplt->new(
+	    %usual,
+	    match_tplt	=> '$p$r',
+	    prefix_tplt	=> '',
+	    finalize_tplt	=> TPLT_FLUSH,
+	);
+	$self->{confirm}
+	    and $self->{_template}{no_repl} = App::Sam::Tplt->new(
+	    %usual,
+	    match_tplt	=> TPLT_MATCH,
+	    prefix_tplt	=> '',
+	    finalize_tplt	=> TPLT_FLUSH,
+	);
+    }
     defined $self->{replace}
-	and $self->{_template}{repl} = App::Sam::Tplt->new(
-	%usual,
-	match_tplt	=> '$p$r',
-	prefix_tplt	=> '',
-	finalize_tplt	=> TPLT_FLUSH,
-    );
+	and local $| = 1;
     defined $self->{underline}
 	and $self->{_template}{under} = App::Sam::Tplt::Under->new( %usual );
 
@@ -2094,22 +2124,24 @@ sub _process_file {
 	};
     }
 
-    my $accumulate = sub {};
+    $self->{_process_file}{accumulate} = sub { 0 };
+
     my $mod_fh;
     if ( defined $self->{replace} ) {
 	if ( REF_SCALAR eq ref $self->{dry_run} ) {
-	    $accumulate = sub {
-		${ $self->{dry_run} } .= $_[0]->{_template}{repl}->line();
-	    };
+	    open $mod_fh, '>', $self->{dry_run}	## no critic (RequireBriefOpen)
+		or $self->__croak( "Unable to open handle to scalar ref: $!" );
+	    $self->{_process_file}{mod_fh} = $mod_fh;
+	    $self->{_process_file}{accumulate} =
+		$self->_make_replace_accumulator();
 	} elsif ( $self->{dry_run} || ref $file ) {
 	    # Do nothing
 	} else {
-	    $mod_fh = File::Temp->new(
+	    $self->{_process_file}{mod_fh} = $mod_fh = File::Temp->new(
 		DIR	=> File::Basename::dirname( $file ),
 	    );
-	    $accumulate = sub {
-		print { $mod_fh } $_[0]->{_template}{repl}->line();
-	    };
+	    $self->{_process_file}{accumulate} =
+		$self->_make_replace_accumulator();
 	}
     }
 
@@ -2138,8 +2170,6 @@ sub _process_file {
 	    }
 	    $lines_matched++;
 	}
-
-	$accumulate->( $self );
 
 	if ( $self->_process_display_p() ) {
 
@@ -2186,11 +2216,8 @@ sub _process_file {
 	    $self->{_process_file}{last_printed} = $.;
 	    @before_context = ();
 
-	    foreach ( qw{ out under } ) {
-		my $tplt = $self->{_template}{$_}
-		    or next;
-		$self->__print( $tplt->line() );
-	    }
+	    $self->{_process_file}{accumulate}->()
+		or $self->__print_line();
 
 	} elsif ( $self->{before_context} ) {
 
@@ -2198,6 +2225,9 @@ sub _process_file {
 	    @before_context > $self->{before_context}
 		and splice @before_context, 0, @before_context -
 		    $self->{before_context};
+	    $self->{_process_file}{accumulate}->();
+	} else {
+	    $self->{_process_file}{accumulate}->();
 	}
 
 	$self->{max_count}
@@ -2248,6 +2278,91 @@ sub _process_file {
     }
 
     return $self->_process_result( $lines_matched ? 1 : 0 );
+}
+
+# Manufacture and return a subroutine that accumulates replacement lines
+# to the output file.
+sub _make_replace_accumulator {
+    my ( $self ) = @_;
+    my $mod_fh = $self->{_process_file}{mod_fh};
+    $self->{confirm}
+	or return sub {
+	print { $mod_fh } $self->{_template}{repl}->line();
+	return 0;
+    };
+    $self->{_process_file}{stdin_is_not_term} =
+	my $stdin_is_not_term = ! -t STDIN;
+    my $do_prompt = $stdin_is_not_term ? sub {
+	return scalar <STDIN>;
+    } : sub {
+	@_ and $self->__print( @_ );
+	$self->__print_line();
+	# TODO Term::ReadKey
+	print STDERR 'Replace (y/n)? ';
+	return scalar <STDIN>;
+    };
+    return sub {
+	my $tplt;
+	if ( $self->{_process_file}{matched} ) {
+	    # TODO vim supports:
+	    # y = replace
+	    # n = do not replace
+	    # l = replace and then quit
+	    # a = replace all remaining
+	    # q = quit without replacing
+	    # I want end-of-file to be handled like q.`
+	    # TODO try a dispatch table like in
+	    # __validate_file_property_add.
+	    my @msg;
+	    {
+		my $resp = substr $do_prompt->( @msg ) // 'q', 0, 1;
+		state $handler = {
+		    a	=> sub {
+			my $self = $_[0];
+			$self->{_process_file}{accumulate} = sub {
+			    print { $self->{_process_file}{mod_fh} }
+				$self->{_template}{repl}->line();
+			    return $self->{_process_file}{stdin_is_not_term};
+			},
+			'repl'
+		    },
+		    l	=> sub {
+			my $self = $_[0];
+			$self->{_process_file}{accumulate} = sub {
+			    print { $self->{_process_file}{mod_fh} }
+				$self->{_template}{no_repl}->line();
+			    return $self->{_process_file}{stdin_is_not_term};
+			};
+			'repl'
+		    },
+		    n	=> sub { 'no_repl' },
+		    q	=> sub {
+			my $self = $_[0];
+			$self->{_process_file}{accumulate} = sub {
+			    print { $self->{_process_file}{mod_fh} }
+				$self->{_template}{no_repl}->line();
+			    return $self->{_process_file}{stdin_is_not_term};
+			};
+			'no_repl'
+		    },
+		    y	=> sub { 'repl' },
+		};
+		if ( my $code = $handler->{ lc $resp } ) {
+		    $tplt = $code->( $self );
+		} elsif ( $stdin_is_not_term ) {
+		    print STDERR "Invalid input '$resp' taken as 'n'\n";
+		    $tplt = 'no_repl';
+		} else {
+		    @msg = ( "Invalid input '$resp'\n" );
+		    redo;
+		}
+	    }
+	} else {
+	    $tplt = 'no_repl';
+	}
+	print { $mod_fh } $self->{_template}{$tplt}->line();
+	return 1;
+    };
 }
 
 # Return a true value if the current line is to be displayed.
@@ -2985,6 +3100,10 @@ See L<--column|sam/--column> in the L<sam|sam> documentation.
 =item C<count>
 
 See L<--count|sam/--count> in the L<sam|sam> documentation.
+
+=item C<confirm>
+
+See L<--confirm|sam/--confirm> in the L<sam|sam> documentation.
 
 =item C<create_samrc>
 

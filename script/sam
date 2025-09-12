@@ -205,6 +205,12 @@ If this Boolean option is asserted, the column number of the first match
 on the line is displayed after the line number. The default is
 C<--no-column>.
 
+=head2 --confirm
+
+If this Boolean option is asserted, replacements are confirmed by
+prompting the user. This option is invalid unless
+L<--replace|/--replace> is specified. The default is C<--no-confirm>.
+
 =head2 --context
 
 This option specifies the number of lines of context to display before
