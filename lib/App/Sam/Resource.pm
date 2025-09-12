@@ -14,7 +14,7 @@ use Carp ();
 use Exporter qw{ import };
 use Readonly;
 
-our $VERSION = '0.000_006';
+our $VERSION = '0.000_007';
 
 use enum qw{ ENUM:
     RC_ALIAS

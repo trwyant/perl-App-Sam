@@ -37,7 +37,7 @@ use Term::ANSIColor 4.03 ();	# for colorvalid
 use Text::ParseWords ();
 use Text::Abbrev ();
 
-our $VERSION = '0.000_006';
+our $VERSION = '0.000_007';
 
 # TODO Scavenge File::HomeDir (since it's not a dependency) and/or see
 # https://www.onwebsecurity.com/configuration/git-on-windows-location-of-global-configuration-file.html

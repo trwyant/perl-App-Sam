@@ -9,7 +9,7 @@ use parent qw{ App::Sam::Syntax };
 
 use App::Sam::Util qw{ :syntax @CARP_NOT };
 
-our $VERSION = '0.000_006';
+our $VERSION = '0.000_007';
 
 sub __classifications {
     return ( SYNTAX_COMMENT, SYNTAX_DATA, SYNTAX_METADATA );
