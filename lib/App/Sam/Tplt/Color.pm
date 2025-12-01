@@ -10,7 +10,7 @@ use parent qw{ App::Sam::Tplt };
 use App::Sam::Util qw{ :carp :term_ansi @CARP_NOT };
 use Term::ANSIColor 4.03 ();	# for colorvalid
 
-our $VERSION = '0.000_007';
+our $VERSION = '0.000_008';
 
 sub __color {
     my ( $self, $kind, $text ) = @_;

@@ -11,7 +11,7 @@ use Getopt::Long 2.39 qw{ :config auto_version pass_through
 no_auto_abbrev no_ignore_case };
 use Pod::Usage;
 
-our $VERSION = '0.000_007';
+our $VERSION = '0.000_008';
 
 use constant IS_TTY	=> -t STDOUT;
 

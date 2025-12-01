@@ -1,3 +1,6 @@
+0.000_008	2025-12-01	T. R. Wyant
+    Repackage licenses so GitHub can find them.
+
 0.000_007	2025-09-12	T. R. Wyant
     Implement --confirm which prompts the user for whether or not to
     make changes. Asserting this is only valid if --replace was
