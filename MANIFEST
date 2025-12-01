@@ -31,8 +31,8 @@ lib/App/Sam/Tplt.pm
 lib/App/Sam/Tplt/Color.pm
 lib/App/Sam/Tplt/Under.pm
 lib/App/Sam/Util.pm
-LICENSES/Artistic
-LICENSES/Copying
+LICENSE-Artistic
+LICENSE-GNU
 Makefile.PL
 MANIFEST
 META.json
