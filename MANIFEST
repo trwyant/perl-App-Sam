@@ -32,7 +32,7 @@ lib/App/Sam/Tplt/Color.pm
 lib/App/Sam/Tplt/Under.pm
 lib/App/Sam/Util.pm
 LICENSE-Artistic
-LICENSE-GNU
+LICENSE-GPL
 Makefile.PL
 MANIFEST
 META.json
