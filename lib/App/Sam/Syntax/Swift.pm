@@ -9,7 +9,7 @@ use parent qw{ App::Sam::Syntax::_cc_like };
 
 use App::Sam::Util qw{ :syntax __match_shebang @CARP_NOT };
 
-our $VERSION = '0.000_008';
+our $VERSION = '0.000_009';
 
 sub __classifications {
     return ( SYNTAX_CODE, SYNTAX_COMMENT, SYNTAX_DOCUMENTATION,

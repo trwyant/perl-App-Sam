@@ -1,3 +1,8 @@
+0.000_009	2026-01-03	T. R. Wyant
+    Support //-style C comments.
+
+    Rename LICENSE-GNU to LICENSE-GPL
+
 0.000_008	2025-12-01	T. R. Wyant
     Repackage licenses so GitHub can find them.
 
