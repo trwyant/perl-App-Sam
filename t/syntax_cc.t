@@ -22,6 +22,8 @@ prep:    "bar"
 code:
 comm:/* This is a single-line block comment */
 code:
+comm:// This is a double-slash comment
+code:
 code:int main ( int argc, char ** argv ) {
 code:    printf( "Hello %s!\n", argc > 1 ? argv[1] : "world" );
 code:}

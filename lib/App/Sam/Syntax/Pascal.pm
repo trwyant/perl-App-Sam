@@ -35,9 +35,7 @@ sub __match_block_comment_start {
     return 0;
 }
 
-sub __match_single_line_comment {
-    return m< \A \s* // >smx;	# Delphi
-}
+# NOTE that Delphi single-line comments are //-style
 
 1;
 

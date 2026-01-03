@@ -5,6 +5,8 @@
 
 /* This is a single-line block comment */
 
+// This is a double-slash comment
+
 int main ( int argc, char ** argv ) {
     printf( "Hello %s!\n", argc > 1 ? argv[1] : "world" );
 }

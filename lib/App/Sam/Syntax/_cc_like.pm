@@ -84,7 +84,8 @@ sub __match_block_comment_start {
 }
 
 sub __match_single_line_comment {
-    return 0;
+    # NOTE override to return 0 if single-line comments not supported.
+    return m| \A \s* // |smx;
 }
 
 # Documentation

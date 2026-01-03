@@ -16,10 +16,6 @@ sub __classifications {
 	SYNTAX_METADATA );
 }
 
-sub __match_single_line_comment {
-    return m| \A \s* // |smx;
-}
-
 sub __match_block_documentation_start {
     return m| \A \s* / [*] [*] |smx;
 }

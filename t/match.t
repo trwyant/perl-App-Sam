@@ -400,7 +400,7 @@ SKIP: {
 
     is $stdout, <<'EOD', '-1 found correct data';
 t/data/cc_file.c
-13: * Author: Thomas R. Wyant, III F<wyant at cpan dot org>
+15: * Author: Thomas R. Wyant, III F<wyant at cpan dot org>
 EOD
 }
 
