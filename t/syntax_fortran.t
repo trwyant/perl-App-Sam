@@ -28,7 +28,7 @@ code:      end
 code:
 comm:C Author: Thomas R. Wyant, III F<wyant at cpan dot org>
 comm:C
-comm:C Copyright (C) 2018-2025 by Thomas R. Wyant, III
+comm:C Copyright (C) 2018-2026 by Thomas R. Wyant, III
 comm:C
 comm:C This program is distributed in the hope that it will be useful, but
 comm:C without any warranty; without even the implied warranty of
