@@ -11,7 +11,7 @@ use File::Glob qw{ GLOB_ERR GLOB_TILDE };
 use File::Spec;
 use Term::ANSIColor 4.03 ();	# for colorvalid
 
-our $VERSION = '0.000_009';
+our $VERSION = '0.000_010';
 
 our @EXPORT_OK = qw{
     __carp

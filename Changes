@@ -1,3 +1,10 @@
+0.000_010	2026-06-04	T. R. Wyant
+    Remove references to the RT bug tracking system.
+
+    Replace wyant@cpan.org with harryfmudd@comcast.net.
+
+    No functional changes.
+
 0.000_009	2026-01-03	T. R. Wyant
     Support //-style C comments.
 
