@@ -161,8 +161,7 @@ C<App::Sam|App::Sam>.
 =head1 SUPPORT
 
 Support is by the author. Please file bug reports at
-L<https://rt.cpan.org/Public/Dist/Display.html?Name=App-Sam>,
-L<https://github.com/trwyant/perl-App-Sam/issues/>, or in
+L<https://github.com/trwyant/perl-App-Sam/issues> or in
 electronic mail to the author.
 
 =head1 AUTHOR

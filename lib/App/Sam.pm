@@ -233,7 +233,6 @@ sub new {
 	}
     }
 
-
     {
 	no warnings qw{ once };
 	$Carp::Verbose
@@ -1526,7 +1525,6 @@ sub __get_user_resource_name {
 
 	}
 
-
 	return $self;
     }
 
@@ -2044,7 +2042,6 @@ sub _process_file {
 	filename	=> $file,
     };
     delete $self->{_process_file}{colored};
-
 
     $self->{_range}
 	and $self->{_process_file}{in_range} = $self->{range_start} ? 0 : 1;
@@ -3499,8 +3496,7 @@ L<ack|ack>
 =head1 SUPPORT
 
 Support is by the author. Please file bug reports at
-L<https://rt.cpan.org/Public/Dist/Display.html?Name=App-Sam>,
-L<https://github.com/trwyant/perl-App-Sam/issues/>, or in
+L<https://github.com/trwyant/perl-App-Sam/issues> or in
 electronic mail to the author.
 
 =head1 AUTHOR
