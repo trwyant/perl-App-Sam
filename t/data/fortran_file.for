@@ -9,7 +9,7 @@
       call exit()
       end
 
-C Author: Thomas R. Wyant, III F<wyant at cpan dot org>
+C Author: Thomas R. Wyant, III F<harryfmudd at comcast dot net>
 C
 C Copyright (C) 2018-2026 by Thomas R. Wyant, III
 C

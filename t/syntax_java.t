@@ -27,7 +27,7 @@ code:
 docu:/**
 docu: * Implement a greeting in Java
 docu: *
-docu: * @author      Thomas R. Wyant, III F<wyant at cpan dot org>
+docu: * @author      Thomas R. Wyant, III F<harryfmudd at comcast dot net>
 docu: * @version     0.000_001
 docu: */
 code:

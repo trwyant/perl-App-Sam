@@ -10,7 +10,7 @@ import java.util.*;
 /**
  * Implement a greeting in Java
  *
- * @author      Thomas R. Wyant, III F<wyant at cpan dot org>
+ * @author      Thomas R. Wyant, III F<harryfmudd at comcast dot net>
  * @version     0.000_001
  */
 

@@ -258,7 +258,7 @@ EOD
 	is $sam->process( 't/data/sql_file.sql' ), 1, '--max-count=1';
     };
     is $stdout, <<'EOD', q(--output);
-6: * Author: Thomas R. Wyant, III F<wyant at cpan dot org>
+6: * Author: Thomas R. Wyant, III F<harryfmudd at comcast dot net>
 EOD
 }
 
@@ -400,7 +400,7 @@ SKIP: {
 
     is $stdout, <<'EOD', '-1 found correct data';
 t/data/cc_file.c
-15: * Author: Thomas R. Wyant, III F<wyant at cpan dot org>
+15: * Author: Thomas R. Wyant, III F<harryfmudd at comcast dot net>
 EOD
 }
 
@@ -417,7 +417,7 @@ EOD
     };
 
     is $stdout, <<'EOD', '--filter';
-6: * Author: Thomas R. Wyant, III F<wyant at cpan dot org>
+6: * Author: Thomas R. Wyant, III F<harryfmudd at comcast dot net>
 8: * Copyright (C) 2018-2026 by Thomas R. Wyant, III
 EOD
 }
@@ -501,7 +501,7 @@ EOD
     };
 
     is $stdout, <<'EOD', '--proximate';
-6: * Author: Thomas R. Wyant, III F<wyant at cpan dot org>
+6: * Author: Thomas R. Wyant, III F<harryfmudd at comcast dot net>
 
 8: * Copyright (C) 2018-2026 by Thomas R. Wyant, III
 EOD

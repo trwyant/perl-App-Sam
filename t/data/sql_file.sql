@@ -3,7 +3,7 @@
 select * from brewery where state = 'ME' order by name;
 
 /*
- * Author: Thomas R. Wyant, III F<wyant at cpan dot org>
+ * Author: Thomas R. Wyant, III F<harryfmudd at comcast dot net>
  *
  * Copyright (C) 2018-2026 by Thomas R. Wyant, III
  *

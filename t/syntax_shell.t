@@ -20,7 +20,7 @@ code:
 code:x=$1
 code:echo "Hello ${x:-world}!"
 code:
-comm:# Author: Thomas R. Wyant, III F<wyant at cpan dot org>
+comm:# Author: Thomas R. Wyant, III F<harryfmudd at comcast dot net>
 comm:#
 comm:# Copyright (C) 2018-2026 by Thomas R. Wyant, III
 comm:#
