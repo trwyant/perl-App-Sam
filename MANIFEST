@@ -39,6 +39,7 @@ META.json
 META.yml
 README
 script/sam
+SECURITY
 share/default_samrc
 t/basic.t
 t/data/.samrc
