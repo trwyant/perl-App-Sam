@@ -130,9 +130,27 @@ EOD
 15:docu:
 16:docu:This is documentation.
 17:docu:
-18:docu:=cut
-19:data:
-20:data:# ex: set textwidth=72 :
+18:comm:=for comment But this is a comment.
+19:docu:
+20:docu:This is also documentation.
+21:docu:
+22:comm:=begin comment
+23:comm:
+24:comm:But this entire block is a comment.
+25:comm:
+26:comm:=cut
+27:data:
+28:comm:=pod
+29:comm:
+30:comm:And we're still a comment.
+31:comm:
+32:comm:=end comment
+33:docu:
+34:docu:Documentation again.
+35:docu:
+36:docu:=cut
+37:data:
+38:data:# ex: set textwidth=72 :
 EOD
 }
 

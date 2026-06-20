@@ -11,6 +11,13 @@ use App::Sam::Util qw{ :syntax __match_shebang @CARP_NOT };
 
 our $VERSION = '0.000_010';
 
+sub init {
+    my ( $self ) = @_;
+    $self->{in} = SYNTAX_CODE;
+    $self->{PodKind} = SYNTAX_DOCUMENTATION;
+    return;
+}
+
 sub __classifications {
     return ( SYNTAX_CODE, SYNTAX_COMMENT, SYNTAX_DATA,
 	SYNTAX_DOCUMENTATION, SYNTAX_METADATA );
@@ -34,20 +41,30 @@ sub __classify_code {
 # NOTE: MUST NOT be called if $self->{in} is 'documentation'
 sub __classify_data {
     my ( $self ) = @_;
-    if ( m/ \A = ( cut \b | [A-Za-z] ) /smx ) {
-	'cut' eq $1
-	    and return SYNTAX_DOCUMENTATION;
+    if ( m/ \A = [A-Za-z] /smx ) {
 	$self->{Cut} = $self->{in};
 	$self->{in} = SYNTAX_DOCUMENTATION;
+	goto &__classify_documentation;
     }
     return $self->{in};
 }
 
 sub __classify_documentation {
     my ( $self ) = @_;
-    m/ \A = cut \b /smx
-	and $self->{in} = delete $self->{Cut};
-    return SYNTAX_DOCUMENTATION;
+    if ( m/ \A = cut \b /smx ) {
+	$self->{in} = delete $self->{Cut};
+	# NOTE: DO NOT cancel $self->{PodKind} here. Experimentation
+	# shows that POD =begin/=end blocks persist across =pod/=cut
+	# blocks.
+    } elsif ( m/ \A = for \s+ comment \b /smx ) {
+	return SYNTAX_COMMENT;
+    } elsif ( m/ \A = begin \s+ comment \b /smx ) {
+	$self->{PodKind} = SYNTAX_COMMENT;
+    } elsif ( m/ \A = end \s+ comment \b /smx ) {
+	$self->{PodKind} = SYNTAX_DOCUMENTATION;
+	return SYNTAX_COMMENT;
+    }
+    return $self->{PodKind};
 }
 
 1;
@@ -81,7 +98,10 @@ Of course.
 
 =item * SYNTAX_COMMENT
 
-Any line whose first non-blank character is C<'#'>.
+Any line whose first non-blank character is C<'#'>, plus POD
+C<'comment'> blocks, including C<= for comment ...>. B<Note> that both
+C<perl> and C<perldoc> consider a C<=begin comment> block B<not> to
+terminate at a C<=cut>.
 
 =item * SYNTAX_DATA
 
