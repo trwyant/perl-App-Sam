@@ -312,6 +312,10 @@ sub new {
 	    or $self->{syntax}{+SYNTAX_DOCUMENTATION} = 1;
     }
 
+    $self->{syntax}
+	and keys %{ $self->{syntax} }
+	and $self->{flags} |= FLAG_FAC_SYNTAX;
+
     not $self->{ack_mode}
 	and $self->{type}
 	and $self->{_type_wanted} = List::Util::any
@@ -1168,7 +1172,11 @@ sub __file_type_del {
 	syntax	=> {
 	    type	=> '=s@',
 	    validate	=> '__validate_syntax',
-	    flags	=> FLAG_FAC_SYNTAX,
+	    # NOTE that FLAG_FAC_SYNTAX is now set programmatically in
+	    # new(), since the ability to negate syntaxes means we may
+	    # end up without syntax processing specified, even though we
+	    # had it specified during option processing.
+	    # flags	=> FLAG_FAC_SYNTAX,
 	},
 	T	=> {
 	    type	=> '=s@',
