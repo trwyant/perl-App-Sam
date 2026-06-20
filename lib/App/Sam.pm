@@ -69,34 +69,6 @@ use enum qw{ ENUM:
 Readonly::Scalar my $DIR_SEP => IS_WINDOWS ? "\\/" : File::Spec->catfile(
     '', '' );
 
-=begin comment
-
-BEGIN {
-    my @flags;
-    foreach my $sym ( sort keys %App::Sam:: ) {
-	$sym =~ m/ \A FLAG_ /smx
-	    or next;
-	my $code = __PACKAGE__->can( $sym )
-	    or next;
-	push @flags, [ $sym, $code->() ];
-    }
-
-    sub __flags_to_names {
-	my $mask = $_[-1];
-	my @rslt;
-	foreach my $item ( @flags ) {
-	    $item->[1] & $mask
-		or next;
-	    push @rslt, $item->[0];
-	}
-	return @rslt;
-    }
-}
-
-=end comment
-
-=cut
-
 # NOTE many of the following have (at the moment) identical values but
 # different intended semantics:
 
