@@ -1,3 +1,13 @@
+0.000_011	2026-06-20	T. R. Wyant
+    Make Perl POD comments comments, not documentation.
+
+    Allow syntax types to be negated. This removes them for
+    consideration. Negating everything turns off syntax checking. If no
+    asserted syntax types have been specified, everything is implicitly
+    selected before processing a negated syntax type.
+
+    Add SECURITY policy.
+
 0.000_010	2026-06-04	T. R. Wyant
     Remove references to the RT bug tracking system.
 

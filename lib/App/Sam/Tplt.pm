@@ -7,7 +7,7 @@ use warnings;
 
 use App::Sam::Util qw{ :carp @CARP_NOT };
 
-our $VERSION = '0.000_010';
+our $VERSION = '0.000_011';
 
 use constant REF_ARRAY	=> ref [];
 
