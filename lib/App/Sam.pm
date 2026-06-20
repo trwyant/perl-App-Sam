@@ -2965,10 +2965,26 @@ sub __validate_samrc {
 sub __validate_syntax {
     my ( $self, undef, undef, $attr_val ) = @_;	# $attr_spec, $attr_name unused
     foreach ( ref $attr_val ? @{ $attr_val } : $attr_val ) {
-	state $valid = Text::Abbrev::abbrev( __syntax_types() );
-	my $expansion = $valid->{$_}
-	    or return 0;
-	$self->{syntax}{$expansion} = 1;
+	state $valid = Text::Abbrev::abbrev( 'all', __syntax_types() );
+	my $name;
+	if ( defined( $name = $valid->{$_} ) ) {
+	    if ( $name eq 'all' ) {
+		delete $self->{syntax};
+	    } else {
+		$self->{syntax}{$name} = 1;
+	    }
+	} else {
+	    ( $name = $_ ) =~ s/ \A no-? //smx
+		and defined( $name = $valid->{$name} )
+		and $name ne 'all'
+		or return 0;
+	    unless ( keys %{ $self->{syntax} || {} } ) {
+		$self->{syntax}{$_} = 1 for __syntax_types();
+	    }
+	    delete $self->{syntax}{$name};
+	    keys %{ $self->{syntax} }
+		or delete $self->{syntax};
+	}
     }
     return 1;
 }

@@ -887,14 +887,24 @@ Syntax type names can be abbreviated as long as the abbreviation is
 unique. For example, C<'code'> can be abbreviated to C<'cod'>, but not
 to C<'co'>.
 
+Syntax type names can also be negated by prefixing C<'no-'> or C<'no'>.
+A negated syntax type name removes that syntax type from the search. If
+a negated syntax type name is specified and no syntax types are
+selected, they are all implicitly selected, and then the negated syntax
+type is removed.
+
+You can also specify C<--syntax all>, which explicitly disables syntax
+selection.
+
 Syntax types are implemented by modules named C<App::Sam::Syntax::*>.
 These are associated with files via the L<--syntax-add|/--syntax-add>
-option and friends. They are implemented by C<App::Sam::Syntax::*>
-modules.
+option and friends.
 
 Not all files will have syntax modules associated with them, and not all
 syntax modules provide all syntax types. If C<--syntax> is specified,
-files that do not have the given syntax type will not be searched.
+files that do not have syntax modules associated with them B<will> be
+searched, but files that do not have the given syntax type will not be
+searched.
 
 =head2 --syntax-add
 
