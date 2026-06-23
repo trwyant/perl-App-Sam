@@ -1148,6 +1148,13 @@ line of the file to be selected. For example, C<perl:firstlinematch:/^#!.*\bperl
 
 This selector may not be used to select a directory.
 
+=item C<fallback>
+
+This selector takes no argument. If specified, it matches any file that
+is not matched by any other selector. You can not have more than one
+fallback, so (for instance) C<--type-add=unknown:fallback> does the same
+thing as C<--type-set=unknown:fallback>.
+
 =back
 
 =head1 ENVIRONMENT VARIABLES

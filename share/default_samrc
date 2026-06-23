@@ -531,10 +531,11 @@
 --syntax-add=Vim:type:vim
 --syntax-add=YAML:type:yaml
 
+--syntax-add=Unknown:fallback
 
-### Backup file name extension (empty disables)
+
+### Backup file name extension
 --no-backup
-# --backup=
 
 
 ### Encoding

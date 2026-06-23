@@ -36,7 +36,7 @@ load_module_ok 'App::Sam::Syntax';
 load_module_ok 'App::Sam::Syntax::_cc_like';
 
 foreach my $syntax ( qw{ Ada Batch Cc Cpp Data Fortran Java Lisp Make
-    Pascal Perl Properties Python Raku Shell SQL Swift Vim YAML } ) {
+    Pascal Perl Properties Python Raku Shell SQL Swift Unknown Vim YAML } ) {
     my $class = "App::Sam::Syntax::$syntax";
 
     load_module_ok $class;

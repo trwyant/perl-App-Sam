@@ -25,6 +25,7 @@ lib/App/Sam/Syntax/Raku.pm
 lib/App/Sam/Syntax/Shell.pm
 lib/App/Sam/Syntax/SQL.pm
 lib/App/Sam/Syntax/Swift.pm
+lib/App/Sam/Syntax/Unknown.pm
 lib/App/Sam/Syntax/Vim.pm
 lib/App/Sam/Syntax/YAML.pm
 lib/App/Sam/Tplt.pm

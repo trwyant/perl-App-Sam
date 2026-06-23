@@ -132,6 +132,38 @@ is got(
     },
 ), 'Syntax can survive type deletion if has other bases than type';
 
+is got(
+    '--syntax-add=Unknown:fallback',
+), want(
+    _syntax_def	=> {
+	Unknown	=> {
+	    fallback	=> 1,
+	},
+    },
+    syntax_add	=> {
+	fallback	=> 'Unknown',
+    }
+), 'Add fallback syntax.';
+
+is got(
+    '--syntax-add=Unknown:fallback',
+    '--syntax-add=Perl:fallback',
+), want(
+    _syntax_def	=> {
+	Perl	=> {
+	    fallback	=> 1,
+	},
+    },
+    syntax_add	=> {
+	fallback	=> 'Perl',
+    }
+), 'Only one fallback syntax.';
+
+is got(
+    '--syntax-add=Unknown:fallback',
+    '--syntax-del=Unknown',
+), want(), 'Fallback deletes properly';
+
 done_testing;
 
 my @keyz;

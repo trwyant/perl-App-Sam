@@ -246,7 +246,8 @@ sub new {
 	$attr = "_${prop}_def";
 	foreach my $thing ( values %{ $self->{$attr} } ) {
 	    foreach my $prop_spec ( values %{ $thing } ) {
-		@{ $prop_spec } = List::Util::uniqstr( @{ $prop_spec } );
+		ref( $prop_spec ) eq REF_ARRAY
+		    and @{ $prop_spec } = List::Util::uniqstr( @{ $prop_spec } );
 	    }
 	}
     }
@@ -603,6 +604,7 @@ EOD
 		match	=> [ 'Filename matches' ],
 		firstlinematch	=> [ 'First line matches' ],
 		type	=> [ 'Type' ],
+		fallback	=> [ 'Fallback' ],
 	    };
 	    push @defs, join ' ', @{ $prefix->{$kind} }, @{
 	    $syntax_def->{$kind } };
@@ -734,6 +736,10 @@ sub _file_property {
 	}
     }
 
+    not @rslt
+	and exists $prop_spec->{fallback}
+	and push @rslt, $prop_spec->{fallback};
+
     return List::Util::uniqstr( sort @rslt );
 }
 
@@ -750,6 +756,7 @@ sub _file_property_unpick {
     foreach ( keys %$def ) {
 	state $handler = {
 	    ext			=> \&_file_property_unpick_HoA,
+	    fallback		=> \&_file_property_unpick_S,
 	    firstlinematch	=> \&_file_property_unpick_AoA,
 	    is			=> \&_file_property_unpick_HoA,
 	    match		=> \&_file_property_unpick_AoA,
@@ -787,6 +794,11 @@ sub _file_property_unpick_AoA {
     my ( $name, $add ) = @_;
     @$add = grep { $_->[0] ne $name } @$add;
     return scalar @$add;
+}
+
+sub _file_property_unpick_S {
+    # my ( $name, $add ) = @_;
+    return 0;
 }
 
 sub __file_syntax {
@@ -2730,6 +2742,27 @@ sub __validate_define {
     return 1;
 }
 
+# Validate file properties. What comes through here is things like
+#   --type-add=make:ext:mk
+# and
+#   --syntax-add=Make:type:make,tcl
+# In the former case the arguments will be
+#   $attr_name = 'type_add'
+#   $attr_val  = 'make:ext:mk'
+# NOTE that $attr_val can be either a single value (as above) or a
+# reference to an array of such values.
+#
+# The $attr_name is divided into two fields on the LAST underscore.
+# These fields are
+#    $prop_name = 'type'
+#    $action    = 'add'
+# The $action MUST be 'add', 'set', or 'del'.
+#
+# Each $attr_val is split on colons into
+#   $prop_val = 'make' # The specific property value being defined
+#   $kind     = 'ext'  # How to tell whether a file has this property value.
+#   $data     = 'mk;   # Data for the $kind algorithm
+
 sub __validate_file_property_add {
     my ( $self, undef, $attr_name, $attr_val ) = @_;	# $attr_spec unused
     my ( $prop_name, $action ) = $attr_name =~ m/ \A ( .* ) _ ( .* ) \z /smx
@@ -2758,7 +2791,8 @@ sub __validate_file_property_add {
 	$validate_prop_val->( $self, $prop_val )
 	    or return 0;
 
-	defined $data
+	$kind eq 'fallback'
+	    or defined $data
 	    or ( $kind, $data ) = ( is => $kind );
 
 	state $validate_kind = {
@@ -2801,8 +2835,11 @@ sub __validate_file_property_add {
 	    type	=> sub {
 		# my ( $self, $syntax, $data ) = @_;
 		my ( $self, $prop_name, $prop_val, $data ) = @_;
+
+		# Can not define a type in terms of another type.
 		$prop_name eq 'type'
 		    and return 0;
+
 		my @item = split /,/, $data;
 		foreach ( @item ) {
 		    $self->{_type_def}{$_}
@@ -2810,6 +2847,19 @@ sub __validate_file_property_add {
 		    $self->{"${prop_name}_add"}{type}{$_} = $prop_val;
 		    push @{ $self->{"_${prop_name}_def"}{$prop_val}{type} }, $_;
 		}
+		return 1;
+	    },
+	    fallback	=> sub {
+		my ( $self, $prop_name, $prop_val ) = @_;	# $data unused
+
+		$self->{"${prop_name}_add"}{fallback} = $prop_val;
+		my $prop_key = "_${prop_name}_def";
+		foreach ( keys %{ $self->{$prop_key} } ) {
+		    delete $self->{$prop_key}{$_}{fallback};
+		    keys %{ $self->{$prop_key}{$_} }
+			or delete $self->{$prop_key}{$_};
+		}
+		$self->{$prop_key}{$prop_val}{fallback} = 1;
 		return 1;
 	    },
 	};

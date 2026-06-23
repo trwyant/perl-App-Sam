@@ -35,6 +35,7 @@ our @EXPORT_OK = qw{
     SYNTAX_METADATA
     SYNTAX_PREPROCESSOR
     SYNTAX_OTHER
+    SYNTAX_UNKNOWN
     TERM_ANSI_CLR_EOL
     TERM_ANSI_RESET_COLOR
     @CARP_NOT
@@ -70,6 +71,7 @@ our @CARP_NOT = qw{
     App::Sam::Syntax::SQL
     App::Sam::Syntax::Shell
     App::Sam::Syntax::Swift
+    App::Sam::Syntax::Unknown
     App::Sam::Syntax::Vim
     App::Sam::Syntax::YAML
     App::Sam::Syntax::_cc_like
@@ -99,6 +101,7 @@ use constant SYNTAX_DOCUMENTATION	=> 'documentation';
 use constant SYNTAX_METADATA		=> 'metadata';
 use constant SYNTAX_OTHER		=> 'other';
 use constant SYNTAX_PREPROCESSOR	=> 'preprocessor';
+use constant SYNTAX_UNKNOWN		=> 'unknown';
 
 use constant TERM_ANSI_CLR_EOL		=> "\e[K";
 use constant TERM_ANSI_RESET_COLOR	=> Term::ANSIColor::color( 'reset' );
@@ -406,6 +409,14 @@ It can be imported by name or using the C<:syntax> tag.
 =head2 SYNTAX_PREPROCESSOR
 
 This syntax type represents preprocessor directives.
+
+It can be imported by name or using the C<:syntax> tag.
+
+=head2 SYNTAX_UNKNOWN
+
+This syntax type represents unknown syntax. It is B<strongly>
+recommended that this not be implemented except by a handler meant for
+otherwise-unknown syntaxes.
 
 It can be imported by name or using the C<:syntax> tag.
 
