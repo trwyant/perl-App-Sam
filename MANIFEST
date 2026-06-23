@@ -66,6 +66,7 @@ t/data/swift_file.swift
 t/data/vim_file.vim
 t/data/yaml_file.yml
 t/elementary.t
+t/file_properties.t
 t/match.t
 t/misc.t
 t/replace.t

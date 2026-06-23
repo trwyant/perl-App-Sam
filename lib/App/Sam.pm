@@ -737,6 +737,58 @@ sub _file_property {
     return List::Util::uniqstr( sort @rslt );
 }
 
+sub _file_property_unpick {
+    my ( $self, $kind, $name ) = @_;
+
+    my $kind_key = "_${kind}_def";
+    my $def = delete $self->{$kind_key}{$name}
+	or return;
+
+    $kind_key = "${kind}_add";
+    my $add = $self->{$kind_key}
+	or return;
+    foreach ( keys %$def ) {
+	state $handler = {
+	    ext			=> \&_file_property_unpick_HoA,
+	    firstlinematch	=> \&_file_property_unpick_AoA,
+	    is			=> \&_file_property_unpick_HoA,
+	    match		=> \&_file_property_unpick_AoA,
+	    type		=> \&_file_property_unpick_HoS,
+	};
+	my $code = $handler->{$_}
+	    or __confess( "Bug - can not unpick $_" );
+	$code->( $name, $add->{$_} )
+	    or delete $self->{$kind_key}{$_};
+    }
+    return;
+}
+
+# Call with property name and the hash representing the kind.
+sub _file_property_unpick_HoA {
+    my ( $name, $add ) = @_;
+    foreach my $key ( keys %$add ) {
+	@{ $add->{$key} } = grep { $_ ne $name } @{ $add->{$key} };
+	@{ $add->{$key} }
+	    or delete $add->{$key};
+    }
+    return keys %$add;
+}
+
+sub _file_property_unpick_HoS {
+    my ( $name, $add ) = @_;
+    foreach my $key ( keys %$add ) {
+	$add->{$key} eq $name
+	    and delete $add->{$key};
+    }
+    return keys %$add;
+}
+
+sub _file_property_unpick_AoA {
+    my ( $name, $add ) = @_;
+    @$add = grep { $_->[0] ne $name } @$add;
+    return scalar @$add;
+}
+
 sub __file_syntax {
     my ( $self, @arg ) = @_;
     return $self->_file_property( syntax => @arg );
@@ -744,11 +796,7 @@ sub __file_syntax {
 
 sub __file_syntax_del {
     my ( $self, $syntax ) = @_;
-    delete $self->{_syntax_def}{$syntax};
-    foreach my $type ( keys %{ $self->{syntax_add}{type} } ) {
-	$syntax eq $self->{syntax_add}{type}{$type}
-	    and delete $self->{syntax_add}{type}{$type};
-    }
+    $self->_file_property_unpick( syntax => $syntax );
     return;
 }
 
@@ -764,28 +812,19 @@ sub __file_type {
 
 sub __file_type_del {
     my ( $self, $type, $really ) = @_;
-    my $def = $self->{type_add};
-    foreach my $kind ( qw{ is ext } ) {
-	foreach my $key ( keys %{ $def->{$kind} } ) {
-	    @{ $def->{$kind}{$key} } = grep { $_ ne $type }
-		@{ $def->{$kind}{$key} }
-		or delete $def->{$kind}{$key};
-	}
+    $self->_file_property_unpick( type => $type );
+    $really
+	or return;
+    foreach my $syntax ( keys %{ $self->{_syntax_def} } ) {
+	@{ $self->{_syntax_def}{$syntax}{type} } = grep { $_ ne $type }
+	    @{ $self->{_syntax_def}{$syntax}{type} }
+	    or delete $self->{_syntax_def}{$syntax}{type};
+	keys %{ $self->{_syntax_def}{$syntax} }
+	    or delete $self->{_syntax_def}{$syntax};
     }
-    foreach my $kind ( qw{ match firstlinematch } ) {
-	@{ $def->{$kind} } = grep { $_->[0] ne $type } @{ $def->{$kind} };
-    }
-    delete $self->{_type_def}{$type};
-    if ( $really ) {
-	foreach my $syntax ( keys %{ $self->{_syntax_def} } ) {
-	    @{ $self->{_syntax_def}{$syntax}{type} } = grep { $_ ne $type }
-		@{ $self->{_syntax_def}{$syntax}{type} }
-		or delete $self->{_syntax_def}{$syntax}{type};
-	    keys %{ $self->{_syntax_def}{$syntax} }
-		or delete $self->{_syntax_def}{$syntax};
-	}
-	delete $self->{syntax_add}{type}{$type};
-    }
+    delete $self->{syntax_add}{type}{$type};
+    keys %{ $self->{syntax_add}{type} }
+	or delete $self->{syntax_add}{type};
     return;
 }
 
