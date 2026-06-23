@@ -9,7 +9,7 @@ use parent qw{ App::Sam::Tplt };
 
 use App::Sam::Util qw{ :carp @CARP_NOT };
 
-our $VERSION = '0.000_011';
+our $VERSION = '0.000_012';
 
 sub __default {
     my ( $self ) = @_;

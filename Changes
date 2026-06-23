@@ -1,3 +1,20 @@
+0.000_012	2026-06-23	T. R. Wyant
+    Add 'fallback' file properties, and Unknown syntax.
+    The motivation for all this was the addition of negated syntax
+    selection, which did not allow files without a defined syntax to be
+    searched at all.
+
+    Debug and refactor file property deletion.
+
+    Redo --syntax FLAG_FAC_SYNTAX handling.
+    The intent was that (e.g.) --syntax=code --syntax=no-code should be
+    equivalent to not specifying any --syntax optoins. But it is not (quite)
+    because the former leaves FLAG_FAQ_SYNTAX set, whereas the latter does
+    not. The difference in practice is that the former does not search files
+    having no defined syntax, while the latter does.
+    The solution was not to set the flag when the option was encountered,
+    but programmatically after option processing.
+
 0.000_011	2026-06-20	T. R. Wyant
     Make Perl POD comments comments, not documentation.
 

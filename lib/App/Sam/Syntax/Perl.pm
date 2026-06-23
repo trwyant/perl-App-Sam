@@ -9,7 +9,7 @@ use parent qw{ App::Sam::Syntax };
 
 use App::Sam::Util qw{ :syntax __match_shebang @CARP_NOT };
 
-our $VERSION = '0.000_011';
+our $VERSION = '0.000_012';
 
 sub init {
     my ( $self ) = @_;
