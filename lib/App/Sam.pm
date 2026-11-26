@@ -1852,6 +1852,17 @@ sub __ignore {
     $prop_spec->{match}
 	and $prop_spec->{match}->()
 	and return 1;
+    if ( $kind eq 'file' ) {
+	my $stat;
+	defined $self->{mod_before}
+	    and $stat = stat( $path )
+	    and $self->{mod_before} <= $stat->mtime()
+	    and return 1;
+	defined $self->{mod_since}
+	    and ( $stat ||= stat( $path ) )
+	    and $self->{mod_since} > $stat->mtime()
+	    and return 1;
+    }
     if ( $kind eq 'file' && $self->{type} ) {
 
 	-B $_
@@ -2571,15 +2582,6 @@ sub __get_file_iterator {
 	    file_filter	=> sub {
 		$self->__ignore( file => $File::Next::name, $_ )
 		    and return 0;
-		my $stat;
-		defined $self->{mod_before}
-		    and $stat = stat $File::Next::name
-		    and $self->{mod_before} <= $stat->mtime()
-		    and return 0;
-		defined $self->{mod_since}
-		    and ( $stat ||= stat $File::Next::name )
-		    and $self->{mod_since} > $stat->mtime()
-		    and return 0;
 		return 1;
 	    },
 	    follow_symlinks	=> $self->{follow},
@@ -2754,11 +2756,18 @@ sub __validate_color {
 
 sub __validate_date {
     my ( $self, undef, $attr_name, $attr_val ) = @_;	# $attr_spec unused
-    state $dm = Date::Manip::Date->new();
-    my $err = $dm->parse( $attr_val );
-    $err
-	and return 0;
-    $self->{$attr_name} = $dm->secs_since_1970_GMT() - EPOCH_OFFSET;
+    my $ref = ref $attr_val;
+    if ( $ref eq REF_SCALAR ) {
+	$self->{$attr_name} = $$attr_val;
+    } elsif ( $ref ) {
+	$self->__confess( "$ref reference invalid" );
+    } else {
+	state $dm = Date::Manip::Date->new();
+	my $err = $dm->parse( $attr_val );
+	$err
+	    and return 0;
+	$self->{$attr_name} = $dm->secs_since_1970_GMT() - EPOCH_OFFSET;
+    }
     return 1;
 }
 
@@ -3424,10 +3433,16 @@ See L<--max-count|sam/--max-count> in the L<sam|sam> documentation.
 =item C<mod_before>
 
 See L<--mod-before|sam/--mod-before> in the L<sam|sam> documentation.
+The value must be either a string (interpreted by
+L<Date::Manip|Date::Manip>) or a reference to a scalar (interpreted as
+an epoch time).
 
 =item C<mod_since>
 
-See L<--mod-since|sam/--mod-since> in the L<sam|sam> documentation.
+See L<--mod-since|sam/--mod-since> in the L<sam|sam> documentation. The
+value must be either a string (interpreted by
+L<Date::Manip|Date::Manip>) or a reference to a scalar (interpreted as
+an epoch time).
 
 =item C<no_ignore_directory>
 
