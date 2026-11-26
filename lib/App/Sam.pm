@@ -40,7 +40,7 @@ use Text::ParseWords ();
 use Text::Abbrev ();
 use Time::Local ();
 
-our $VERSION = '0.000_014';
+our $VERSION = '0.000_015';
 
 # TODO Scavenge File::HomeDir (since it's not a dependency) and/or see
 # https://www.onwebsecurity.com/configuration/git-on-windows-location-of-global-configuration-file.html

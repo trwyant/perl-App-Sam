@@ -1,3 +1,8 @@
+0.000_015	2026-11-26	T. R. Wyant
+    Correct and test --mod-before and --mod-since.
+
+    Add --filter-argv option
+
 0.000_014	2026-11-25	T. R. Wyant
     Add --mod-before and --mod-after, which select files by modification
     date. The values of these are anything that can be parsed by
