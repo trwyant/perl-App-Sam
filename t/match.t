@@ -226,10 +226,46 @@ EOD
 
     my $stdout = capture_stdout {
 	is $sam->process( 't/data' ), KNOWN_FILES_COUNT,
-	    "-fk t/data found @{[ KNOWN_FILES_COUNT ]} files";
+	    "-f t/data found @{[ KNOWN_FILES_COUNT ]} files";
     };
 
-    is $stdout, KNOWN_FILES, '-fk listed only known types in t/data';
+    is $stdout, KNOWN_FILES, '-f listed only known types in t/data';
+}
+
+{
+    my $sam = CLASS->new(
+	argv	=> [ qw{ lib/App/Sam.pm README } ],
+	f	=> 1,
+    );
+
+    my $stdout = capture_stdout {
+	is $sam->process(), 2,
+	    "-f lib/App/Sam.pm README found 2 files";
+    };
+
+    is $stdout, <<'EOD', '-f listed lib/App/Sam.pm and README';
+lib/App/Sam.pm
+README
+EOD
+}
+
+{
+    my $sam = CLASS->new(
+	argv	=> [ qw{ lib/App/Sam.pm README } ],
+	f	=> 1,
+	filter_argv	=> 1,
+	type		=> 'perl',
+    );
+
+    my $stdout = capture_stdout {
+	is $sam->process(), 1,
+	    '-f --filter-argv --type=perl lib/App/Sam.pm README found 1 file';
+    };
+
+    is $stdout, <<'EOD',
+lib/App/Sam.pm
+EOD
+    '-f --filter-argv --type=perl listed only lib/App/Sam.pm';
 }
 
 {
@@ -572,6 +608,39 @@ EOD
     my @want = map { "perlfaq$_.pod" } '', 1 .. 9;
     is \@got, \@want, 'perldoc=f searches correct files'
 	or diag "Actual output:\n$stdout";
+}
+
+{
+    my $sam = CLASS->new(
+	argv	=> [ qw{ lib/App/Sam.pm README } ],
+	files_with_matches	=> 1,
+	match			=> 'Wyant',
+    );
+
+    my $stdout = capture_stdout {
+	$sam->process();
+    };
+    is $stdout, <<'EOD', 'Processed lib/App/Sam.pm and README';
+lib/App/Sam.pm
+README
+EOD
+}
+
+{
+    my $sam = CLASS->new(
+	argv	=> [ qw{ lib/App/Sam.pm README } ],
+	match			=> 'Wyant',
+	files_with_matches	=> 1,
+	filter_argv		=> 1,
+	type			=> 'perl',
+    );
+
+    my $stdout = capture_stdout {
+	$sam->process();
+    };
+    is $stdout, <<'EOD', 'Did not process README with --filter-argv set';
+lib/App/Sam.pm
+EOD
 }
 
 done_testing;

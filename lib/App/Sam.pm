@@ -339,6 +339,23 @@ sub new {
     return $self;
 }
 
+sub argv {
+    my ( $self, @argv ) = @_;
+    if ( @argv ) {
+	my @rslt;
+	foreach ( @argv ) {
+	    $self->{filter_argv}
+		and $self->__ignore( file => $_ )
+		and next;
+	    push @rslt, $_;
+	}
+	return @rslt;
+    } elsif ( $self->{argv} && @{ $self->{argv} } ) {
+	return $self->argv( @{ $self->{argv} || [] } );
+    }
+    return;
+}
+
 # Perform the ack (or at least ack-like) check on a regex before
 # wrapping it in \b assertions. Returns true if the check passes, and
 # false if it fails.
@@ -1025,6 +1042,9 @@ sub __file_type_del {
 	    flags	=> FLAG_FAC_NO_MATCH_PROC,
 	},
 	filter		=> {
+	    type	=> '!',
+	},
+	filter_argv	=> {
 	    type	=> '!',
 	},
 	filter_files_from	=> {
@@ -1931,7 +1951,7 @@ sub process {
 	    @files
 		or @files = ( \*STDIN );
 	} else {
-	    push @files, @{ $self->{argv} || [] };
+	    push @files, $self->argv();
 	    @files
 		or @files = ( File::Spec->curdir() );
 	}
@@ -3300,6 +3320,11 @@ L<sam|sam> documentation.
 
 See L<--filter|sam/--filter> in the L<sam|sam> documentation. The
 default is true if F<STDIN> is a pipe; otherwise it is false.
+
+=item C<filter_argv>
+
+See L<--filter-files-from|sam/--filter-files-from> in the L<sam|sam>
+documentation.
 
 =item C<filter_files_from>
 

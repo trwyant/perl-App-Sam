@@ -348,6 +348,12 @@ string must be specified using an explicit L<--match|/--match> option.
 This option is asserted by default if F<STDIN> is a pipe, otherwise it
 is negated by default.
 
+=head2 --filter-argv
+
+This Boolean option specifies whether files obtained by calling
+L<files_from()|App::Sam/files_from> should be filtered. The default is
+C<--no-filter-argv>, which is consistent with L<ack|ack>.
+
 =head2 --filter-files-from
 
 This Boolean option specifies whether files obtained by calling
