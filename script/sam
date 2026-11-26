@@ -505,6 +505,18 @@ command-line argument will be used as the match expression.
 This option specifies the maximum number of matches allowed in a file.
 When this number is reached the search is abandoned.
 
+=head2 --mod-before
+
+This option causes files not modified before the given date and time to
+be ignored. The value of the option is anything acceptable to
+L<Date::Manip::Date|Date::Manip::Date>, which does the heavy lifting.
+
+=head2 --mod-since
+
+This option causes files not modified since the given date and time to
+be ignored. The value of the option is anything acceptable to
+L<Date::Manip::Date|Date::Manip::Date>, which does the heavy lifting.
+
 =head2 -n
 
 This Boolean option is a synonym for L<--no-recurse|/--recurse>.
@@ -1027,7 +1039,7 @@ This option is equivalent to L<--files-from=-|/--files-from>.
 
 This Perl script was inspired by both L<ack|ack>, and one of my earliest
 Perl scripts called F<sad>, for Search and Destroy. It implements a
-fair-sized subset of L<ack|ack>' file search capabilities, in a way
+fair-sized subset of L<ack|ack>'s file search capabilities, in a way
 more-or-less compatible with L<ack|ack>. It also adds functionality that
 I thought useful:
 
@@ -1052,6 +1064,12 @@ Search And Modify. It would have been called C<sad> like its
 predecessor, but that name was taken by the
 L<Games-Scott-Adams|https://metacpan.org/dist/Games-ScottAdams> package,
 as was C<sac>.
+
+=item * File selection by modification date
+
+This functionality is specified by the L<--mod-before|/--mod-before> and
+L<--mod-since|/--mod-since> options, whose values are parsed by
+L<Date::Manip::Date|Date::Manip::Date>.
 
 =back
 

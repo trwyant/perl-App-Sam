@@ -156,11 +156,13 @@ sub requires {
 	'Cwd'		=> 0,
 	'Errno'		=> 0,
 	'Exporter'	=> 0,
+	'Date::Manip::Date'	=> 0,
 	'File::Basename'	=> 0,
 	'File::Glob'	=> 0,
 	'File::Next'	=> 0,
 	'File::ShareDir'	=> 1.00,
 	'File::Spec'	=> 0,
+	'File::stat'	=> 0,
 	'File::Temp'	=> 0.22,	# Comes with Perl 5.10.1.
 	'Getopt::Long'	=> 2.39,	# for getoptionsfromarray, auto_version
 	'List::Util'	=> 1.46,	# for uniqstr()
@@ -171,6 +173,7 @@ sub requires {
 	'Term::ANSIColor'	=> 4.03,	# for colorvalid
 	'Text::Abbrev'		=> 0,
 	'Text::ParseWords'	=> 0,
+	'Time::Local'	=> 0,
 	charnames	=> 0,
 	constant	=> 0,
 	enum		=> 0,

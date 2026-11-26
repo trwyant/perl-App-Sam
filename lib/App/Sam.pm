@@ -22,9 +22,11 @@ use App::Sam::Util qw{
 };
 use Config;
 use Cwd ();
+use Date::Manip::Date ();
 use File::Next ();
 use File::Basename ();
 use File::Spec;
+use File::stat;
 use Errno qw{ :POSIX };
 use File::ShareDir;
 use File::Temp ();
@@ -36,6 +38,7 @@ use Scalar::Util ();
 use Term::ANSIColor 4.03 ();	# for colorvalid
 use Text::ParseWords ();
 use Text::Abbrev ();
+use Time::Local ();
 
 our $VERSION = '0.000_013';
 
@@ -47,6 +50,8 @@ use constant REF_ARRAY	=> ref [];
 use constant REF_SCALAR	=> ref \0;
 
 use constant STOP	=> 'STOP';
+
+use constant EPOCH_OFFSET	=> Time::Local::timegm( 0, 0, 0, 1, 0, 1970 );
 
 use constant TPLT_FLUSH	=> '$p\\n';
 use constant TPLT_MATCH	=> '$p$&';
@@ -291,6 +296,13 @@ sub new {
 		or $self->__croak( "Unable to set STDIN to $encoding: $!" );
 	}
     }
+
+    defined $self->{mod_before}
+	and defined $self->{mod_since}
+	and $self->{mod_before} < $self->{mod_since}
+	and $self->__croak(
+	'--mod-before must be before --mod-since'
+    );
 
     if ( defined( my $perldoc = $self->{perldoc} ) ) {
 	state $type_map = {
@@ -963,6 +975,14 @@ sub __file_type_del {
 	},
 	encoding	=> {
 	    type	=> '=s',
+	},
+	mod_before	=> {
+	    type	=> '=s',
+	    validate	=> '__validate_date',
+	},
+	mod_since	=> {
+	    type	=> '=s',
+	    validate	=> '__validate_date',
 	},
 	no_encoding	=> {
 	    type	=> '',
@@ -2529,7 +2549,19 @@ sub __get_file_iterator {
     } : sub { 0 };
     return File::Next::files( {
 	    file_filter	=> sub {
-		! $self->__ignore( file => $File::Next::name, $_ ) },
+		$self->__ignore( file => $File::Next::name, $_ )
+		    and return 0;
+		my $stat;
+		defined $self->{mod_before}
+		    and $stat = stat $File::Next::name
+		    and $self->{mod_before} <= $stat->mtime()
+		    and return 0;
+		defined $self->{mod_since}
+		    and ( $stat ||= stat $File::Next::name )
+		    and $self->{mod_since} > $stat->mtime()
+		    and return 0;
+		return 1;
+	    },
 	    follow_symlinks	=> $self->{follow},
 	    descend_filter	=> $descend_filter,
 	    sort_files	=> $self->{sort_files},
@@ -2697,6 +2729,16 @@ sub __validate_color {
     Term::ANSIColor::colorvalid( $attr_val )
 	or return 0;
     $self->{$attr_name} = $attr_val;
+    return 1;
+}
+
+sub __validate_date {
+    my ( $self, undef, $attr_name, $attr_val ) = @_;	# $attr_spec unused
+    state $dm = Date::Manip::Date->new();
+    my $err = $dm->parse( $attr_val );
+    $err
+	and return 0;
+    $self->{$attr_name} = $dm->secs_since_1970_GMT() - EPOCH_OFFSET;
     return 1;
 }
 
@@ -3353,6 +3395,14 @@ L<--smart-case|sam/--smart-case> respectively.
 =item C<max_count>
 
 See L<--max-count|sam/--max-count> in the L<sam|sam> documentation.
+
+=item C<mod_before>
+
+See L<--mod-before|sam/--mod-before> in the L<sam|sam> documentation.
+
+=item C<mod_since>
+
+See L<--mod-since|sam/--mod-since> in the L<sam|sam> documentation.
 
 =item C<no_ignore_directory>
 
